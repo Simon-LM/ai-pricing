@@ -1,0 +1,6 @@
+# Candidate files produced by scripts/scrape.py. Never published directly:
+# the workflow decides which one, if any, is promoted to pricing.json.
+.ci-out/
+
+__pycache__/
+*.pyc

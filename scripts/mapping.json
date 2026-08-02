@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from what the pricing page shows to what the API calls things.",
+    "Nothing here is inferred at runtime: no fuzzy matching, no lowercasing and hoping.",
+    "'page_name' is compared byte-for-byte against the data-name attribute of the model",
+    "card, and 'label' byte-for-byte against the row label inside that card. A page that",
+    "no longer contains these exact strings is a failure to report, never a row to guess at.",
+    "",
+    "The keys of 'models' are API model ids. Several of them are ALIASES: today",
+    "mistral-medium-latest resolves to Mistral Medium 3.5, tomorrow it will resolve to",
+    "something else at a different price, with no change anywhere in this file. That is",
+    "precisely why the resolution is written down here by a human and revisited by a human.",
+    "",
+    "Last verified against the page by a human: 2026-08-03."
+  ],
+
+  "source": "https://mistral.ai/pricing/api",
+  "currency": "USD",
+
+  "models": {
+    "mistral-medium-latest": {
+      "display_name": "Mistral Medium 3.5",
+      "page_name": "mistral medium 3.5",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "mistral-small-latest": {
+      "display_name": "Mistral Small 4",
+      "page_name": "mistral small 4",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "mistral-ocr-latest": {
+      "display_name": "OCR 4",
+      "page_name": "ocr 4",
+      "fields": {
+        "per_1k_pages": { "label": "OCR", "expect_suffix": "/ 1000 pages" }
+      }
+    }
+  }
+}
