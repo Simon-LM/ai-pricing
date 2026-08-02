@@ -1,0 +1,46 @@
+name: Tests
+
+# Runs on every push and every pull request, including the pull requests the
+# refresh workflow opens. A price change lands on main only if the file it
+# produces still validates.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Consumers pin nothing; the scraper must keep working on whatever the
+        # runner ships for a while.
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run tests
+        run: python3 -m unittest discover -s tests -v
+
+      # Says out loud, on every pull request that touches the file, that what is about
+      # to be published still satisfies the contract consumers read.
+      - name: Validate the published pricing.json
+        run: |
+          python3 -c "
+          import json, sys
+          sys.path.insert(0, 'scripts')
+          import validate
+          validate.validate_document(json.load(open('pricing.json')))
+          print('pricing.json satisfies schema_version', validate.SCHEMA_VERSION)
+          "
