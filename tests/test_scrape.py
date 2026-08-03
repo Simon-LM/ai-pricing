@@ -27,7 +27,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import scrape  # noqa: E402
-import validate  # noqa: E402
+import pricing_validate as validate  # noqa: E402
+from pricing_validate import JSONDict  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PAGE_OK = FIXTURES / "page_ok.html"
@@ -125,7 +126,7 @@ class ScrapeTestCase(unittest.TestCase):
             self.assertIn(fragment, stderr)
         self.assert_current_untouched()
 
-    def candidate(self, name: str) -> dict:
+    def candidate(self, name: str) -> JSONDict:
         return json.loads((self.out_dir / name).read_text(encoding="utf-8"))
 
     @property
@@ -371,7 +372,7 @@ class TestCorruptInputs(ScrapeTestCase):
 
 
 class TestValidator(unittest.TestCase):
-    def base(self) -> dict:
+    def base(self) -> JSONDict:
         return json.loads(PRICING_JSON.read_text(encoding="utf-8"))
 
     def test_the_committed_file_is_valid(self) -> None:

@@ -31,12 +31,14 @@ import urllib.error
 import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Any, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from validate import (  # noqa: E402
+from pricing_validate import (  # noqa: E402
     KNOWN_PRICE_FIELDS,
     SCHEMA_VERSION,
+    JSONDict,
     ValidationError,
     check_change,
     check_price,
@@ -44,9 +46,17 @@ from validate import (  # noqa: E402
     validate_document,
 )
 
+# A price row on the page: (label, {"priceUsd": ..., "suffix": ..., ...}).
+PriceRow = tuple[str, JSONDict]
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MAPPING = REPO_ROOT / "scripts" / "mapping.json"
 DEFAULT_CURRENT = REPO_ROOT / "pricing.json"
+
+# Kept as its own constant rather than read off __doc__: the module docstring is
+# stripped to None under `python -OO`, which would otherwise take this script down
+# for a reason with nothing to do with argparse.
+CLI_SUMMARY = "Read Mistral's public pricing page and work out what pricing.json should say."
 
 USER_AGENT = "ai-pricing-bot/1 (+https://github.com/Simon-LM/ai-pricing)"
 FETCH_TIMEOUT_SECONDS = 30
@@ -84,7 +94,7 @@ class PricingPageParser(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.cards: dict[str, list[tuple[str, dict]]] = {}
+        self.cards: dict[str, list[PriceRow]] = {}
         self.duplicate_cards: list[str] = []
         self.malformed_prices: list[str] = []
 
@@ -174,6 +184,7 @@ class PricingPageParser(HTMLParser):
         if not isinstance(prices, dict):
             self.malformed_prices.append(f"{self._card_name}: data-prices is not an object")
             return
+        prices = cast(JSONDict, prices)
 
         label = self._last_label
         if label is None:
@@ -185,7 +196,7 @@ class PricingPageParser(HTMLParser):
         self._last_label = None
 
 
-def parse_page(html_text: str) -> dict[str, list[tuple[str, dict]]]:
+def parse_page(html_text: str) -> dict[str, list[PriceRow]]:
     """Parse the page into cards, or raise ScrapeError if it no longer looks like one."""
     parser = PricingPageParser()
     try:
@@ -217,13 +228,13 @@ def parse_page(html_text: str) -> dict[str, list[tuple[str, dict]]]:
 # --------------------------------------------------------------------------------------
 
 
-def extract_models(cards: dict[str, list[tuple[str, dict]]], mapping: dict) -> dict[str, dict]:
+def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[str, JSONDict]:
     """Turn parsed cards into a `models` block, through the explicit mapping only.
 
     Every lookup here is an exact string match against a hand-committed value. A name
     the mapping does not know is a failure to report, never a row to guess at.
     """
-    models: dict[str, dict] = {}
+    models: dict[str, JSONDict] = {}
 
     for model_id, spec in mapping["models"].items():
         page_name = spec["page_name"]
@@ -236,7 +247,7 @@ def extract_models(cards: dict[str, list[tuple[str, dict]]], mapping: dict) -> d
             )
 
         rows = cards[page_name]
-        entry: dict[str, object] = {}
+        entry: JSONDict = {}
 
         for field, field_spec in spec["fields"].items():
             label = field_spec["label"]
@@ -316,11 +327,17 @@ def fetch_page(url: str) -> str:
 # --------------------------------------------------------------------------------------
 
 
-def build_document(base: dict, models: dict, checked_utc: str, updated: str, mapping: dict) -> dict:
+def build_document(
+    base: JSONDict,
+    models: dict[str, JSONDict],
+    checked_utc: str,
+    updated: str,
+    mapping: JSONDict,
+) -> JSONDict:
     """Assemble a pricing.json document with a stable, reviewable key order."""
-    ordered_models: dict[str, dict] = {}
+    ordered_models: dict[str, JSONDict] = {}
     for model_id, entry in models.items():
-        ordered: dict[str, object] = {}
+        ordered: JSONDict = {}
         for field in KNOWN_PRICE_FIELDS:
             if field in entry:
                 ordered[field] = entry[field]
@@ -337,11 +354,18 @@ def build_document(base: dict, models: dict, checked_utc: str, updated: str, map
     }
 
 
-def write_json(path: Path, doc: dict) -> None:
+def write_json(path: Path, doc: JSONDict) -> None:
     path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def load_json(path: Path, what: str) -> dict:
+def load_json(path: Path, what: str) -> Any:
+    """Parse a JSON file without asserting anything about its shape.
+
+    Deliberately `Any`, not `JSONDict`: this only proves the bytes were valid JSON.
+    A file could still parse to a list, a string, or anything else JSON allows.
+    Callers that need an object -- `validate_document` for pricing.json, the shape
+    checks in `run()` for the mapping -- assert that themselves.
+    """
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
@@ -437,7 +461,7 @@ def emit_github_output(**values: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=CLI_SUMMARY)
     parser.add_argument("--out-dir", default=".ci-out", help="where candidate files are written")
     parser.add_argument("--current", default=str(DEFAULT_CURRENT), help="the published pricing.json")
     parser.add_argument("--mapping", default=str(DEFAULT_MAPPING), help="the explicit mapping")

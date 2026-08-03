@@ -156,7 +156,7 @@ than a branch of code somebody has to remember to get right.
    the obvious one.
 2. Add the same model to `pricing.json` with the figures you read on the page.
 3. If the model introduces a **new unit**, add it to `KNOWN_PRICE_FIELDS` in
-   `scripts/validate.py`, and check whether the default floor of 0.001 still makes
+   `scripts/pricing_validate.py`, and check whether the default floor of 0.001 still makes
    sense for it. A unit whose prices are naturally small needs its own entry in
    `PRICE_BOUNDS`, or an ordinary price cut will be refused as a parsing accident.
    A test enforces that every published figure keeps a factor of 5 of room above its

@@ -40,7 +40,7 @@ jobs:
           python3 -c "
           import json, sys
           sys.path.insert(0, 'scripts')
-          import validate
+          import pricing_validate as validate
           validate.validate_document(json.load(open('pricing.json')))
           print('pricing.json satisfies schema_version', validate.SCHEMA_VERSION)
           "
