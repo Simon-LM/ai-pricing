@@ -3,7 +3,7 @@
 Machine-readable prices for the AI models a handful of small projects actually use,
 published as one file at one URL:
 
-```
+```text
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 ```
 
@@ -34,8 +34,8 @@ bare `$0.80`.
 ```json
 {
   "schema_version": 1,
-  "checked_utc": "2026-07-30T04:00:00Z",
-  "updated": "2026-07-30",
+  "checked_utc": "2026-08-02T22:37:46Z",
+  "updated": "2026-08-03",
   "source": "https://mistral.ai/pricing/api",
   "currency": "USD",
   "models": {
@@ -43,6 +43,12 @@ bare `$0.80`.
       "in_per_mtok": 1.5,
       "out_per_mtok": 7.5,
       "display_name": "Mistral Medium 3.5"
+    },
+    "voxtral-small-latest": {
+      "in_per_mtok": 0.1,
+      "out_per_mtok": 0.4,
+      "per_audio_minute": 0.004,
+      "display_name": "Voxtral Small"
     }
   }
 }
@@ -58,12 +64,24 @@ bare `$0.80`.
 | `models` | Keyed by **API model id**, never by marketing name. |
 | `display_name` | The marketing name, kept only so that a diff is readable by a human. Never use it for matching. |
 
-The unit is part of the key name — `in_per_mtok`, `out_per_mtok`, `per_1k_pages` —
-so that a consumer cannot silently apply a per-token price to a per-page model.
-There is deliberately no generic `price` field.
+The unit is part of the key name, so that a consumer cannot silently apply a
+per-token price to a per-page model. There is deliberately no generic `price` field.
+
+| unit key | billed |
+| --- | --- |
+| `in_per_mtok` | per million input tokens |
+| `out_per_mtok` | per million output tokens |
+| `per_1k_pages` | per thousand pages |
+| `per_audio_minute` | per minute of audio sent |
+
+**A model may carry several of them at once.** `voxtral-small-latest` above is billed
+both per minute of audio and per million tokens of text, and reading only one of the
+two undercounts a bill without ever looking wrong. Do not assume one unit per model:
+iterate the keys you find.
 
 **Within a `schema_version`, no field is ever removed.** An old client may fetch this
-file at any time. Fields get added; when something must break, the version is bumped.
+file at any time. Fields get added — `per_audio_minute` was added this way — and when
+something must break, the version is bumped.
 
 ## Consuming it
 
@@ -102,7 +120,8 @@ the job refuses rather than guesses whenever:
 
 - the page cannot be fetched, or no longer parses;
 - a model in the mapping is absent from the page, or has been renamed;
-- a figure lands outside 0.001–1000, or moves by more than a factor of 5;
+- a figure lands outside the plausible range for its unit, or moves by more than a
+  factor of 5;
 - the unit shown next to a price changes;
 - the page stops publishing a USD figure.
 
@@ -119,7 +138,7 @@ No dependencies beyond the Python standard library, and no API key of any kind �
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v          # 37 tests
+python3 -m unittest discover -s tests -v          # 42 tests
 python3 scripts/scrape.py --out-dir .ci-out       # read the live page
 python3 scripts/scrape.py --out-dir .ci-out --html tests/fixtures/page_ok.html
 ```
@@ -133,9 +152,18 @@ than a branch of code somebody has to remember to get right.
 
 1. Add an entry to `scripts/mapping.json`, with `page_name` copied byte-for-byte from
    the card's `data-name` attribute on the pricing page, and each `label` copied
-   byte-for-byte from the row label.
+   byte-for-byte from the row label. List every unit the model is billed in, not just
+   the obvious one.
 2. Add the same model to `pricing.json` with the figures you read on the page.
-3. Run the tests. `TestValidator` checks that the two files agree.
+3. If the model introduces a **new unit**, add it to `KNOWN_PRICE_FIELDS` in
+   `scripts/validate.py`, and check whether the default floor of 0.001 still makes
+   sense for it. A unit whose prices are naturally small needs its own entry in
+   `PRICE_BOUNDS`, or an ordinary price cut will be refused as a parsing accident.
+   A test enforces that every published figure keeps a factor of 5 of room above its
+   floor, so you will be told rather than left to find out on a Monday morning.
+4. Re-capture `tests/fixtures/page_ok.html` so the fixture contains the new card, and
+   regenerate `tests/fixtures/baseline.json` from it.
+5. Run the tests. `TestValidator` and `TestMapping` check that the files agree.
 
 Do not add currency conversion, token estimation, or anything that reads a user's
 account. This repository knows prices. It does not know volumes, and it never
