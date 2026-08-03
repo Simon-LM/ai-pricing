@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Read Mistral's public pricing page and work out what pricing.json should say.
+"""Read Mistral's public pricing page and work out what pricing.json's providers.mistral
+block should say.
 
 Standard library only. Reads a public web page and nothing else: it takes no API
 key, must never be given one, and never touches anyone's Mistral account.
@@ -9,6 +10,11 @@ directory and reports which one, if any, the caller should promote. That is
 deliberate: "leave pricing.json untouched on every failure path" is then a property
 of the design rather than a branch of code somebody has to remember to get right.
 
+pricing.json holds one block per provider under `providers.<name>`, because the same
+model name can mean two different prices at two different providers. This script
+only ever reads and writes `providers.mistral`: every other provider's block, once
+one exists, is carried through the candidate files byte-for-byte, untouched.
+
 Outcomes, matching the three the workflow must implement:
 
   unchanged  figures identical -> out/stamped.json  (same figures, fresh checked_utc)
@@ -16,8 +22,8 @@ Outcomes, matching the three the workflow must implement:
   failure    fetch, parse or validation failed -> out/error.txt, exit code 1, no candidates
 
 Usage:
-    scripts/scrape.py --out-dir .ci-out                    # fetch the live page
-    scripts/scrape.py --out-dir .ci-out --html page.html   # offline, for tests
+    scripts/providers/mistral/scrape.py --out-dir .ci-out                  # fetch the live page
+    scripts/providers/mistral/scrape.py --out-dir .ci-out --html page.html # offline, for tests
 """
 
 from __future__ import annotations
@@ -27,14 +33,14 @@ import datetime as _dt
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, cast
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(_SCRIPTS_DIR))
 
+from fetch import FetchError, fetch_page  # noqa: E402
 from pricing_validate import (  # noqa: E402
     KNOWN_PRICE_FIELDS,
     SCHEMA_VERSION,
@@ -49,21 +55,16 @@ from pricing_validate import (  # noqa: E402
 # A price row on the page: (label, {"priceUsd": ..., "suffix": ..., ...}).
 PriceRow = tuple[str, JSONDict]
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MAPPING = REPO_ROOT / "scripts" / "mapping.json"
+PROVIDER_ID = "mistral"
+
+REPO_ROOT = _SCRIPTS_DIR.parent
+DEFAULT_MAPPING = Path(__file__).resolve().parent / "mapping.json"
 DEFAULT_CURRENT = REPO_ROOT / "pricing.json"
 
 # Kept as its own constant rather than read off __doc__: the module docstring is
 # stripped to None under `python -OO`, which would otherwise take this script down
 # for a reason with nothing to do with argparse.
-CLI_SUMMARY = "Read Mistral's public pricing page and work out what pricing.json should say."
-
-USER_AGENT = "ai-pricing-bot/1 (+https://github.com/Simon-LM/ai-pricing)"
-FETCH_TIMEOUT_SECONDS = 30
-
-# Below this, the response is not a pricing page -- it is an error page, a consent
-# wall, or a redirect stub. Fail rather than parse it and find nothing.
-MIN_PAGE_BYTES = 10_000
+CLI_SUMMARY = "Read Mistral's public pricing page and work out what providers.mistral should say."
 
 
 class ScrapeError(Exception):
@@ -242,7 +243,7 @@ def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[
         if page_name not in cards:
             raise ScrapeError(
                 f"{model_id}: the page has no model card named {page_name!r}. Either the "
-                f"page renamed it, or the model is gone. Update scripts/mapping.json by "
+                f"page renamed it, or the model is gone. Update {DEFAULT_MAPPING} by "
                 f"hand after checking {mapping['source']} -- do not let this be guessed."
             )
 
@@ -285,7 +286,7 @@ def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[
                     f"publishes USD and performs no conversion."
                 )
 
-            entry[field] = check_price(model_id, field, prices["priceUsd"])
+            entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, prices["priceUsd"])
 
         entry["display_name"] = spec["display_name"]
         models[model_id] = entry
@@ -294,47 +295,12 @@ def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[
 
 
 # --------------------------------------------------------------------------------------
-# Fetching
-# --------------------------------------------------------------------------------------
-
-
-def fetch_page(url: str) -> str:
-    """GET a public page. No credentials of any kind are sent, ever."""
-    request = urllib.request.Request(
-        url, headers={"User-Agent": USER_AGENT, "Accept": "text/html"}
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
-            if response.status != 200:
-                raise ScrapeError(f"{url} returned HTTP {response.status}")
-            charset = response.headers.get_content_charset() or "utf-8"
-            body = response.read().decode(charset, errors="replace")
-    except urllib.error.HTTPError as exc:
-        raise ScrapeError(f"{url} returned HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ScrapeError(f"{url} could not be fetched: {exc}") from exc
-
-    if len(body) < MIN_PAGE_BYTES:
-        raise ScrapeError(
-            f"{url} returned only {len(body)} characters, too short to be the pricing "
-            f"page. Probably an error or consent page."
-        )
-    return body
-
-
-# --------------------------------------------------------------------------------------
 # Document assembly
 # --------------------------------------------------------------------------------------
 
 
-def build_document(
-    base: JSONDict,
-    models: dict[str, JSONDict],
-    checked_utc: str,
-    updated: str,
-    mapping: JSONDict,
-) -> JSONDict:
-    """Assemble a pricing.json document with a stable, reviewable key order."""
+def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated: str, mapping: JSONDict) -> JSONDict:
+    """Assemble a `providers.mistral`-shaped block with a stable, reviewable key order."""
     ordered_models: dict[str, JSONDict] = {}
     for model_id, entry in models.items():
         ordered: JSONDict = {}
@@ -345,12 +311,33 @@ def build_document(
         ordered_models[model_id] = ordered
 
     return {
-        "schema_version": base.get("schema_version", SCHEMA_VERSION),
         "checked_utc": checked_utc,
         "updated": updated,
         "source": mapping["source"],
         "currency": mapping["currency"],
         "models": ordered_models,
+    }
+
+
+def merge_provider_block(full_doc: JSONDict, provider_block: JSONDict) -> JSONDict:
+    """Return a copy of `full_doc` with only `providers.mistral` replaced.
+
+    Every other provider's block -- there are none today, OVH's will be the first --
+    is carried over exactly as it stood, in its original position. This script has
+    no business reading, let alone rewriting, a block it did not scrape.
+
+    Key order matters here for a reason beyond taste: a merge that rebuilt the
+    `providers` dict as "everyone else, then mistral" would move mistral to the end
+    whenever it did not already sit there, and every other provider's block would
+    show up as removed-and-re-added in the git diff a human is about to review --
+    noise indistinguishable, at a glance, from an actual change to that provider.
+    """
+    providers = full_doc["providers"]
+    merged = {pid: (provider_block if pid == PROVIDER_ID else block) for pid, block in providers.items()}
+    merged.setdefault(PROVIDER_ID, provider_block)
+    return {
+        "schema_version": full_doc.get("schema_version", SCHEMA_VERSION),
+        "providers": merged,
     }
 
 
@@ -387,59 +374,74 @@ def run(args: argparse.Namespace) -> tuple[str, str]:
     mapping = load_json(Path(args.mapping), "mapping")
     current = load_json(Path(args.current), "current pricing.json")
 
-    # A committed file that is already invalid must not be used as a comparison base.
+    # A committed file that is already invalid must not be used as a comparison base,
+    # even if the corruption sits in some other provider's block, not ours.
     try:
         validate_document(current)
     except ValidationError as exc:
         raise ScrapeError(f"the committed pricing.json is invalid: {exc}") from exc
 
-    if current.get("currency") != mapping["currency"]:
+    current_block = current["providers"].get(PROVIDER_ID)
+    if current_block is None:
         raise ScrapeError(
-            f"currency mismatch: pricing.json says {current.get('currency')!r}, mapping says "
-            f"{mapping['currency']!r}. This file performs no conversion, so this must be fixed by hand."
+            f"pricing.json has no providers.{PROVIDER_ID} block yet. Seed one by hand "
+            f"before the first automated run -- this job updates a provider's figures, "
+            f"it does not decide to start publishing a new one."
         )
 
-    published_but_unmapped = sorted(set(current["models"]) - set(mapping["models"]))
+    if current_block.get("currency") != mapping["currency"]:
+        raise ScrapeError(
+            f"currency mismatch: providers.{PROVIDER_ID} says {current_block.get('currency')!r}, "
+            f"mapping says {mapping['currency']!r}. This file performs no conversion, so this "
+            f"must be fixed by hand."
+        )
+
+    published_but_unmapped = sorted(set(current_block["models"]) - set(mapping["models"]))
     if published_but_unmapped:
         raise ScrapeError(
-            f"pricing.json publishes model(s) the mapping does not know: {published_but_unmapped}. "
-            f"Consumers may already depend on them; removing one is a deliberate human decision, "
-            f"not something this job may do."
+            f"providers.{PROVIDER_ID} publishes model(s) the mapping does not know: "
+            f"{published_but_unmapped}. Consumers may already depend on them; removing one "
+            f"is a deliberate human decision, not something this job may do."
         )
 
-    html_text = (
-        Path(args.html).read_text(encoding="utf-8", errors="replace")
-        if args.html
-        else fetch_page(mapping["source"])
-    )
+    try:
+        html_text = (
+            Path(args.html).read_text(encoding="utf-8", errors="replace")
+            if args.html
+            else fetch_page(mapping["source"])
+        )
+    except FetchError as exc:
+        raise ScrapeError(str(exc)) from exc
 
     new_models = extract_models(parse_page(html_text), mapping)
 
     # Compare against what is published before believing any of it.
     for model_id, entry in new_models.items():
-        old_entry = current["models"].get(model_id)
+        old_entry = current_block["models"].get(model_id)
         if not old_entry:
             continue
         for field in KNOWN_PRICE_FIELDS:
             if field in entry and field in old_entry:
-                check_change(model_id, field, float(old_entry[field]), float(entry[field]))
+                check_change(f"{PROVIDER_ID}/{model_id}", field, float(old_entry[field]), float(entry[field]))
 
     now = args.now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     today = now[:10]
 
-    changes = diff_models(current["models"], new_models)
+    changes = diff_models(current_block["models"], new_models)
 
     # Always produced: the same figures with a fresh verification stamp. This is a real
     # statement to consumers ("confirmed unchanged today") and it is also the commit that
     # keeps GitHub from disabling the schedule after 60 days of no commits.
-    stamped = build_document(current, current["models"], now, current["updated"], mapping)
+    stamped_block = build_provider_block(current_block["models"], now, current_block["updated"], mapping)
+    stamped = merge_provider_block(current, stamped_block)
     validate_document(stamped)
     write_json(out_dir / "stamped.json", stamped)
 
     if not changes:
         return "unchanged", f"Figures unchanged. Verified against {mapping['source']} at {now}."
 
-    updated_doc = build_document(current, new_models, now, today, mapping)
+    updated_block = build_provider_block(new_models, now, today, mapping)
+    updated_doc = merge_provider_block(current, updated_block)
     validate_document(updated_doc)
     write_json(out_dir / "updated.json", updated_doc)
 
