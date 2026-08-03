@@ -1,4 +1,4 @@
 {
-  "extraPaths": ["scripts"],
+  "extraPaths": ["scripts", "scripts/providers/mistral"],
   "pythonVersion": "3.10"
 }

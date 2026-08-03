@@ -1,11 +1,19 @@
-name: Refresh prices
+name: Refresh prices (Mistral)
 
-# Reads a public marketing page once a week and works out whether pricing.json
-# should change. It has exactly three outcomes, and never a fourth:
+# Reads a public marketing page once a week and works out whether pricing.json's
+# providers.mistral block should change. It has exactly three outcomes, and never
+# a fourth:
 #
 #   figures unchanged  -> commit the checked_utc stamp straight to main
 #   a figure changed   -> commit the stamp, then open a pull request. Never merge it.
 #   fetch/parse failed -> open an issue, fail the job, leave pricing.json untouched
+#
+# pricing.json holds one block per provider under `providers.<name>`. This workflow
+# only ever touches `providers.mistral`; every other provider's block, once one
+# exists, is carried through by the scraper itself (merge_provider_block()) exactly
+# as committed. A future provider gets its own refresh-<name>.yml, following this
+# one, and joins the SAME concurrency group below so the two queue on pricing.json
+# writes instead of racing each other.
 #
 # The stamp commit happens on EVERY successful run, including the run that opens a
 # pull request. It is a real statement to consumers ("confirmed unchanged today"),
@@ -35,7 +43,9 @@ permissions:
   issues: write
 
 concurrency:
-  group: refresh-prices
+  # Shared with every other provider's refresh-<name>.yml on purpose: they all
+  # write to the same pricing.json, so they must queue, never run concurrently.
+  group: pricing-json-writes
   cancel-in-progress: false
 
 jobs:
@@ -58,7 +68,7 @@ jobs:
       - name: Read the pricing page
         id: scrape
         continue-on-error: true
-        run: python3 scripts/scrape.py --out-dir .ci-out
+        run: python3 scripts/providers/mistral/scrape.py --out-dir .ci-out
 
       # ---------------------------------------------------------------------------
       # Outcome 3: something failed. Report it, change nothing, fail the job.
@@ -84,9 +94,9 @@ jobs:
           # the reason quotes text taken from a page this repository does not control.
           {
             cat <<'INTRO'
-          The weekly price check did not complete. `pricing.json` has **not** been modified:
-          the figures it currently publishes are the last ones a human reviewed, and the
-          `checked_utc` field still shows when they were last actually verified.
+          The weekly Mistral price check did not complete. `pricing.json` has **not** been
+          modified: providers.mistral still shows the figures a human last reviewed, and its
+          `checked_utc` still shows when they were last actually verified.
 
           ```
           INTRO
@@ -98,31 +108,33 @@ jobs:
             cat <<'OUTRO'
 
           This almost always means the page changed shape rather than the price changing.
-          Compare the page against `scripts/mapping.json`, fix the mapping by hand, and
-          re-run the workflow from the Actions tab.
+          Compare the page against `scripts/providers/mistral/mapping.json`, fix the mapping
+          by hand, and re-run the workflow from the Actions tab.
           OUTRO
           } > /tmp/issue-body.md
 
           # One issue per outage, not one per week: comment on the open one if there is one.
-          EXISTING="$(gh issue list --label scraper-failure --state open --limit 1 --json number --jq '.[0].number // empty')"
+          # Scoped to a Mistral-specific label so a stuck OVH failure, once that workflow
+          # exists, never suppresses a fresh Mistral notification or vice versa.
+          EXISTING="$(gh issue list --label scraper-failure:mistral --state open --limit 1 --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body-file /tmp/issue-body.md
             echo "Commented on existing issue #$EXISTING"
           else
-            gh label create scraper-failure --color d73a4a --description "The price scraper could not complete" 2>/dev/null || true
+            gh label create scraper-failure:mistral --color d73a4a --description "The Mistral price scraper could not complete" 2>/dev/null || true
             gh issue create \
-              --title "Price check failed on $(date -u +%Y-%m-%d)" \
-              --label scraper-failure \
+              --title "Mistral price check failed on $(date -u +%Y-%m-%d)" \
+              --label scraper-failure:mistral \
               --body-file /tmp/issue-body.md
           fi
 
-          echo "::error::The price check failed. pricing.json was left untouched."
+          echo "::error::The Mistral price check failed. pricing.json was left untouched."
           exit 1
 
       - name: Report what was found
         run: |
           {
-            echo "### Price check"
+            echo "### Mistral price check"
             echo '```'
             cat .ci-out/summary.txt
             echo '```'
@@ -152,7 +164,7 @@ jobs:
           fi
 
           git add pricing.json
-          git commit -m "chore: verified prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "chore: verified mistral prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push
           # Note: a push made with GITHUB_TOKEN does not trigger further workflow runs.
           # Nothing here depends on it -- the trigger is the schedule, not the push.
@@ -169,10 +181,10 @@ jobs:
 
           # A branch name derived from the figures themselves, so a change that persists
           # for weeks keeps updating one pull request instead of opening a new one every
-          # Monday.
-          BRANCH="price-update/$(python3 -c "
+          # Monday. Prefixed with the provider so a future OVH branch can never collide.
+          BRANCH="price-update/mistral-$(python3 -c "
           import hashlib, json
-          models = json.load(open('.ci-out/updated.json'))['models']
+          models = json.load(open('.ci-out/updated.json'))['providers']['mistral']['models']
           print(hashlib.sha256(json.dumps(models, sort_keys=True).encode()).hexdigest()[:8])
           ")"
 
@@ -184,7 +196,7 @@ jobs:
           git checkout -b "$BRANCH"
           cp .ci-out/updated.json pricing.json
           git add pricing.json
-          git commit -m "prices: update figures read from mistral.ai on $(date -u +%Y-%m-%d)"
+          git commit -m "prices: update mistral figures read from mistral.ai on $(date -u +%Y-%m-%d)"
           git push --force --set-upstream origin "$BRANCH"
 
           # Same rule as the issue body: the summary is concatenated in, never
@@ -206,7 +218,10 @@ jobs:
           - Is this a real price change, or did the page move a number into a different row?
           - `mistral-medium-latest` and `mistral-small-latest` are **aliases**. If one of
             them now resolves to a different model, the price may be right while
-            `display_name` and `scripts/mapping.json` have quietly become wrong.
+            `display_name` and `scripts/providers/mistral/mapping.json` have quietly become wrong.
+
+          Only `providers.mistral` is touched by this PR -- every other provider's block, if
+          any exists by the time you read this, is carried through byte-for-byte.
           OUTRO
             echo
             echo "Merging publishes these figures to every consumer that fetches"
@@ -214,7 +229,7 @@ jobs:
           } > /tmp/pr-body.md
 
           gh pr create \
-            --title "prices: figures changed on mistral.ai" \
+            --title "prices: mistral figures changed on mistral.ai" \
             --body-file /tmp/pr-body.md \
             --base main \
             --head "$BRANCH"
