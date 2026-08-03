@@ -26,7 +26,24 @@ MAX_CHANGE_FACTOR = 5.0
 # The units a price field may carry. The unit is part of the key name so that a
 # consumer cannot silently apply a per-token price to a per-page model, which also
 # means an unknown key here is a contract violation, not a new feature.
-KNOWN_PRICE_FIELDS = ("in_per_mtok", "out_per_mtok", "per_1k_pages")
+KNOWN_PRICE_FIELDS = (
+    "in_per_mtok",
+    "out_per_mtok",
+    "per_1k_pages",
+    "per_audio_minute",
+)
+
+# "Plausible" is a statement about a unit, not about a number. One minute of audio
+# costs three thousandths of a dollar, so the range that catches a misparse for
+# per_audio_minute is not the range that catches one for per_1k_pages. Keeping a
+# single global floor of 0.001 would leave audio prices barely a factor of 3 above
+# it, and would refuse an ordinary price cut as though the page had broken.
+#
+# Only floors are relaxed here. The ceiling stays where the specification put it:
+# raising it would let a real misparse through, which is the failure that matters.
+PRICE_BOUNDS = {
+    "per_audio_minute": (0.0001, MAX_PLAUSIBLE),
+}
 
 SCHEMA_VERSION = 1
 
@@ -47,10 +64,12 @@ def check_price(model_id: str, field: str, value: object) -> float:
     value = float(value)
     if value != value or value in (float("inf"), float("-inf")):
         raise ValidationError(f"{model_id}.{field}: not a finite number ({value!r})")
-    if not (MIN_PLAUSIBLE <= value <= MAX_PLAUSIBLE):
+
+    low, high = PRICE_BOUNDS.get(field, (MIN_PLAUSIBLE, MAX_PLAUSIBLE))
+    if not (low <= value <= high):
         raise ValidationError(
             f"{model_id}.{field}: {value} is outside the plausible range "
-            f"[{MIN_PLAUSIBLE}, {MAX_PLAUSIBLE}]. This normally means the page changed "
+            f"[{low}, {high}] for this unit. This normally means the page changed "
             f"shape and the wrong number was read, not that the price moved."
         )
     return value
