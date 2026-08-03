@@ -7,10 +7,10 @@ file at one URL:
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 ```
 
-Today that means Mistral, called directly. More providers are planned -- starting
-with OVH, which may itself resell some of the same underlying models Mistral sells
-directly, at a different price. That is exactly why prices are grouped by
-**provider**, not just by model: the same model name can mean two different bills.
+Today that means Mistral, called directly, and OVH's AI Endpoints catalog -- which
+resells several open models (gpt-oss, Qwen, Whisper) that have nothing to do with
+Mistral. That is exactly why prices are grouped by **provider**, not just by model:
+the same model name can mean two different bills at two different providers.
 
 ## Read this before you trust a number in it
 
@@ -20,8 +20,11 @@ endpoint in the API, and the one usage endpoint that returns a `prices` field
 requires an *admin* API key that an ordinary user of an open-source tool does not
 have and should never be asked for. So Mistral's numbers here come from reading
 <https://mistral.ai/pricing/api>, a page with no contract behind it and no
-versioning. Each provider's own `README.md` under `scripts/providers/<name>/`
-explains that provider's specific situation.
+versioning. OVH's are read the same way, from their public AI Endpoints catalog --
+a Next.js app that embeds its model list and pricing as JSON inside the page rather
+than rendering scrapeable card markup the way Mistral's does; see
+`scripts/providers/ovh/README.md` for exactly how. Each provider's own `README.md`
+under `scripts/providers/<name>/` explains that provider's specific situation.
 
 **A human reviews every figure before it is published.** The weekly job for each
 provider may commit the "we checked, nothing moved" timestamp on its own. It may
@@ -68,7 +71,7 @@ show it to whoever is reading your number. Display it:
 | field | meaning |
 | --- | --- |
 | `schema_version` | A consumer that does not recognise this number must ignore the file and fall back, rather than misread it. Bumped on any breaking change. |
-| `providers` | Keyed by provider id (`mistral`, and `ovh` in the future). Never flatten this: the same model name at two providers is two different prices, not a collision to resolve. |
+| `providers` | Keyed by provider id (`mistral`, `ovh`). Never flatten this: the same model name at two providers is two different prices, not a collision to resolve. |
 | `providers.<name>.checked_utc` | When that provider's scraper last **verified** its figures. "Confirmed unchanged today" is a much stronger statement than "last edited in May", which is why this is separate from `updated`. Each provider has its own -- they scrape on their own schedule. |
 | `providers.<name>.updated` | When that provider's figures last actually **changed**. |
 | `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. |
@@ -85,6 +88,7 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `out_per_mtok` | per million output tokens |
 | `per_1k_pages` | per thousand pages |
 | `per_audio_minute` | per minute of audio sent |
+| `per_audio_second` | per second of audio sent |
 
 **A model may carry several of them at once.** `voxtral-small-latest` above is billed
 both per minute of audio and per million tokens of text, and reading only one of the
@@ -92,9 +96,10 @@ two undercounts a bill without ever looking wrong. Do not assume one unit per mo
 iterate the keys you find.
 
 **Within a `schema_version`, no field is ever removed.** An old client may fetch this
-file at any time. Fields get added -- `per_audio_minute` was added this way, and so
-was the whole `providers` layer this file now has -- and when something must break
-in a way addition cannot cover, the version is bumped, as it was for that one.
+file at any time. Fields get added -- `per_audio_minute` and later `per_audio_second`
+were added this way, and so was the whole `providers` layer this file now has -- and
+when something must break in a way addition cannot cover, the version is bumped, as
+it was when `providers` arrived.
 
 ## Consuming it
 
@@ -140,22 +145,34 @@ Each provider is fully independent in practice, even though they share one file:
 
 A scraper only ever reads and rewrites its own block. Every other provider's block is
 carried through candidate files byte-for-byte -- a Mistral run never so much as parses
-`providers.ovh`, and vice versa once that block exists. `validate_document()` still
-checks every provider's block on every run, so a corruption sitting untouched in one
-provider is caught by any run, not only by that provider's own.
+`providers.ovh`, and an OVH run never touches `providers.mistral`. Key order is
+preserved too, not just values: a merge that rebuilt the whole `providers` dict would
+leave every untouched provider's block looking removed-and-re-added in the diff a
+human is about to review, which is exactly the kind of noise this design exists to
+avoid. `validate_document()` still checks every provider's block on every run, so a
+corruption sitting untouched in one provider is caught by any run, not only by that
+provider's own.
 
-OVH is planned next. Nothing has been scraped or guessed for it yet:
-[`scripts/providers/ovh/README.md`](scripts/providers/ovh/README.md) lays out exactly
-what has to be confirmed against OVH's real pricing source -- their actual page or
-API, their currency, whether their catalog resells third-party models -- before a
-single number goes in.
+The plumbing that makes all of this true -- reading, merging, writing, the three
+outcomes, the run()/main() control flow -- is written once, in
+[`scripts/provider_runner.py`](scripts/provider_runner.py), and shared by every
+provider's own `scrape.py`. A provider's own file supplies only what is genuinely
+its own: how to fetch and parse its page. Compare
+[`scripts/providers/mistral/scrape.py`](scripts/providers/mistral/scrape.py) (reads
+server-rendered card markup) against
+[`scripts/providers/ovh/scrape.py`](scripts/providers/ovh/scrape.py) (reads a
+framework's embedded JSON data chunk) for how differently "read the page" can look
+between two providers, and how little of either file is about anything else.
 
 ## How the weekly job behaves
 
-Each provider has its own workflow; Mistral's is
-[`.github/workflows/refresh-mistral.yml`](.github/workflows/refresh-mistral.yml), on
-Mondays at 04:00 UTC and on demand. Every provider's workflow has three outcomes and
-never a fourth:
+Each provider has its own workflow:
+[`.github/workflows/refresh-mistral.yml`](.github/workflows/refresh-mistral.yml) runs
+Mondays at 04:00 UTC, and
+[`.github/workflows/refresh-ovh.yml`](.github/workflows/refresh-ovh.yml) an hour
+later at 05:00 -- offset on purpose so the two scheduled runs don't land in the same
+minute and immediately queue behind each other every single week. Both also run on
+demand. Every provider's workflow has three outcomes and never a fourth:
 
 | outcome | what happens |
 | --- | --- |
@@ -190,9 +207,12 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 52 tests
+python3 -m unittest discover -s tests -v                          # 85 tests
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live page
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
+
+python3 scripts/providers/ovh/scrape.py --out-dir .ci-out         # read the live catalog
+python3 scripts/providers/ovh/scrape.py --out-dir .ci-out --html tests/fixtures/ovh/catalog_ok.html
 ```
 
 A provider's `scrape.py` **never writes `pricing.json`.** It writes candidates into
@@ -204,10 +224,11 @@ right.
 
 ## Adding a model
 
-1. Add an entry to that provider's `mapping.json` (Mistral's is at
-   `scripts/providers/mistral/mapping.json`), with `page_name` copied byte-for-byte
-   from the source, and each `label` copied byte-for-byte from the row label. List
-   every unit the model is billed in, not just the obvious one.
+1. Add an entry to that provider's `mapping.json` -- Mistral's keys a card by
+   `page_name` and a price row by `label`, copied byte-for-byte from the page;
+   OVH's keys a catalog entry by `catalog_id` and a price by `price_unit`, copied
+   byte-for-byte from its embedded data. Whatever the provider's own convention,
+   list every unit the model is billed in, not just the obvious one.
 2. Add the same model to `pricing.json`, under that provider's block, with the
    figures you read on the page.
 3. If the model introduces a **new unit**, add it to `KNOWN_PRICE_FIELDS` in
@@ -217,12 +238,13 @@ right.
    `PRICE_BOUNDS`, or an ordinary price cut will be refused as a parsing accident.
    A test enforces that every published figure keeps a factor of 5 of room above its
    floor, so you will be told rather than left to find out on a Monday morning.
-4. Re-capture that provider's fixture page (Mistral's is
-   `tests/fixtures/mistral/page_ok.html`) so it contains the new card, and
+4. Re-capture that provider's fixture (Mistral's is `tests/fixtures/mistral/page_ok.html`,
+   OVH's is `tests/fixtures/ovh/catalog_ok.html`) so it contains the new entry, and
    regenerate its `baseline.json` from it.
-5. Run the tests. `tests/test_pricing_validate.py` checks the shared schema;
-   `tests/providers/test_mistral.py`'s `TestPublishedFileMatchesMistral` and
-   `TestMapping` check that Mistral's own files agree with each other.
+5. Run the tests. `tests/test_pricing_validate.py` checks the shared schema; each
+   provider's `tests/scraper_tests/test_<name>.py` has its own
+   `TestPublishedFileMatches<Name>` and `TestMapping` classes that check that
+   provider's own files agree with each other.
 
 Do not add currency conversion, token estimation, or anything that reads a user's
 account. This repository knows prices. It does not know volumes, and it never
@@ -230,12 +252,27 @@ touches anyone's account at any provider.
 
 ## Adding a provider
 
-Follow [`scripts/providers/ovh/README.md`](scripts/providers/ovh/README.md) --
-written for OVH specifically, but the shape applies to any future provider:
-confirm the real pricing source first, write an explicit mapping, mirror
-`scripts/providers/mistral/scrape.py`'s discipline of only ever touching your own
-`providers.<name>` block, and give it its own `refresh-<name>.yml` sharing the
-`pricing-json-writes` concurrency group.
+Confirm the real pricing source first -- read it yourself, work out whether it is
+scrapeable card markup (like Mistral's) or embedded framework data (like OVH's),
+confirm the currency, check whether the catalog resells third-party models under
+a name that could be confused with theirs. Never guess at any of this.
+
+Then mirror whichever of the two existing providers reads more like your new
+one -- [`scripts/providers/mistral/scrape.py`](scripts/providers/mistral/scrape.py)
+or [`scripts/providers/ovh/scrape.py`](scripts/providers/ovh/scrape.py) -- for the
+page-reading half, and use [`scripts/provider_runner.py`](scripts/provider_runner.py)
+for everything else: it already handles reading, merging, writing, and the three
+outcomes, and only needs an `extract_new_models(html_text, mapping)` callback and a
+provider id. Write an explicit mapping, and give the new provider its own
+`refresh-<name>.yml` sharing the `pricing-json-writes` concurrency group.
+
+One naming trap worth knowing before you start: give the new provider's test file
+a distinct import path (`from providers.<name> import scrape`, not a bare
+`import scrape` off a directly-inserted directory). Two providers' `scrape.py`
+files share the same filename by convention, and Python's module cache is keyed
+by name alone -- a flat import works when only one test file runs, and silently
+imports the wrong provider's module the moment both run in the same process, which
+`unittest discover` always does.
 
 ## Why this is a separate repository
 

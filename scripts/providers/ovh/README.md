@@ -1,59 +1,83 @@
 <!-- @format -->
 
-# OVH -- not built yet
+# OVH
 
-This directory is reserved for OVH's scraper. It is deliberately empty of code:
-there is no `scrape.py` or `mapping.json` here, because writing either without
-having read OVH's actual pricing source first would mean guessing at numbers,
-which is exactly what this whole repository exists to refuse to do.
+Reads OVH's [AI Endpoints catalog](https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/)
+and publishes `providers.ovh` in `pricing.json`. First implemented 2026-08-03,
+covering 8 of the models a consumer asked for; three more do not exist on the
+catalog yet, and four exist but are currently free -- see below.
 
-## Before writing a line of code
+## How this page differs from Mistral's
 
-1. Find out what OVH actually publishes. OVH AI Endpoints/AI Deploy may expose
-   pricing through a structured, machine-readable source (a public catalog API,
-   a JSON feed) rather than only a marketing page. If so, prefer it outright --
-   it removes an entire class of failure (`scripts/providers/mistral/scrape.py`
-   exists only because Mistral leaves no better option, per
-   `docs/ai-pricing-source.md` in ProcraFiler). If OVH only has an HTML page like
-   Mistral's, the same `PricingPageParser` pattern applies, adapted to OVH's
-   actual markup -- do not assume it matches Mistral's.
-2. Confirm whether OVH's catalog includes third-party models (e.g. Mistral
-   models resold through OVH). If it does, `display_name` and the mapping must
-   make unmistakably clear this is **OVH's price for running that model**, not
-   Mistral's own -- the two can differ, and a consumer must never be able to
-   confuse them. This is the entire reason pricing.json nests under
-   `providers.<name>` instead of one flat `models` map.
-3. Confirm OVH's billing currency. It is very likely EUR, not USD like Mistral --
-   `providers.ovh.currency` is independent of `providers.mistral.currency`, and
-   nothing here performs conversion.
+Mistral's pricing page is server-rendered card markup: `scripts/providers/mistral/scrape.py`
+reads `<div class="model-item">` elements and a `data-prices` JSON attribute on
+each price row. OVH's catalog is a Next.js app where the entire model list --
+id, display name, and a machine-readable `metadata.usage_information.pricing`
+array -- is embedded as JSON inside a React Server Components ("Flight") data
+chunk: a `<script>self.__next_f.push([1, "..."])</script>` tag whose string
+argument, once JS-unescaped, contains a `"models":[...]` array. The rendered
+price text a browser shows ("0.08€/Mtoken(entrée)") is derived from that same
+JSON at render time.
 
-## What "done" looks like
+`scrape.py` reads the JSON directly rather than re-parsing the formatted,
+French-language price string: it is more robust (a number stays a number
+regardless of locale formatting) and gives an explicit, unambiguous unit per
+price (`price_unit`, e.g. `"million_input_tokens"`) rather than a suffix like
+Mistral's `"/ 1000 pages"` that has to be string-matched.
 
-Mirror the Mistral provider directory as the reference implementation:
+This also means a genuinely different failure mode than Mistral's page: the
+thing that can break is not the CSS class of a card, but the shape of a
+framework-internal data-streaming format. `extract_catalog_models()` in
+`scrape.py` documents exactly what it expects and refuses -- never guesses --
+the moment that shape changes.
 
-- `scripts/providers/ovh/scrape.py` -- reads OVH's real pricing source, matches
-  it to API model ids through an **explicit, hand-committed mapping**, never
-  fuzzy matching. Writes `providers.ovh` into a full pricing.json document,
-  carrying every other provider's block through untouched, exactly as
-  `scripts/providers/mistral/scrape.py` does via `merge_provider_block()`.
-  It never writes `pricing.json` directly -- only candidate files, same as
-  Mistral's.
-- `scripts/providers/ovh/mapping.json` -- OVH's own page-name/label mapping,
-  reviewed by a human, revisited whenever OVH's catalog changes.
-- `tests/fixtures/ovh/` -- a real captured snapshot of whatever OVH actually
-  publishes, with the same kind of decoy rows the Mistral fixture keeps
-  (`libraries`' OCR row, the Voxtral realtime duplicate), if OVH's source has
-  any place a naive by-label search could grab the wrong number.
-- `tests/providers/test_ovh.py` -- the same scenarios `tests/providers/test_mistral.py`
-  covers: unchanged, a normal price change, a layout that no longer parses, a
-  model in the mapping missing from the source, an out-of-bounds figure. Every
-  failure path must leave `pricing.json` untouched, proven the same way.
-- `.github/workflows/refresh-ovh.yml` -- same three outcomes as
-  `refresh-mistral.yml` (unchanged -> stamp only, changed -> pull request never
-  auto-merged, failure -> issue and no write), same shared `concurrency` group
-  so it queues rather than races with the Mistral workflow over the same file.
+## Currency
 
-`scripts/pricing_validate.py` and `scripts/fetch.py` are already provider-agnostic
-and need no changes to support this -- `validate_document()` already walks every
-block under `providers`, and `fetch_page()` already has no Mistral-specific
-assumptions baked in.
+**EUR**, confirmed by direct comparison: the catalog's JSON price for
+`bge-multilingual-gemma2` (`0.01`) matches the literal "0.01€" rendered on the
+page at the `/fr/` locale URL this scraper reads. No currency field exists
+elsewhere in the payload -- the number is only meaningfully EUR because of
+which locale URL was fetched. `mapping.json`'s `source` is pinned to that exact
+`/fr/` URL for this reason; fetching a different locale could plausibly return
+different (converted) numbers under the same JSON shape, which this scraper has
+no way to detect. If that ever needs revisiting, it starts here.
+
+## What is published, and what is deliberately not
+
+Read `scripts/providers/ovh/mapping.json`'s own `_comment` for the authoritative,
+dated account. Summary:
+
+**Published (8 models):** gpt-oss-120b, gpt-oss-20b, Qwen2.5-VL-72B-Instruct,
+Qwen3.5-397B-A17B, Qwen3.5-9B, Qwen3.6-27B, whisper-large-v3,
+whisper-large-v3-turbo. Confirmed against the live catalog and cross-checked
+against the page's own rendered price text before being committed.
+
+**Requested, absent from the live catalog (as of 2026-08-03):**
+Qwen3-Coder-30B-A3B-Instruct, Qwen3-32B, Mistral-Small-3.2-24B-Instruct-2506.
+None appear anywhere on the page, under any id or alias -- not a parsing
+failure, they are simply not there. Add them once OVH actually publishes them;
+do not guess at what their price would be.
+
+**Present but excluded (4 models):** nvr-tts-it-it, nvr-tts-en-us,
+nvr-tts-de-de, nvr-tts-es-es. The catalog prices all four at `0` and the page
+renders their price block as the literal word "Gratuit" (free), not a number --
+this is OVH stating a deliberate free tier, not missing data. This repository's
+sanity floor (`pricing_validate.MIN_PLAUSIBLE = 0.001`) exists to catch a
+parser that misreads a real price as `0`; it would incorrectly also catch a
+model that is genuinely, intentionally free. Rather than invent a schema concept
+for "free" to route around that, these four are simply left unmapped until OVH
+assigns them a real price -- at which point adding them is the same three-line
+diff as any other model.
+
+## Running it yourself
+
+```sh
+python3 scripts/providers/ovh/scrape.py --out-dir .ci-out                       # read the live catalog
+python3 scripts/providers/ovh/scrape.py --out-dir .ci-out --html tests/fixtures/ovh/catalog_ok.html
+```
+
+Same rules as every other provider here: no API key, ever; never writes
+`pricing.json` directly; touches only `providers.ovh`, carrying every other
+provider's block through byte-for-byte. `.github/workflows/refresh-ovh.yml`
+runs it weekly and on demand, sharing the `pricing-json-writes` concurrency
+group with Mistral's workflow so the two queue rather than race.

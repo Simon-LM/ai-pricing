@@ -54,6 +54,7 @@ KNOWN_PRICE_FIELDS = (
     "out_per_mtok",
     "per_1k_pages",
     "per_audio_minute",
+    "per_audio_second",
 )
 
 # "Plausible" is a statement about a unit, not about a number. One minute of audio
@@ -66,6 +67,10 @@ KNOWN_PRICE_FIELDS = (
 # raising it would let a real misparse through, which is the failure that matters.
 PRICE_BOUNDS = {
     "per_audio_minute": (0.0001, MAX_PLAUSIBLE),
+    # A second is roughly 1/60th of a minute, so its floor is lower again: OVH's
+    # whisper-large-v3-turbo prices at ~0.0000128 per second, which the
+    # per_audio_minute floor above would already reject outright.
+    "per_audio_second": (0.000001, MAX_PLAUSIBLE),
 }
 
 SCHEMA_VERSION = 2
