@@ -7,11 +7,25 @@ means the page changed shape and the parser latched onto the wrong number. In bo
 cases the correct answer is to refuse, report, and keep the old file.
 
 Standard library only. Imported by scrape.py and exercised directly by the tests.
+
+Named `pricing_validate`, not `validate`: a package literally called `validate`
+ships in Debian/Ubuntu's system Python (`/usr/lib/python3/dist-packages/validate`,
+a configobj compatibility shim). `sys.path.insert(0, ...)` in scrape.py makes this
+file win at runtime regardless of name, but a static analyzer does not execute that
+line, so a same-named local module is silently shadowed by the unrelated system
+package during static analysis, and would be shadowed at runtime too in any
+invocation that does not happen to run through scrape.py's own sys.path trick.
 """
 
 from __future__ import annotations
 
 import re
+from typing import Any, TypeAlias, cast
+
+# A pricing.json-shaped object, or one of its "models" entries. Named for what it is
+# rather than left as a bare `dict`, so a type checker can tell an entry apart from,
+# say, the mapping's field spec, instead of collapsing everything to Unknown.
+JSONDict: TypeAlias = dict[str, Any]
 
 # A price outside this range, in the file's currency unit, is treated as a parsing
 # accident rather than a price. Suggested by the specification (section 4.3).
@@ -88,10 +102,18 @@ def check_change(model_id: str, field: str, old: float, new: float) -> None:
         )
 
 
-def validate_document(doc: dict) -> None:
-    """Check a complete pricing.json-shaped document, independently of any scrape."""
+def validate_document(doc: Any) -> None:
+    """Check a complete pricing.json-shaped document, independently of any scrape.
+
+    `doc` is `Any`, not `JSONDict`, on purpose: this is the function that establishes
+    the shape is a dict at all. It is normally handed the direct result of
+    `json.loads()` on a file this repository does not fully trust even when it wrote
+    it -- a corrupted commit, a bad hand-edit -- so the isinstance check below is
+    load-bearing, not decoration.
+    """
     if not isinstance(doc, dict):
         raise ValidationError(f"document must be an object, got {type(doc).__name__}")
+    doc = cast(JSONDict, doc)
 
     if doc.get("schema_version") != SCHEMA_VERSION:
         raise ValidationError(
@@ -112,10 +134,12 @@ def validate_document(doc: dict) -> None:
     models = doc.get("models")
     if not isinstance(models, dict) or not models:
         raise ValidationError("models must be a non-empty object")
+    models = cast("dict[str, Any]", models)
 
     for model_id, entry in models.items():
         if not isinstance(entry, dict):
             raise ValidationError(f"{model_id}: entry must be an object")
+        entry = cast(JSONDict, entry)
 
         prices = [k for k in entry if k in KNOWN_PRICE_FIELDS]
         if not prices:
@@ -139,7 +163,7 @@ def validate_document(doc: dict) -> None:
             check_price(model_id, field, entry[field])
 
 
-def diff_models(old_models: dict, new_models: dict) -> list[str]:
+def diff_models(old_models: dict[str, JSONDict], new_models: dict[str, JSONDict]) -> list[str]:
     """Return a human-readable list of the differences between two `models` blocks.
 
     Empty list means the figures are identical and only `checked_utc` needs committing.
@@ -165,5 +189,10 @@ def diff_models(old_models: dict, new_models: dict) -> list[str]:
     return lines
 
 
-def _render(entry: dict) -> str:
+def _render(entry: JSONDict | None) -> str:
+    # entry is only ever None here if a model_id from the union of both key sets
+    # somehow belongs to neither dict, which cannot happen; None is accepted so the
+    # type checker does not have to take that on faith.
+    if entry is None:
+        return "(missing)"
     return ", ".join(f"{k}={v}" for k, v in sorted(entry.items()) if k in KNOWN_PRICE_FIELDS)
