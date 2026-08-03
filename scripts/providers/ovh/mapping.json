@@ -1,0 +1,106 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from OVH's AI Endpoints catalog to pricing.json entries.",
+    "Nothing here is inferred at runtime: no fuzzy matching, no lowercasing and hoping.",
+    "'catalog_id' is compared byte-for-byte against the 'id' field of a catalog entry",
+    "in the page's embedded model data, and each field's 'price_unit' byte-for-byte",
+    "against that entry's metadata.usage_information.pricing[].price_unit. A catalog",
+    "that no longer contains a matching id, or a pricing entry with that exact unit,",
+    "is a failure to report, never a row to guess at.",
+    "",
+    "Unlike Mistral's page, OVH's catalog_id is believed to already BE the API model",
+    "id (it appears in the model's own dedicated endpoint subdomain, e.g. gpt-oss-120b",
+    "-> gpt-oss-120b.endpoints.kepler.ai.cloud.ovh.net). Kept as a separate field from",
+    "the pricing.json key anyway, structurally parallel to Mistral's page_name, in case",
+    "that assumption stops holding -- revisit if OVH ever renames a catalog id without",
+    "the API model id changing along with it.",
+    "",
+    "Two things deliberately NOT in this file, checked against the catalog on",
+    "2026-08-03 by a human, both revisit-worthy:",
+    "",
+    "  Requested but absent from the live catalog: Qwen3-Coder-30B-A3B-Instruct,",
+    "  Qwen3-32B, Mistral-Small-3.2-24B-Instruct-2506. None appear anywhere on the",
+    "  page, under any id or alias. Not added -- there is nothing to map them to.",
+    "  Add them once OVH actually publishes them.",
+    "",
+    "  Present but excluded: nvr-tts-it-it, nvr-tts-en-us, nvr-tts-de-de, nvr-tts-es-es.",
+    "  The catalog lists all four with metadata.usage_information.pricing = [{\"price\":",
+    "  0, \"price_unit\": \"million_input_chars\"}], and the page renders their price",
+    "  block as the literal word \"Gratuit\" (free), not a numeric price -- OVH is",
+    "  stating these are free, not that pricing data is missing. check_price's floor",
+    "  of 0.001 would reject a literal 0 as a parsing accident, and treating a genuine",
+    "  free tier as a special case would need a schema concept this file does not have.",
+    "  Simplest honest choice: leave them unmapped and unpublished until OVH prices",
+    "  them, at which point adding them is the same three-line diff as any other model.",
+    "",
+    "Last verified against the catalog by a human: 2026-08-03."
+  ],
+
+  "source": "https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/",
+  "currency": "EUR",
+
+  "models": {
+    "gpt-oss-120b": {
+      "display_name": "gpt-oss-120b",
+      "catalog_id": "gpt-oss-120b",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" },
+        "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "gpt-oss-20b": {
+      "display_name": "gpt-oss-20b",
+      "catalog_id": "gpt-oss-20b",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" },
+        "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "qwen-2-5-vl-72b-instruct": {
+      "display_name": "Qwen2.5-VL-72B-Instruct",
+      "catalog_id": "qwen-2-5-vl-72b-instruct",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" },
+        "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "qwen-3-5-397b": {
+      "display_name": "Qwen3.5-397B-A17B",
+      "catalog_id": "qwen-3-5-397b",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" },
+        "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "qwen-3-5-9b": {
+      "display_name": "Qwen3.5-9B",
+      "catalog_id": "qwen-3-5-9b",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" },
+        "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "qwen-3-6-27b": {
+      "display_name": "Qwen3.6-27B",
+      "catalog_id": "qwen-3-6-27b",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" },
+        "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "whisper-large-v3": {
+      "display_name": "whisper-large-v3",
+      "catalog_id": "whisper-large-v3",
+      "fields": {
+        "per_audio_second": { "price_unit": "audio_duration_seconds" }
+      }
+    },
+    "whisper-large-v3-turbo": {
+      "display_name": "whisper-large-v3-turbo",
+      "catalog_id": "whisper-large-v3-turbo",
+      "fields": {
+        "per_audio_second": { "price_unit": "audio_duration_seconds" }
+      }
+    }
+  }
+}

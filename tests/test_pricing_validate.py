@@ -5,11 +5,11 @@ Standard library only: `python3 -m unittest discover tests`.
 Deliberately synthetic: every document here is built by hand, never read from
 pricing.json or a provider's own fixtures. This file exercises the *contract*
 (schema_version, the providers.<name> nesting, the shared units and bounds), so it
-must keep working exactly as it does today once OVH's block exists alongside
-Mistral's -- it should never need to know Mistral's or OVH's specific model ids.
+must keep working unchanged as more providers are added -- it should never need to
+know any provider's specific model ids.
 
 Provider-specific tests -- does providers.mistral actually match Mistral's own
-mapping.json, does the real pricing.json validate -- live in tests/providers/.
+mapping.json, does providers.ovh match OVH's -- live in tests/scraper_tests/.
 """
 
 from __future__ import annotations
