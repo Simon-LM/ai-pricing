@@ -8,9 +8,9 @@ exists to protect -- a stale price whose date the user can see is far better tha
 wrong one they cannot.
 
 The failure scenarios are derived from tests/fixtures/page_ok.html, which is real
-captured markup, by explicit mutation. `mutate` refuses to apply a replacement that
-does not match the expected number of times, so a fixture that drifts away from the
-page fails the tests loudly instead of quietly testing nothing.
+captured markup, by explicit mutation. `mutate` refuses to run when there was nothing
+to replace, so a fixture that drifts away from the page fails the tests loudly instead
+of quietly testing nothing.
 """
 
 from __future__ import annotations
@@ -46,13 +46,20 @@ MAPPING_JSON = REPO_ROOT / "scripts" / "mapping.json"
 FIXED_NOW = "2026-08-03T04:00:00Z"
 
 
-def mutate(source: str, old: str, new: str, expected_count: int = 1) -> str:
-    """Replace `old` with `new`, insisting it appears exactly `expected_count` times."""
+def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> str:
+    """Replace `old` with `new`, checking first that there was something to replace.
+
+    `expected_count` is an exact number where uniqueness is the point of the test --
+    a price mutation that silently hit two rows would prove nothing. Pass None for
+    structural mutations that sweep the whole page, where the count is incidental and
+    changes every time a card is added to the fixture; those still refuse to run
+    against zero matches, which is the failure that would leave a test testing nothing.
+    """
     found = source.count(old)
-    if found != expected_count:
+    if found == 0 or (expected_count is not None and found != expected_count):
         raise AssertionError(
-            f"fixture drift: expected {expected_count} occurrence(s) of {old!r}, found {found}. "
-            f"Re-capture tests/fixtures/page_ok.html from the live page."
+            f"fixture drift: expected {expected_count or 'at least one'} occurrence(s) of "
+            f"{old!r}, found {found}. Re-capture tests/fixtures/page_ok.html from the live page."
         )
     return source.replace(old, new)
 
@@ -164,6 +171,33 @@ class TestUnchanged(ScrapeTestCase):
         self.assertEqual(models["mistral-ocr-latest"]["per_1k_pages"], 4.0)
         self.assertNotEqual(models["mistral-ocr-latest"]["per_1k_pages"], 3.0)
 
+    def test_voxtral_mini_price_is_not_read_from_the_realtime_card(self) -> None:
+        """The second decoy: 'voxtral mini transcribe realtime' has a row labelled
+        'Audio Input/min' too, at $0.006 -- double. Same label, different card."""
+        self.run_scrape(self.page_ok)
+        models = self.candidate("stamped.json")["models"]
+        self.assertEqual(models["voxtral-mini-latest"]["per_audio_minute"], 0.003)
+        self.assertNotEqual(models["voxtral-mini-latest"]["per_audio_minute"], 0.006)
+
+    def test_a_model_billed_in_two_units_keeps_both(self) -> None:
+        """voxtral-small is billed per minute of audio AND per million tokens. Code
+        that assumes one unit per model truncates it, and the truncation is silent."""
+        self.run_scrape(self.page_ok)
+        entry = self.candidate("stamped.json")["models"]["voxtral-small-latest"]
+
+        self.assertEqual(entry["per_audio_minute"], 0.004)
+        self.assertEqual(entry["in_per_mtok"], 0.1)
+        self.assertEqual(entry["out_per_mtok"], 0.4)
+
+    def test_every_mapped_model_reaches_the_output(self) -> None:
+        """Adding a model to the mapping without it appearing here would be a silent
+        omission, which is the one failure mode this repository must not have."""
+        self.run_scrape(self.page_ok)
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(
+            set(self.candidate("stamped.json")["models"]), set(mapping["models"])
+        )
+
 
 # ======================================================================================
 # Outcome 2: a figure changed
@@ -220,12 +254,12 @@ class TestPriceChange(ScrapeTestCase):
 
 class TestLayoutFailures(ScrapeTestCase):
     def test_page_whose_layout_no_longer_parses(self) -> None:
-        html = mutate(self.page_ok, 'class="model-item', 'class="product-tile', expected_count=4)
+        html = mutate(self.page_ok, 'class="model-item', 'class="product-tile', expected_count=None)
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "no model card found")
 
     def test_price_markup_replaced_by_plain_text(self) -> None:
-        html = mutate(self.page_ok, " data-prices=", " data-figures=", expected_count=9)
+        html = mutate(self.page_ok, " data-prices=", " data-figures=", expected_count=None)
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "without data-prices")
 
@@ -380,6 +414,38 @@ class TestValidator(unittest.TestCase):
         for good in (0.001, 1.5, 1000.0):
             with self.subTest(value=good):
                 validate.check_price("m", "in_per_mtok", good)
+
+    def test_audio_prices_get_a_lower_floor_than_token_prices(self) -> None:
+        """A minute of audio costs thousandths of a dollar. Under the global floor of
+        0.001 an ordinary price cut would be refused as though the page had broken."""
+        validate.check_price("m", "per_audio_minute", 0.0005)
+        with self.assertRaises(validate.ValidationError):
+            validate.check_price("m", "in_per_mtok", 0.0005)
+
+        # The ceiling is not relaxed: letting a misparse through is the failure that matters.
+        with self.assertRaises(validate.ValidationError):
+            validate.check_price("m", "per_audio_minute", 1000.01)
+
+    def test_the_published_audio_prices_have_room_to_fall(self) -> None:
+        """Guards the floor against the figures actually published: if a price ever sits
+        too close to it, a real price cut starts failing the job instead of opening a
+        pull request. Caught here rather than on the Monday it happens."""
+        published = self.base()
+        for model_id, entry in published["models"].items():
+            for field, value in entry.items():
+                if field not in validate.KNOWN_PRICE_FIELDS:
+                    continue
+                low, _ = validate.PRICE_BOUNDS.get(
+                    field, (validate.MIN_PLAUSIBLE, validate.MAX_PLAUSIBLE)
+                )
+                self.assertGreaterEqual(
+                    value / low,
+                    validate.MAX_CHANGE_FACTOR,
+                    f"{model_id}.{field} = {value} sits less than a factor of "
+                    f"{validate.MAX_CHANGE_FACTOR} above its floor of {low}; a legitimate "
+                    f"price cut would be refused as out of bounds. Lower the floor for "
+                    f"this unit in validate.PRICE_BOUNDS.",
+                )
 
     def test_a_boolean_is_not_a_price(self) -> None:
         with self.assertRaises(validate.ValidationError):
