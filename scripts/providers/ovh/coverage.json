@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "Configuration for check_coverage.py, which is NOT part of the price scrape and",
+    "never changes a figure. It answers one question the scraper cannot: is the",
+    "catalog page still showing everything OVH actually sells?",
+    "",
+    "scrape.py already fails loudly when a model it MAPS disappears from the page.",
+    "It is blind in the other direction -- a model OVH sells that the page never",
+    "mentions is, to the scraper, simply not there, and stays invisible forever. That",
+    "is not hypothetical: between 2026-08-03 and 2026-08-04 the catalog page dropped",
+    "five models it was still serving, and the only reason anyone noticed was a human",
+    "comparing a cached browser tab against a fresh one.",
+    "",
+    "The comparison is against OVH's own OpenAI-compatible model list, which is public",
+    "and needs no key -- the same 'no credentials, ever' rule as every fetch here.",
+    "It is used ONLY to compare the sets of model ids. Its prices are deliberately",
+    "never read: they are quoted in USD while providers.ovh publishes EUR, and they",
+    "are different numbers rather than the same price in another format.",
+    "",
+    "'ignore' lists ids that are expected to appear on one side and not the other,",
+    "with the reason, because a check that reports the same non-problem every week is",
+    "a check everyone learns to skip. Each entry is a claim a human made and can",
+    "re-check; keep them few and keep the reasons concrete."
+  ],
+
+  "models_api": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models",
+
+  "ignore": {
+    "ppl": "Not a published model. Appears in the API list with no price, no context length and no catalog entry; verified 2026-08-04.",
+    "stabilityai/stable-diffusion-xl-base-1.0": "The upstream Hugging Face name for the same weights the catalog lists as stable-diffusion-xl-base-v10, which IS published. Two API ids, one model.",
+    "nvr-tts-en-us": "Text-to-speech is served from its own per-model endpoint, not the OpenAI-compatible one, so it is on the catalog page but never in this API list.",
+    "nvr-tts-de-de": "Same as nvr-tts-en-us: text-to-speech is not served over the OpenAI-compatible API.",
+    "nvr-tts-es-es": "Same as nvr-tts-en-us: text-to-speech is not served over the OpenAI-compatible API.",
+    "nvr-tts-it-it": "Same as nvr-tts-en-us: text-to-speech is not served over the OpenAI-compatible API."
+  }
+}

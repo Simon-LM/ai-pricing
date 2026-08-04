@@ -6,7 +6,16 @@ or that jumps by an implausible factor, almost never means "the price moved" -- 
 means the page changed shape and the parser latched onto the wrong number. In both
 cases the correct answer is to refuse, report, and keep the old file.
 
-Standard library only. Imported by scrape.py and exercised directly by the tests.
+pricing.json holds one block per provider, under `providers.<name>`, because the
+same model name can mean two different prices at two different providers (a Mistral
+model resold on OVH is not the same bill as calling Mistral directly). The units,
+bounds and per-model checks in this file are provider-agnostic and shared by every
+provider's own scraper; `validate_document` walks every provider block with the
+same rules, so a corruption in one provider's block is caught even by a run that
+only touched another provider's.
+
+Standard library only. Imported by each provider's scrape.py and exercised
+directly by the tests.
 
 Named `pricing_validate`, not `validate`: a package literally called `validate`
 ships in Debian/Ubuntu's system Python (`/usr/lib/python3/dist-packages/validate`,
@@ -40,11 +49,32 @@ MAX_CHANGE_FACTOR = 5.0
 # The units a price field may carry. The unit is part of the key name so that a
 # consumer cannot silently apply a per-token price to a per-page model, which also
 # means an unknown key here is a contract violation, not a new feature.
+#
+# `in_per_mtok`/`out_per_mtok` are specifically the two sides of a token price. A
+# product billed at one flat per-million-token rate with no input/output split gets
+# `per_mtok` instead, and one billed per million tokens for a named operation gets
+# its own key (`index_per_mtok`, `train_per_mtok`) -- rather than being folded into
+# `in_per_mtok`, which would quietly make "input tokens" mean four different things
+# depending on the entry.
 KNOWN_PRICE_FIELDS = (
+    # token prices
     "in_per_mtok",
     "out_per_mtok",
+    "per_mtok",
+    "index_per_mtok",
+    "train_per_mtok",
+    # document prices
     "per_1k_pages",
+    "per_1k_chars",
+    # audio prices
     "per_audio_minute",
+    "per_audio_second",
+    # per-operation prices
+    "per_call",
+    "per_1k_calls",
+    "per_1k_images",
+    # subscription prices
+    "per_model_month",
 )
 
 # "Plausible" is a statement about a unit, not about a number. One minute of audio
@@ -57,9 +87,18 @@ KNOWN_PRICE_FIELDS = (
 # raising it would let a real misparse through, which is the failure that matters.
 PRICE_BOUNDS = {
     "per_audio_minute": (0.0001, MAX_PLAUSIBLE),
+    # A second is roughly 1/60th of a minute, so its floor is lower again: OVH's
+    # whisper-large-v3-turbo prices at ~0.0000128 per second, which the
+    # per_audio_minute floor above would already reject outright.
+    "per_audio_second": (0.000001, MAX_PLAUSIBLE),
 }
 
-SCHEMA_VERSION = 1
+# What an entry under `models` actually is. "model" is the default and is left
+# unwritten in the file; "product" is a billable thing that is not a model and has no
+# API model id (Mistral's web search, code execution, image generation and the like).
+KNOWN_KINDS = ("model", "product")
+
+SCHEMA_VERSION = 2
 
 _ISO_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _ISO_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -110,6 +149,11 @@ def validate_document(doc: Any) -> None:
     `json.loads()` on a file this repository does not fully trust even when it wrote
     it -- a corrupted commit, a bad hand-edit -- so the isinstance check below is
     load-bearing, not decoration.
+
+    Every provider block is checked, not just the one a caller happens to be
+    updating: a scrape that only touches `providers.mistral` still writes out the
+    full document, and a corruption sitting untouched in `providers.ovh` must fail
+    the same way a fresh one would, rather than ride along because nobody looked.
     """
     if not isinstance(doc, dict):
         raise ValidationError(f"document must be an object, got {type(doc).__name__}")
@@ -120,47 +164,106 @@ def validate_document(doc: Any) -> None:
             f"schema_version must be {SCHEMA_VERSION}, got {doc.get('schema_version')!r}"
         )
 
+    providers = doc.get("providers")
+    if not isinstance(providers, dict) or not providers:
+        raise ValidationError("providers must be a non-empty object")
+    providers = cast("dict[str, Any]", providers)
+
+    for provider_id, block in providers.items():
+        if not isinstance(block, dict):
+            raise ValidationError(f"providers.{provider_id}: entry must be an object")
+        _validate_provider_block(provider_id, cast(JSONDict, block))
+
+
+def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
+    """Check one `providers.<id>` block: its own metadata, then its own models.
+
+    A provider's `checked_utc`/`updated`/`source`/`currency` are its own, not the
+    file's: providers scrape on different schedules, from different pages, and
+    sometimes in different currencies, so there is deliberately no file-wide
+    equivalent of these four fields to fall back to.
+    """
     for field in ("checked_utc", "updated", "source", "currency"):
-        if not isinstance(doc.get(field), str) or not doc[field]:
-            raise ValidationError(f"missing or empty required field: {field}")
+        if not isinstance(block.get(field), str) or not block[field]:
+            raise ValidationError(f"providers.{provider_id}: missing or empty required field: {field}")
 
-    if not _ISO_UTC.match(doc["checked_utc"]):
+    if not _ISO_UTC.match(block["checked_utc"]):
         raise ValidationError(
-            f"checked_utc must be YYYY-MM-DDTHH:MM:SSZ, got {doc['checked_utc']!r}"
+            f"providers.{provider_id}: checked_utc must be YYYY-MM-DDTHH:MM:SSZ, "
+            f"got {block['checked_utc']!r}"
         )
-    if not _ISO_DAY.match(doc["updated"]):
-        raise ValidationError(f"updated must be YYYY-MM-DD, got {doc['updated']!r}")
+    if not _ISO_DAY.match(block["updated"]):
+        raise ValidationError(
+            f"providers.{provider_id}: updated must be YYYY-MM-DD, got {block['updated']!r}"
+        )
 
-    models = doc.get("models")
+    models = block.get("models")
     if not isinstance(models, dict) or not models:
-        raise ValidationError("models must be a non-empty object")
+        raise ValidationError(f"providers.{provider_id}: models must be a non-empty object")
     models = cast("dict[str, Any]", models)
 
     for model_id, entry in models.items():
+        full_id = f"{provider_id}/{model_id}"
         if not isinstance(entry, dict):
-            raise ValidationError(f"{model_id}: entry must be an object")
+            raise ValidationError(f"{full_id}: entry must be an object")
         entry = cast(JSONDict, entry)
 
         prices = [k for k in entry if k in KNOWN_PRICE_FIELDS]
-        if not prices:
+        free = entry.get("free")
+
+        # A model that a provider deliberately gives away is published as
+        # `"free": true` with no price field at all, never as a price of 0. The two
+        # are not the same statement: 0 is also exactly what a broken parser reads
+        # off a page whose layout moved, and check_price's floor exists to catch
+        # precisely that. Keeping "free" out of the number space means the floor
+        # never has to be relaxed to accommodate it.
+        if "free" in entry and free is not True:
             raise ValidationError(
-                f"{model_id}: no price field. Expected one of {list(KNOWN_PRICE_FIELDS)}"
+                f"{full_id}: 'free' may only be the literal true. A model that is not "
+                f"free omits the field; false, 0 and null are all ways of writing "
+                f"something this field cannot mean."
+            )
+        if free is True and prices:
+            raise ValidationError(
+                f"{full_id}: marked free but also carries price field(s) {prices}. "
+                f"One of the two is wrong and nothing here can tell which."
+            )
+        if free is not True and not prices:
+            raise ValidationError(
+                f'{full_id}: no price field and not marked free. Expected one of '
+                f'{list(KNOWN_PRICE_FIELDS)}, or "free": true.'
             )
 
-        unknown = [k for k in entry if k not in KNOWN_PRICE_FIELDS and k != "display_name"]
+        # Mistral's pricing page bills models and non-model products side by side --
+        # web search, code execution and image generation are priced per call, not per
+        # token, and have no API model id at all. They are published here because a
+        # consumer estimating a bill needs them, but a consumer iterating "models"
+        # must be able to tell them apart from something it can actually call as a
+        # model. Absent means "model": the common case stays unannotated.
+        kind = entry.get("kind")
+        if kind is not None and kind not in KNOWN_KINDS:
+            raise ValidationError(
+                f"{full_id}: kind must be one of {list(KNOWN_KINDS)}, got {kind!r}"
+            )
+
+        unknown = [
+            k
+            for k in entry
+            if k not in KNOWN_PRICE_FIELDS and k not in ("display_name", "free", "kind")
+        ]
         if unknown:
-            raise ValidationError(f"{model_id}: unknown field(s) {unknown}")
+            raise ValidationError(f"{full_id}: unknown field(s) {unknown}")
 
         if "price" in entry:
             raise ValidationError(
-                f"{model_id}: generic 'price' field is forbidden -- the unit must be in the key name"
+                f"{full_id}: generic 'price' field is forbidden -- the unit must be in the key name"
             )
 
         if not isinstance(entry.get("display_name"), str) or not entry["display_name"]:
-            raise ValidationError(f"{model_id}: missing or empty display_name")
+            raise ValidationError(f"{full_id}: missing or empty display_name")
 
         for field in prices:
-            check_price(model_id, field, entry[field])
+            check_price(full_id, field, entry[field])
 
 
 def diff_models(old_models: dict[str, JSONDict], new_models: dict[str, JSONDict]) -> list[str]:
@@ -195,4 +298,6 @@ def _render(entry: JSONDict | None) -> str:
     # type checker does not have to take that on faith.
     if entry is None:
         return "(missing)"
+    if entry.get("free") is True:
+        return "free"
     return ", ".join(f"{k}={v}" for k, v in sorted(entry.items()) if k in KNOWN_PRICE_FIELDS)
