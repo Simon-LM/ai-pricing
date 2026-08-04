@@ -110,6 +110,53 @@ catalog prices the model in any other unit or at anything other than `0`. The da
 OVH starts charging for one of these, a human decides what to publish -- the job
 does not keep announcing "free" for something that now bills.
 
+## The coverage check
+
+`check_coverage.py` closes a blind spot the scraper cannot close on its own.
+`scrape.py` fails loudly when a model it **maps** disappears from the page; it
+is silent about a model OVH sells that the page never mentions, because an
+absent row is indistinguishable from a model that does not exist. That is
+exactly how the five withdrawn models above went unnoticed until a human
+compared a stale browser tab against a fresh one.
+
+So once a week, right after the price check, the catalog page is compared
+against OVH's own public model list. Three things get reported:
+
+- **sold but not on the catalog page** — OVH serves it, the page does not price
+  it, so nothing here can publish it;
+- **on the catalog page but not published** — OVH added a model and
+  `mapping.json` has not caught up;
+- **on the catalog page but not in the API list** — either the page advertises
+  something not yet servable, or a published key is not the callable model id.
+
+It reads **no price** and can never change a figure. Prices there are quoted in
+USD while this block publishes EUR, and they are different numbers rather than
+the same price in another format; only the sets of model ids are compared.
+
+**A gap never fails the job.** Refusing to publish correct prices for nineteen
+models because a twentieth is missing from a page would also suppress the
+`checked_utc` stamp — and that stamp is what keeps the schedule from being
+switched off. A gap is a `::warning::` and a job-summary entry, nothing more.
+
+The three exit codes are deliberate: `0` no gap, `2` a gap was found, `1` the
+check could not run. "I could not look" must never be reported as "I looked and
+found nothing", which is why a timeout is not folded into the same code as a
+clean result.
+
+`coverage.json` holds the exceptions, each with a reason: `ppl` (in the API,
+never a published model), `stabilityai/stable-diffusion-xl-base-1.0` (the
+upstream name for weights the catalog lists as `stable-diffusion-xl-base-v10`),
+and the four nvr-tts voices (served from their own endpoint, so never in the
+OpenAI-compatible list). Without those, this check would report the same
+non-problem every Monday and be worth nothing by March.
+
+```sh
+python3 scripts/providers/ovh/check_coverage.py     # reads both sources live
+python3 scripts/providers/ovh/check_coverage.py \
+  --html tests/fixtures/ovh/catalog_ok.html \
+  --models-json tests/fixtures/ovh/models_api_ok.json
+```
+
 ## Running it yourself
 
 ```sh
