@@ -57,10 +57,18 @@ MAPPING_JSON = REPO_ROOT / "scripts" / "providers" / "ovh" / "mapping.json"
 
 FIXED_NOW = "2026-08-10T04:00:00Z"
 
-# Models present in the real catalog but deliberately unmapped -- see mapping.json's
-# own comment for why. Used here to prove "unmapped" actually means "never published",
-# not "silently included because the extractor doesn't filter."
-FREE_UNMAPPED_MODELS = ("nvr-tts-it-it", "nvr-tts-en-us", "nvr-tts-de-de", "nvr-tts-es-es")
+# Catalog entries OVH currently gives away. They are published, but as `"free": true`
+# with no price field -- never as a price of 0, which is also exactly what a broken
+# parser reads. Listed here so the tests can prove both halves of that.
+FREE_MODELS = (
+    "nvr-tts-it-it",
+    "nvr-tts-en-us",
+    "nvr-tts-de-de",
+    "nvr-tts-es-es",
+    "Qwen3Guard-Gen-8B",
+    "Qwen3Guard-Gen-0.6B",
+    "stable-diffusion-xl-base-v10",
+)
 
 
 def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> str:
@@ -178,14 +186,46 @@ class TestUnchanged(ScrapeTestCase):
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
         self.assertEqual(set(self.candidate_block("stamped.json")["models"]), set(mapping["models"]))
 
-    def test_free_tts_models_are_not_published(self) -> None:
-        """nvr-tts-* are real catalog entries, currently priced 0 and labelled
-        "Gratuit" on the page, deliberately left out of mapping.json. Unmapped must
-        mean never published, not silently included because nothing filters them."""
+    def test_free_models_are_published_as_free_and_never_as_zero(self) -> None:
+        """The catalog states 0 for these and the page renders the word "Gratuit".
+        Both facts are real, and `"free": true` is the only one of the two this file
+        can publish honestly: a literal 0 is indistinguishable from the number a
+        parser reads off a page whose layout moved."""
         self.run_scrape(self.catalog_ok)
         published = self.candidate_block("stamped.json")["models"]
-        for model_id in FREE_UNMAPPED_MODELS:
-            self.assertNotIn(model_id, published)
+        for model_id in FREE_MODELS:
+            with self.subTest(model=model_id):
+                entry = published[model_id]
+                self.assertIs(entry["free"], True)
+                prices = [k for k in entry if k in validate.KNOWN_PRICE_FIELDS]
+                self.assertEqual(prices, [], "a free model must carry no price field at all")
+                self.assertNotIn(0, entry.values())
+
+    def test_a_renamed_api_model_id_is_refused(self) -> None:
+        """The pricing.json key IS the callable API model id, and the catalog states it
+        in `name`. If OVH renames it, every consumer's calls start failing -- so the
+        run must stop and get a human, not republish an id that resolves against
+        nothing while the price it carries still looks perfectly plausible."""
+        html = mutate(
+            self.catalog_ok,
+            'name\\":\\"Qwen3.6-27B\\"',
+            'name\\":\\"Qwen3.6-27B-v2\\"',
+        )
+        code, _, stderr = self.run_scrape(html)
+        self.assert_failed(code, stderr, "Qwen3.6-27B", "is now named")
+
+    def test_a_free_model_that_starts_costing_money_is_refused(self) -> None:
+        """The free marker is a claim about the catalog, and the catalog is re-read
+        every week. The day OVH prices one of these, the run must stop rather than
+        keep publishing "free" for something that now bills."""
+        html = mutate(
+            self.catalog_ok,
+            '\\"price\\":0,\\"price_unit\\":\\"million_input_chars\\"',
+            '\\"price\\":0.5,\\"price_unit\\":\\"million_input_chars\\"',
+            expected_count=None,
+        )
+        code, _, stderr = self.run_scrape(html)
+        self.assert_failed(code, stderr, "mapped as free", "0.5")
 
     def test_other_providers_blocks_are_never_touched(self) -> None:
         """The entire reason pricing.json nests under providers.<name>: a run that
@@ -456,8 +496,14 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
         self.assertEqual(published["source"], mapping["source"])
         self.assertEqual(published["currency"], mapping["currency"])
         for model_id, entry in published["models"].items():
-            self.assertEqual(entry["display_name"], mapping["models"][model_id]["display_name"])
-            expected_fields = set(mapping["models"][model_id]["fields"])
+            spec = mapping["models"][model_id]
+            self.assertEqual(entry["display_name"], spec["display_name"])
+            if spec.get("free"):
+                self.assertIs(entry.get("free"), True, model_id)
+                expected_fields: set[str] = set()
+            else:
+                self.assertNotIn("free", entry, model_id)
+                expected_fields = set(spec["fields"])
             actual_fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
             self.assertEqual(actual_fields, expected_fields, model_id)
 
@@ -493,11 +539,31 @@ class TestMapping(unittest.TestCase):
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
         for model_id, spec in mapping["models"].items():
             self.assertTrue(spec["catalog_id"], model_id)
+            self.assertTrue(spec["catalog_name"], model_id)
             self.assertTrue(spec["display_name"], model_id)
+
+            # A free entry states the units it expects to find at 0 instead of
+            # mapping them to price fields. It is one shape or the other, never both
+            # and never neither -- an entry with no fields and no free marker would
+            # publish a model with nothing in it.
+            if spec.get("free"):
+                self.assertNotIn("fields", spec, model_id)
+                self.assertTrue(spec["expect_zero_units"], model_id)
+                continue
+
             self.assertTrue(spec["fields"], model_id)
             for field, field_spec in spec["fields"].items():
                 self.assertIn(field, validate.KNOWN_PRICE_FIELDS, f"{model_id}.{field}")
                 self.assertTrue(field_spec.get("price_unit"), f"{model_id}.{field}")
+
+    def test_every_key_is_the_api_model_id_the_catalog_states(self) -> None:
+        """The pricing.json key is what a consumer passes to OVH's API, and the
+        catalog puts it in `name`. Its `id` is a CMS slug and is NOT callable:
+        'qwen-3-6-27b' against the real 'Qwen3.6-27B'. Keying off the wrong one
+        would publish model ids that resolve against nothing."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        for model_id, spec in mapping["models"].items():
+            self.assertEqual(model_id, spec["catalog_name"], model_id)
 
     def test_catalog_ids_are_distinct(self) -> None:
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
@@ -507,7 +573,10 @@ class TestMapping(unittest.TestCase):
     def test_no_model_is_mapped_to_more_than_one_field_with_the_same_price_unit(self) -> None:
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
         for model_id, spec in mapping["models"].items():
-            units = [f["price_unit"] for f in spec["fields"].values()]
+            if spec.get("free"):
+                units = spec["expect_zero_units"]
+            else:
+                units = [f["price_unit"] for f in spec["fields"].values()]
             self.assertEqual(len(units), len(set(units)), model_id)
 
 

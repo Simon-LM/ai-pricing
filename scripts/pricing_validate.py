@@ -49,12 +49,32 @@ MAX_CHANGE_FACTOR = 5.0
 # The units a price field may carry. The unit is part of the key name so that a
 # consumer cannot silently apply a per-token price to a per-page model, which also
 # means an unknown key here is a contract violation, not a new feature.
+#
+# `in_per_mtok`/`out_per_mtok` are specifically the two sides of a token price. A
+# product billed at one flat per-million-token rate with no input/output split gets
+# `per_mtok` instead, and one billed per million tokens for a named operation gets
+# its own key (`index_per_mtok`, `train_per_mtok`) -- rather than being folded into
+# `in_per_mtok`, which would quietly make "input tokens" mean four different things
+# depending on the entry.
 KNOWN_PRICE_FIELDS = (
+    # token prices
     "in_per_mtok",
     "out_per_mtok",
+    "per_mtok",
+    "index_per_mtok",
+    "train_per_mtok",
+    # document prices
     "per_1k_pages",
+    "per_1k_chars",
+    # audio prices
     "per_audio_minute",
     "per_audio_second",
+    # per-operation prices
+    "per_call",
+    "per_1k_calls",
+    "per_1k_images",
+    # subscription prices
+    "per_model_month",
 )
 
 # "Plausible" is a statement about a unit, not about a number. One minute of audio
@@ -72,6 +92,11 @@ PRICE_BOUNDS = {
     # per_audio_minute floor above would already reject outright.
     "per_audio_second": (0.000001, MAX_PLAUSIBLE),
 }
+
+# What an entry under `models` actually is. "model" is the default and is left
+# unwritten in the file; "product" is a billable thing that is not a model and has no
+# API model id (Mistral's web search, code execution, image generation and the like).
+KNOWN_KINDS = ("model", "product")
 
 SCHEMA_VERSION = 2
 
@@ -184,12 +209,48 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
         entry = cast(JSONDict, entry)
 
         prices = [k for k in entry if k in KNOWN_PRICE_FIELDS]
-        if not prices:
+        free = entry.get("free")
+
+        # A model that a provider deliberately gives away is published as
+        # `"free": true` with no price field at all, never as a price of 0. The two
+        # are not the same statement: 0 is also exactly what a broken parser reads
+        # off a page whose layout moved, and check_price's floor exists to catch
+        # precisely that. Keeping "free" out of the number space means the floor
+        # never has to be relaxed to accommodate it.
+        if "free" in entry and free is not True:
             raise ValidationError(
-                f"{full_id}: no price field. Expected one of {list(KNOWN_PRICE_FIELDS)}"
+                f"{full_id}: 'free' may only be the literal true. A model that is not "
+                f"free omits the field; false, 0 and null are all ways of writing "
+                f"something this field cannot mean."
+            )
+        if free is True and prices:
+            raise ValidationError(
+                f"{full_id}: marked free but also carries price field(s) {prices}. "
+                f"One of the two is wrong and nothing here can tell which."
+            )
+        if free is not True and not prices:
+            raise ValidationError(
+                f'{full_id}: no price field and not marked free. Expected one of '
+                f'{list(KNOWN_PRICE_FIELDS)}, or "free": true.'
             )
 
-        unknown = [k for k in entry if k not in KNOWN_PRICE_FIELDS and k != "display_name"]
+        # Mistral's pricing page bills models and non-model products side by side --
+        # web search, code execution and image generation are priced per call, not per
+        # token, and have no API model id at all. They are published here because a
+        # consumer estimating a bill needs them, but a consumer iterating "models"
+        # must be able to tell them apart from something it can actually call as a
+        # model. Absent means "model": the common case stays unannotated.
+        kind = entry.get("kind")
+        if kind is not None and kind not in KNOWN_KINDS:
+            raise ValidationError(
+                f"{full_id}: kind must be one of {list(KNOWN_KINDS)}, got {kind!r}"
+            )
+
+        unknown = [
+            k
+            for k in entry
+            if k not in KNOWN_PRICE_FIELDS and k not in ("display_name", "free", "kind")
+        ]
         if unknown:
             raise ValidationError(f"{full_id}: unknown field(s) {unknown}")
 
@@ -237,4 +298,6 @@ def _render(entry: JSONDict | None) -> str:
     # type checker does not have to take that on faith.
     if entry is None:
         return "(missing)"
+    if entry.get("free") is True:
+        return "free"
     return ", ".join(f"{k}={v}" for k, v in sorted(entry.items()) if k in KNOWN_PRICE_FIELDS)

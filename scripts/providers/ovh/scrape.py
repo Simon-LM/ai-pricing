@@ -211,6 +211,19 @@ def extract_models(catalog_models: list[JSONDict], mapping: JSONDict) -> dict[st
                 f"{mapping['source']} -- do not let this be guessed."
             )
 
+        # The key this is published under is the API model id, and the catalog states
+        # it in `name` -- NOT in `id`, which is a CMS slug ("qwen-3-6-27b" against the
+        # callable "Qwen3.6-27B"). Both are checked byte-for-byte, so a rename of
+        # either one stops the run instead of quietly republishing a model id that no
+        # longer resolves against OVH's API.
+        if entry.get("name") != spec["catalog_name"]:
+            raise ScrapeError(
+                f"{model_id}: catalog entry {catalog_id!r} is now named "
+                f"{entry.get('name')!r}, not {spec['catalog_name']!r}. The API model id "
+                f"this is published under may have changed with it; check "
+                f"{mapping['source']} and update the mapping by hand."
+            )
+
         raw_pricing = entry.get("metadata", {}).get("usage_information", {}).get("pricing")
         if not isinstance(raw_pricing, list):
             raise ScrapeError(
@@ -227,6 +240,33 @@ def extract_models(catalog_models: list[JSONDict], mapping: JSONDict) -> dict[st
         pricing = cast("list[JSONDict]", raw_pricing)
 
         result_entry: JSONDict = {}
+
+        # A model the mapping calls free is never taken on trust: the catalog must
+        # still say 0, for exactly the units the mapping expects and no others. The
+        # day OVH starts charging for one of these, or adds a second billable unit
+        # alongside the free one, that has to reach a human -- publishing "free" for
+        # a model that now costs money is a worse failure than publishing nothing.
+        if spec.get("free"):
+            expected_units = sorted(spec["expect_zero_units"])
+            found_units = sorted(str(p.get("price_unit")) for p in pricing)
+            if found_units != expected_units:
+                raise ScrapeError(
+                    f"{model_id}: {catalog_id!r} is mapped as free with units "
+                    f"{expected_units}, but the catalog now prices it in {found_units}. "
+                    f"Re-check the catalog by hand before publishing anything for it."
+                )
+            for p in pricing:
+                price = p.get("price")
+                if isinstance(price, bool) or not isinstance(price, (int, float)) or price != 0:
+                    raise ScrapeError(
+                        f"{model_id}: {catalog_id!r} is mapped as free, but the catalog "
+                        f"now charges {price!r} per {p.get('price_unit')!r}. Remove the "
+                        f"free marker and map the real price by hand."
+                    )
+            result_entry["free"] = True
+            result_entry["display_name"] = spec["display_name"]
+            models[model_id] = result_entry
+            continue
 
         for field, field_spec in spec["fields"].items():
             price_unit = field_spec["price_unit"]

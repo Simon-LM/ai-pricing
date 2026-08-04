@@ -11,7 +11,26 @@
     "something else at a different price, with no change anywhere in this file. That is",
     "precisely why the resolution is written down here by a human and revisited by a human.",
     "",
-    "Last verified against the page by a human: 2026-08-03."
+    "Every id below was read off that model's own card at",
+    "https://docs.mistral.ai/models/model-cards/<slug>, which lists the versioned id and",
+    "its aliases together. They are NOT derived from the pricing page's card name, and",
+    "several would be wrong if they were: the card 'voxtral tts' is voxtral-mini-tts-latest,",
+    "and 'ministral 3 - 3b' is ministral-3b-latest, not ministral-3-3b-latest. When adding",
+    "a model, look its id up there rather than pattern-matching an existing key.",
+    "",
+    "Last verified against the page by a human: 2026-08-04."
+  ],
+
+  "_comment_products": [
+    "Nine entries below carry \"kind\": \"product\". The pricing page bills them beside the",
+    "models, but they are not models: they have no API model id, cannot be passed as a",
+    "model parameter, and are priced per call, per image or per month. Their keys are",
+    "descriptive slugs chosen here, NOT identifiers Mistral publishes, and they are the",
+    "only keys in this file that a consumer must not treat as callable model names.",
+    "",
+    "'document-ai' is the second priced row of the same 'ocr 4' card that",
+    "mistral-ocr-latest reads its own row from. Two entries may share a page_name; rows",
+    "are matched by label within the card, so they do not collide."
   ],
 
   "_comment_voxtral": [
@@ -28,10 +47,17 @@
     "Decoy on the page: 'voxtral mini transcribe realtime' carries a row labelled",
     "'Audio Input/min' too, at twice the price of 'voxtral mini transcribe 2'. Rows",
     "are read per card, never by searching the page for a label, which is what keeps",
-    "the two apart.",
+    "the two apart. Both are published, as separate models.",
     "",
     "Nothing outside 'models' below is read by the scraper: this key is a comment,",
     "because JSON has none."
+  ],
+
+  "_comment_absent": [
+    "Three cards on the page carry no price at all and so have nothing to publish:",
+    "'leanstral', 'mistral moderation' and 'agent api'. They are deliberately absent",
+    "rather than published at 0 -- the page states no price for them, which is not the",
+    "same statement as a price of zero. Revisit when the page prices them."
   ],
 
   "source": "https://mistral.ai/pricing/api",
@@ -54,6 +80,122 @@
         "out_per_mtok": { "label": "Output (/M tokens)" }
       }
     },
+    "mistral-large-latest": {
+      "display_name": "Mistral Large 3",
+      "page_name": "mistral large 3",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+
+    "devstral-medium-latest": {
+      "display_name": "Devstral 2",
+      "page_name": "devstral 2",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "devstral-small-latest": {
+      "display_name": "Devstral Small 2",
+      "page_name": "devstral small 2",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "codestral-latest": {
+      "display_name": "Codestral",
+      "page_name": "codestral",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+
+    "magistral-medium-latest": {
+      "display_name": "Magistral Medium",
+      "page_name": "magistral medium",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "magistral-small-latest": {
+      "display_name": "Magistral Small",
+      "page_name": "magistral small",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+
+    "ministral-3b-latest": {
+      "display_name": "Ministral 3 3B",
+      "page_name": "ministral 3 - 3b",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "ministral-8b-latest": {
+      "display_name": "Ministral 3 8B",
+      "page_name": "ministral 3 - 8b",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "ministral-14b-latest": {
+      "display_name": "Ministral 3 14B",
+      "page_name": "ministral 3 - 14b",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+
+    "open-mistral-nemo": {
+      "display_name": "Mistral NeMo",
+      "page_name": "mistral nemo",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "open-mixtral-8x7b": {
+      "display_name": "Mixtral 8x7B",
+      "page_name": "mixtral 8x7b",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "open-mixtral-8x22b": {
+      "display_name": "Mixtral 8x22B",
+      "page_name": "mixtral 8x22b",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+
+    "mistral-embed": {
+      "display_name": "Mistral Embed",
+      "page_name": "mistral embed",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" }
+      }
+    },
+    "codestral-embed": {
+      "display_name": "Codestral Embed",
+      "page_name": "codestral embed",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" }
+      }
+    },
+
     "mistral-ocr-latest": {
       "display_name": "OCR 4",
       "page_name": "ocr 4",
@@ -69,6 +211,13 @@
         "per_audio_minute": { "label": "Audio Input/min" }
       }
     },
+    "voxtral-mini-transcribe-realtime-latest": {
+      "display_name": "Voxtral Mini Transcribe Realtime",
+      "page_name": "voxtral mini transcribe realtime",
+      "fields": {
+        "per_audio_minute": { "label": "Audio Input/min" }
+      }
+    },
     "voxtral-small-latest": {
       "display_name": "Voxtral Small",
       "page_name": "voxtral small",
@@ -76,6 +225,102 @@
         "per_audio_minute": { "label": "Audio Input (per min / per M tok)" },
         "in_per_mtok": { "label": "Text Input (per min / per M tok)" },
         "out_per_mtok": { "label": "Output (/M tokens)" }
+      }
+    },
+    "voxtral-mini-tts-latest": {
+      "display_name": "Voxtral TTS",
+      "page_name": "voxtral tts",
+      "fields": {
+        "per_1k_chars": { "label": "Audio generation", "expect_suffix": "per 1k characters" }
+      }
+    },
+
+    "document-ai": {
+      "display_name": "Document AI",
+      "kind": "product",
+      "page_name": "ocr 4",
+      "fields": {
+        "per_1k_pages": { "label": "Document AI", "expect_suffix": "/ 1000 pages" }
+      }
+    },
+    "classifier-3b": {
+      "display_name": "Classifier API Model 3B",
+      "kind": "product",
+      "page_name": "classifier api model 3b",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" },
+        "train_per_mtok": {
+          "label": "Training cost (/M tokens) One-off training: Price per token on the data you want to fine-tune our standard models on; minimum fee per fine-tuning job of $4."
+        },
+        "per_model_month": {
+          "label": "Storage cost (per month per model) Price per month per model for storage (irrespective of model usage; models can be deleted any time)."
+        }
+      }
+    },
+    "classifier-8b": {
+      "display_name": "Classifier API Model 8B",
+      "kind": "product",
+      "page_name": "classifier api model 8b",
+      "fields": {
+        "in_per_mtok": { "label": "Input (/M tokens)" },
+        "out_per_mtok": { "label": "Output (/M tokens)" },
+        "train_per_mtok": {
+          "label": "Training cost (/M tokens) One-off training: Price per token on the data you want to fine-tune our standard models on; minimum fee per fine-tuning job of $4."
+        },
+        "per_model_month": {
+          "label": "Storage cost (per month per model) Price per month per model for storage (irrespective of model usage; models can be deleted any time)."
+        }
+      }
+    },
+    "libraries": {
+      "display_name": "Libraries",
+      "kind": "product",
+      "page_name": "libraries",
+      "fields": {
+        "per_1k_pages": { "label": "OCR (per 1K pages)" },
+        "index_per_mtok": { "label": "Indexing (per M tokens)" },
+        "per_call": { "label": "Call (per call)" }
+      }
+    },
+    "code-execution": {
+      "display_name": "Code Execution",
+      "kind": "product",
+      "page_name": "code execution",
+      "fields": {
+        "per_1k_calls": { "label": "Price (per 1K calls)" }
+      }
+    },
+    "web-search": {
+      "display_name": "Web Search",
+      "kind": "product",
+      "page_name": "web search",
+      "fields": {
+        "per_1k_calls": { "label": "Price (per 1K calls)" }
+      }
+    },
+    "premium-news": {
+      "display_name": "Premium News",
+      "kind": "product",
+      "page_name": "premium news",
+      "fields": {
+        "per_1k_calls": { "label": "Price (per 1K calls)" }
+      }
+    },
+    "images": {
+      "display_name": "Images",
+      "kind": "product",
+      "page_name": "images",
+      "fields": {
+        "per_1k_images": { "label": "Price (per 1K images)" }
+      }
+    },
+    "data-capture": {
+      "display_name": "Data Capture",
+      "kind": "product",
+      "page_name": "data capture",
+      "fields": {
+        "per_mtok": { "label": "Price (per M tokens)" }
       }
     }
   }

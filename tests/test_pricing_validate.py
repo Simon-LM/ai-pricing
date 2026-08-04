@@ -137,6 +137,87 @@ class TestDocumentShape(unittest.TestCase):
                 validate.validate_document(minimal_document(acme=block))
 
 
+class TestFreeModels(unittest.TestCase):
+    """A provider that gives a model away says so with `"free": true` and no price.
+
+    The alternative -- publishing 0 -- cannot be told apart from what a parser reads
+    off a page whose layout moved, which is the single failure `check_price`'s floor
+    exists to catch. Keeping "free" out of the number space is what lets that floor
+    stay strict.
+    """
+
+    def test_a_free_model_needs_no_price_field(self) -> None:
+        doc = minimal_document(
+            acme=minimal_provider_block(models={"gratis": {"free": True, "display_name": "Gratis"}})
+        )
+        validate.validate_document(doc)  # must not raise
+
+    def test_free_and_a_price_together_is_refused(self) -> None:
+        doc = minimal_document(
+            acme=minimal_provider_block(
+                models={"gratis": {"free": True, "in_per_mtok": 1.0, "display_name": "Gratis"}}
+            )
+        )
+        with self.assertRaises(validate.ValidationError) as ctx:
+            validate.validate_document(doc)
+        self.assertIn("marked free", str(ctx.exception))
+
+    def test_free_may_only_be_literal_true(self) -> None:
+        """`"free": false` reads as "this model is not free", which is a statement the
+        field cannot make -- a model that is not free carries a price instead."""
+        for bad in (False, 0, None, "yes", 1):
+            doc = minimal_document(
+                acme=minimal_provider_block(
+                    models={"gratis": {"free": bad, "in_per_mtok": 1.0, "display_name": "Gratis"}}
+                )
+            )
+            with self.subTest(value=bad), self.assertRaises(validate.ValidationError):
+                validate.validate_document(doc)
+
+    def test_a_price_of_zero_is_still_refused(self) -> None:
+        """The whole point of the marker: 0 remains an invalid price, free or not."""
+        doc = minimal_document(
+            acme=minimal_provider_block(models={"gratis": {"in_per_mtok": 0, "display_name": "Gratis"}})
+        )
+        with self.assertRaises(validate.ValidationError):
+            validate.validate_document(doc)
+
+    def test_a_free_model_renders_as_free_in_a_diff(self) -> None:
+        old = {"m": {"in_per_mtok": 1.0, "display_name": "M"}}
+        new = {"m": {"free": True, "display_name": "M"}}
+        lines = validate.diff_models(old, new)
+        self.assertTrue(lines, "a model becoming free is a change a reviewer must see")
+
+
+class TestEntryKind(unittest.TestCase):
+    """Mistral's page bills web search and image generation beside its models. They
+    are published because a consumer estimating a bill needs them, and marked so that
+    a consumer iterating `models` does not treat them as callable model ids."""
+
+    def test_a_product_is_accepted(self) -> None:
+        doc = minimal_document(
+            acme=minimal_provider_block(
+                models={"web-search": {"per_1k_calls": 30.0, "display_name": "Web Search", "kind": "product"}}
+            )
+        )
+        validate.validate_document(doc)
+
+    def test_an_unknown_kind_is_refused(self) -> None:
+        doc = minimal_document(
+            acme=minimal_provider_block(
+                models={"thing": {"per_1k_calls": 30.0, "display_name": "Thing", "kind": "service"}}
+            )
+        )
+        with self.assertRaises(validate.ValidationError) as ctx:
+            validate.validate_document(doc)
+        self.assertIn("kind", str(ctx.exception))
+
+    def test_kind_is_optional_and_absent_means_model(self) -> None:
+        doc = minimal_document()
+        validate.validate_document(doc)
+        self.assertNotIn("kind", doc["providers"]["acme"]["models"]["some-model"])
+
+
 class TestMultiProviderIsolation(unittest.TestCase):
     """The reason pricing.json nests under providers.<name> at all: two providers
     can diverge in currency and schedule, and a break in one must not hide in --

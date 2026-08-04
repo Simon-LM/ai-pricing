@@ -3,9 +3,17 @@
 # OVH
 
 Reads OVH's [AI Endpoints catalog](https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/)
-and publishes `providers.ovh` in `pricing.json`. First implemented 2026-08-03,
-covering 8 of the models a consumer asked for; three more do not exist on the
-catalog yet, and four exist but are currently free -- see below.
+and publishes `providers.ovh` in `pricing.json`. First implemented 2026-08-03.
+Covers the catalog in full: all 19 entries it currently lists, twelve priced and
+seven free. Five further models were dropped from the catalog page on 2026-08-04
+while remaining on sale -- see below.
+
+If you are checking the catalog by eye, **hard-reload it first**
+(`Ctrl+Shift+R`) and compare the "N résultats
+disponibles" count against what `scrape.py` reads. A cached tab already caused
+one round of "the scraper is missing models" that turned out to be a stale
+browser copy; nothing distinguishes a stale render from a live one except that
+count.
 
 ## How this page differs from Mistral's
 
@@ -47,27 +55,60 @@ no way to detect. If that ever needs revisiting, it starts here.
 Read `scripts/providers/ovh/mapping.json`'s own `_comment` for the authoritative,
 dated account. Summary:
 
-**Published (8 models):** gpt-oss-120b, gpt-oss-20b, Qwen2.5-VL-72B-Instruct,
-Qwen3.5-397B-A17B, Qwen3.5-9B, Qwen3.6-27B, whisper-large-v3,
-whisper-large-v3-turbo. Confirmed against the live catalog and cross-checked
-against the page's own rendered price text before being committed.
+**Published: all 19 catalog entries**, twelve with prices and seven marked free.
+Priced: gpt-oss-120b, gpt-oss-20b, Meta-Llama-3_3-70B-Instruct,
+Qwen2.5-VL-72B-Instruct, Qwen3.5-397B-A17B, Qwen3.5-9B, Qwen3.6-27B,
+Qwen3-Embedding-8B, bge-m3, bge-multilingual-gemma2, whisper-large-v3,
+whisper-large-v3-turbo. Free: Qwen3Guard-Gen-8B, Qwen3Guard-Gen-0.6B,
+stable-diffusion-xl-base-v10 and the four nvr-tts voices. Every figure was
+confirmed against the live catalog and cross-checked against the page's own
+rendered price text before being committed.
 
-**Requested, absent from the live catalog (as of 2026-08-03):**
-Qwen3-Coder-30B-A3B-Instruct, Qwen3-32B, Mistral-Small-3.2-24B-Instruct-2506.
-None appear anywhere on the page, under any id or alias -- not a parsing
-failure, they are simply not there. Add them once OVH actually publishes them;
-do not guess at what their price would be.
+## The key is the API model id, and it is not the catalog's `id`
 
-**Present but excluded (4 models):** nvr-tts-it-it, nvr-tts-en-us,
-nvr-tts-de-de, nvr-tts-es-es. The catalog prices all four at `0` and the page
+Each catalog entry carries both an `id` and a `name`, and they are different
+things. `id` is a CMS slug used in the catalog's own URLs; `name` is what OVH's
+API actually answers to. The entry with `id: "qwen-3-6-27b"` is called as
+`Qwen3.6-27B`, and `llama-3-3-70b-instruct` is called as
+`Meta-Llama-3_3-70B-Instruct`. `pricing.json` is keyed by `name` for that
+reason, and `scrape.py` checks **both** byte-for-byte against `mapping.json`, so
+a rename of either stops the run rather than publishing a model id that resolves
+against nothing while still carrying a plausible-looking price.
+
+Fifteen of the nineteen names were cross-checked against OVH's public,
+keyless OpenAI-compatible model list at
+`https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`. The four nvr-tts
+voices are absent from that list only because text-to-speech is served from its
+own per-model endpoint rather than the OpenAI-compatible one.
+
+**Withdrawn from the catalog page between 2026-08-03 and 2026-08-04, but still
+sold (5 models):** Qwen3-Coder-30B-A3B-Instruct, Qwen3-32B,
+Mistral-Small-3.2-24B-Instruct-2506, Mistral-7B-Instruct-v0.3,
+Mistral-Nemo-Instruct-2407. The page listed 24 models on the 3rd and lists 19
+now; these five are the difference, and the word "mistral" no longer appears
+anywhere in the page's HTML. They have not been retired from the service --
+OVH's public, keyless OpenAI-compatible serving API
+(`https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`) still lists all five
+with live non-zero prices. That API is deliberately not used as a source here:
+it quotes **USD**, this block publishes **EUR**, and the two are different
+numbers rather than the same price in two formats (Qwen3.6-27B: `0.47`/`3.19`
+there against `0.40`/`2.70` on the page). Add these five if the catalog page
+lists them again. Do not backfill them from the API, and do not convert.
+
+**Free (7 models):** the four nvr-tts voices, both Qwen3Guard models and
+stable-diffusion-xl-base-v10. The catalog prices all seven at `0` and the page
 renders their price block as the literal word "Gratuit" (free), not a number --
-this is OVH stating a deliberate free tier, not missing data. This repository's
-sanity floor (`pricing_validate.MIN_PLAUSIBLE = 0.001`) exists to catch a
-parser that misreads a real price as `0`; it would incorrectly also catch a
-model that is genuinely, intentionally free. Rather than invent a schema concept
-for "free" to route around that, these four are simply left unmapped until OVH
-assigns them a real price -- at which point adding them is the same three-line
-diff as any other model.
+OVH stating a deliberate free tier, not missing data. They are published as
+`"free": true` with no price field, never as a price of `0`: this repository's
+sanity floor (`pricing_validate.MIN_PLAUSIBLE = 0.001`) exists to catch a parser
+that misreads a real price as `0`, and publishing genuine free tiers as numbers
+would force that floor open for everything.
+
+The marker is not taken on trust. Each free entry lists the `price_unit` values
+it expects the catalog to state, in `expect_zero_units`, and the run fails if the
+catalog prices the model in any other unit or at anything other than `0`. The day
+OVH starts charging for one of these, a human decides what to publish -- the job
+does not keep announcing "free" for something that now bills.
 
 ## Running it yourself
 

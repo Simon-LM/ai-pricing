@@ -3,37 +3,56 @@
     "Hand-maintained mapping from OVH's AI Endpoints catalog to pricing.json entries.",
     "Nothing here is inferred at runtime: no fuzzy matching, no lowercasing and hoping.",
     "'catalog_id' is compared byte-for-byte against the 'id' field of a catalog entry",
-    "in the page's embedded model data, and each field's 'price_unit' byte-for-byte",
-    "against that entry's metadata.usage_information.pricing[].price_unit. A catalog",
-    "that no longer contains a matching id, or a pricing entry with that exact unit,",
-    "is a failure to report, never a row to guess at.",
+    "in the page's embedded model data, 'catalog_name' against that entry's 'name', and",
+    "each field's 'price_unit' byte-for-byte against that entry's",
+    "metadata.usage_information.pricing[].price_unit. A catalog that no longer contains",
+    "a matching id, a matching name, or a pricing entry with that exact unit, is a",
+    "failure to report, never a row to guess at.",
     "",
-    "Unlike Mistral's page, OVH's catalog_id is believed to already BE the API model",
-    "id (it appears in the model's own dedicated endpoint subdomain, e.g. gpt-oss-120b",
-    "-> gpt-oss-120b.endpoints.kepler.ai.cloud.ovh.net). Kept as a separate field from",
-    "the pricing.json key anyway, structurally parallel to Mistral's page_name, in case",
-    "that assumption stops holding -- revisit if OVH ever renames a catalog id without",
-    "the API model id changing along with it.",
+    "The keys of 'models' are API model ids, and they come from the catalog's 'name'",
+    "field -- NOT from its 'id'. The two are different things and it matters: the entry",
+    "whose id is 'qwen-3-6-27b' is called as 'Qwen3.6-27B', and 'llama-3-3-70b-instruct'",
+    "is called as 'Meta-Llama-3_3-70B-Instruct'. 'id' is a CMS slug for the catalog's own",
+    "URLs. Fifteen of the nineteen names below were confirmed against OVH's public",
+    "OpenAI-compatible model list (https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models,",
+    "no key required) on 2026-08-04; the four nvr-tts entries are absent from that list",
+    "because text-to-speech is served from its own per-model endpoint rather than the",
+    "OpenAI-compatible one, and keep the name the catalog gives them.",
     "",
-    "Two things deliberately NOT in this file, checked against the catalog on",
-    "2026-08-03 by a human, both revisit-worthy:",
+    "Three things deliberately NOT in this file, checked against the catalog on",
+    "2026-08-04 by a human, all revisit-worthy:",
     "",
-    "  Requested but absent from the live catalog: Qwen3-Coder-30B-A3B-Instruct,",
-    "  Qwen3-32B, Mistral-Small-3.2-24B-Instruct-2506. None appear anywhere on the",
-    "  page, under any id or alias. Not added -- there is nothing to map them to.",
-    "  Add them once OVH actually publishes them.",
+    "  Withdrawn from the catalog page, but still sold: Qwen3-Coder-30B-A3B-Instruct,",
+    "  Qwen3-32B, Mistral-Small-3.2-24B-Instruct-2506, Mistral-7B-Instruct-v0.3,",
+    "  Mistral-Nemo-Instruct-2407. A browser copy of the page cached on 2026-08-03",
+    "  showed all five, under the header '24 resultats disponibles'. Every fetch since",
+    "  -- eight locales, cache-busted, both 2026-08-03 and 2026-08-04 -- returns '19",
+    "  resultats disponibles' and does not contain the substring 'mistral' anywhere in",
+    "  the HTML. So OVH dropped them from the catalog page between those two dates.",
+    "  They are NOT retired from the service: the OpenAI-compatible model list above",
+    "  still returns all five with live non-zero prices. That list is not used as a",
+    "  price source here because it quotes USD, not the EUR this block publishes, and",
+    "  its figures are genuinely different numbers -- not the same prices in another",
+    "  format. Add these five if and when the catalog page lists them again; do not",
+    "  backfill them from the API, and do not convert.",
     "",
-    "  Present but excluded: nvr-tts-it-it, nvr-tts-en-us, nvr-tts-de-de, nvr-tts-es-es.",
-    "  The catalog lists all four with metadata.usage_information.pricing = [{\"price\":",
-    "  0, \"price_unit\": \"million_input_chars\"}], and the page renders their price",
-    "  block as the literal word \"Gratuit\" (free), not a numeric price -- OVH is",
-    "  stating these are free, not that pricing data is missing. check_price's floor",
-    "  of 0.001 would reject a literal 0 as a parsing accident, and treating a genuine",
-    "  free tier as a special case would need a schema concept this file does not have.",
-    "  Simplest honest choice: leave them unmapped and unpublished until OVH prices",
-    "  them, at which point adding them is the same three-line diff as any other model.",
+    "  Priced in a unit this file has no key for: none at present. Every unit the",
+    "  catalog currently uses is mapped below.",
     "",
-    "Last verified against the catalog by a human: 2026-08-03."
+    "  Nothing else. Unlike earlier revisions of this file, the free models are now",
+    "  published rather than omitted -- see below.",
+    "",
+    "Free models carry \"free\": true and no price field, instead of a price of 0. The",
+    "scraper does not take that marker on trust: 'expect_zero_units' lists exactly the",
+    "units the catalog is expected to state, and the run fails if the catalog prices the",
+    "model in any other unit, or at anything other than 0. A model that stops being free",
+    "must reach a human rather than keep publishing 'free'.",
+    "",
+    "Last verified against the catalog by a human: 2026-08-04.",
+    "",
+    "When verifying by eye, hard-reload the page first (Ctrl+Shift+R). A cached tab is",
+    "what produced a wrong '24 models' reading once already, and a stale browser copy is",
+    "indistinguishable from a live one until you compare the results count."
   ],
 
   "source": "https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/",
@@ -43,6 +62,7 @@
     "gpt-oss-120b": {
       "display_name": "gpt-oss-120b",
       "catalog_id": "gpt-oss-120b",
+      "catalog_name": "gpt-oss-120b",
       "fields": {
         "in_per_mtok": { "price_unit": "million_input_tokens" },
         "out_per_mtok": { "price_unit": "million_output_tokens" }
@@ -51,46 +71,85 @@
     "gpt-oss-20b": {
       "display_name": "gpt-oss-20b",
       "catalog_id": "gpt-oss-20b",
+      "catalog_name": "gpt-oss-20b",
       "fields": {
         "in_per_mtok": { "price_unit": "million_input_tokens" },
         "out_per_mtok": { "price_unit": "million_output_tokens" }
       }
     },
-    "qwen-2-5-vl-72b-instruct": {
+    "Meta-Llama-3_3-70B-Instruct": {
+      "display_name": "Meta-Llama-3_3-70B-Instruct",
+      "catalog_id": "llama-3-3-70b-instruct",
+      "catalog_name": "Meta-Llama-3_3-70B-Instruct",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" },
+        "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "Qwen2.5-VL-72B-Instruct": {
       "display_name": "Qwen2.5-VL-72B-Instruct",
       "catalog_id": "qwen-2-5-vl-72b-instruct",
+      "catalog_name": "Qwen2.5-VL-72B-Instruct",
       "fields": {
         "in_per_mtok": { "price_unit": "million_input_tokens" },
         "out_per_mtok": { "price_unit": "million_output_tokens" }
       }
     },
-    "qwen-3-5-397b": {
+    "Qwen3.5-397B-A17B": {
       "display_name": "Qwen3.5-397B-A17B",
       "catalog_id": "qwen-3-5-397b",
+      "catalog_name": "Qwen3.5-397B-A17B",
       "fields": {
         "in_per_mtok": { "price_unit": "million_input_tokens" },
         "out_per_mtok": { "price_unit": "million_output_tokens" }
       }
     },
-    "qwen-3-5-9b": {
+    "Qwen3.5-9B": {
       "display_name": "Qwen3.5-9B",
       "catalog_id": "qwen-3-5-9b",
+      "catalog_name": "Qwen3.5-9B",
       "fields": {
         "in_per_mtok": { "price_unit": "million_input_tokens" },
         "out_per_mtok": { "price_unit": "million_output_tokens" }
       }
     },
-    "qwen-3-6-27b": {
+    "Qwen3.6-27B": {
       "display_name": "Qwen3.6-27B",
       "catalog_id": "qwen-3-6-27b",
+      "catalog_name": "Qwen3.6-27B",
       "fields": {
         "in_per_mtok": { "price_unit": "million_input_tokens" },
         "out_per_mtok": { "price_unit": "million_output_tokens" }
+      }
+    },
+    "Qwen3-Embedding-8B": {
+      "display_name": "Qwen3-Embedding-8B",
+      "catalog_id": "qwen3-embedding-8b",
+      "catalog_name": "Qwen3-Embedding-8B",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" }
+      }
+    },
+    "bge-m3": {
+      "display_name": "bge-m3",
+      "catalog_id": "bge-m3",
+      "catalog_name": "bge-m3",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" }
+      }
+    },
+    "bge-multilingual-gemma2": {
+      "display_name": "bge-multilingual-gemma2",
+      "catalog_id": "bge-multilingual-gemma2",
+      "catalog_name": "bge-multilingual-gemma2",
+      "fields": {
+        "in_per_mtok": { "price_unit": "million_input_tokens" }
       }
     },
     "whisper-large-v3": {
       "display_name": "whisper-large-v3",
       "catalog_id": "whisper-large-v3",
+      "catalog_name": "whisper-large-v3",
       "fields": {
         "per_audio_second": { "price_unit": "audio_duration_seconds" }
       }
@@ -98,9 +157,60 @@
     "whisper-large-v3-turbo": {
       "display_name": "whisper-large-v3-turbo",
       "catalog_id": "whisper-large-v3-turbo",
+      "catalog_name": "whisper-large-v3-turbo",
       "fields": {
         "per_audio_second": { "price_unit": "audio_duration_seconds" }
       }
+    },
+
+    "Qwen3Guard-Gen-8B": {
+      "display_name": "Qwen3Guard-Gen-8B",
+      "catalog_id": "qwen-guard-gen-8b",
+      "catalog_name": "Qwen3Guard-Gen-8B",
+      "free": true,
+      "expect_zero_units": ["million_input_tokens", "million_output_tokens"]
+    },
+    "Qwen3Guard-Gen-0.6B": {
+      "display_name": "Qwen3Guard-Gen-0.6B",
+      "catalog_id": "qwen-guard-gen-06b",
+      "catalog_name": "Qwen3Guard-Gen-0.6B",
+      "free": true,
+      "expect_zero_units": ["million_input_tokens", "million_output_tokens"]
+    },
+    "stable-diffusion-xl-base-v10": {
+      "display_name": "stable-diffusion-xl-base-v10",
+      "catalog_id": "stable-diffusion-xl",
+      "catalog_name": "stable-diffusion-xl-base-v10",
+      "free": true,
+      "expect_zero_units": ["per_image"]
+    },
+    "nvr-tts-en-us": {
+      "display_name": "nvr-tts-en-us",
+      "catalog_id": "nvr-tts-en-us",
+      "catalog_name": "nvr-tts-en-us",
+      "free": true,
+      "expect_zero_units": ["million_input_chars"]
+    },
+    "nvr-tts-de-de": {
+      "display_name": "nvr-tts-de-de",
+      "catalog_id": "nvr-tts-de-de",
+      "catalog_name": "nvr-tts-de-de",
+      "free": true,
+      "expect_zero_units": ["million_input_chars"]
+    },
+    "nvr-tts-es-es": {
+      "display_name": "nvr-tts-es-es",
+      "catalog_id": "nvr-tts-es-es",
+      "catalog_name": "nvr-tts-es-es",
+      "free": true,
+      "expect_zero_units": ["million_input_chars"]
+    },
+    "nvr-tts-it-it": {
+      "display_name": "nvr-tts-it-it",
+      "catalog_id": "nvr-tts-it-it",
+      "catalog_name": "nvr-tts-it-it",
+      "free": true,
+      "expect_zero_units": ["million_input_chars"]
     }
   }
 }

@@ -53,14 +53,25 @@ class ScrapeError(Exception):
 
 
 def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated: str, mapping: JSONDict) -> JSONDict:
-    """Assemble a `providers.<id>`-shaped block with a stable, reviewable key order."""
+    """Assemble a `providers.<id>`-shaped block with a stable, reviewable key order.
+
+    Keys are emitted in a fixed order rather than whatever order a provider's
+    parser happened to build them in, so that a diff a human reads shows only
+    figures that moved. The two non-price markers travel with the entry: `free`
+    stands in place of the price fields for a model a provider gives away, and
+    `kind` marks an entry that is billable but is not a model at all.
+    """
     ordered_models: dict[str, JSONDict] = {}
     for model_id, entry in models.items():
         ordered: JSONDict = {}
         for field in KNOWN_PRICE_FIELDS:
             if field in entry:
                 ordered[field] = entry[field]
+        if entry.get("free") is True:
+            ordered["free"] = True
         ordered["display_name"] = entry["display_name"]
+        if "kind" in entry:
+            ordered["kind"] = entry["kind"]
         ordered_models[model_id] = ordered
 
     return {
