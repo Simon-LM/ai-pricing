@@ -2,8 +2,8 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-08-02T22:37:46Z",
-      "updated": "2026-08-03",
+      "checked_utc": "2026-08-04T00:00:00Z",
+      "updated": "2026-08-04",
       "source": "https://mistral.ai/pricing/api",
       "currency": "USD",
       "models": {
@@ -17,6 +17,74 @@
           "out_per_mtok": 0.6,
           "display_name": "Mistral Small 4"
         },
+        "mistral-large-latest": {
+          "in_per_mtok": 0.5,
+          "out_per_mtok": 1.5,
+          "display_name": "Mistral Large 3"
+        },
+        "devstral-medium-latest": {
+          "in_per_mtok": 0.4,
+          "out_per_mtok": 2.0,
+          "display_name": "Devstral 2"
+        },
+        "devstral-small-latest": {
+          "in_per_mtok": 0.1,
+          "out_per_mtok": 0.3,
+          "display_name": "Devstral Small 2"
+        },
+        "codestral-latest": {
+          "in_per_mtok": 0.3,
+          "out_per_mtok": 0.9,
+          "display_name": "Codestral"
+        },
+        "magistral-medium-latest": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 5.0,
+          "display_name": "Magistral Medium"
+        },
+        "magistral-small-latest": {
+          "in_per_mtok": 0.5,
+          "out_per_mtok": 1.5,
+          "display_name": "Magistral Small"
+        },
+        "ministral-3b-latest": {
+          "in_per_mtok": 0.1,
+          "out_per_mtok": 0.1,
+          "display_name": "Ministral 3 3B"
+        },
+        "ministral-8b-latest": {
+          "in_per_mtok": 0.15,
+          "out_per_mtok": 0.15,
+          "display_name": "Ministral 3 8B"
+        },
+        "ministral-14b-latest": {
+          "in_per_mtok": 0.2,
+          "out_per_mtok": 0.2,
+          "display_name": "Ministral 3 14B"
+        },
+        "open-mistral-nemo": {
+          "in_per_mtok": 0.15,
+          "out_per_mtok": 0.15,
+          "display_name": "Mistral NeMo"
+        },
+        "open-mixtral-8x7b": {
+          "in_per_mtok": 0.7,
+          "out_per_mtok": 0.7,
+          "display_name": "Mixtral 8x7B"
+        },
+        "open-mixtral-8x22b": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 6.0,
+          "display_name": "Mixtral 8x22B"
+        },
+        "mistral-embed": {
+          "in_per_mtok": 0.1,
+          "display_name": "Mistral Embed"
+        },
+        "codestral-embed": {
+          "in_per_mtok": 0.15,
+          "display_name": "Codestral Embed"
+        },
         "mistral-ocr-latest": {
           "per_1k_pages": 4.0,
           "display_name": "OCR 4"
@@ -25,11 +93,72 @@
           "per_audio_minute": 0.003,
           "display_name": "Voxtral Mini Transcribe 2"
         },
+        "voxtral-mini-transcribe-realtime-latest": {
+          "per_audio_minute": 0.006,
+          "display_name": "Voxtral Mini Transcribe Realtime"
+        },
         "voxtral-small-latest": {
           "in_per_mtok": 0.1,
           "out_per_mtok": 0.4,
           "per_audio_minute": 0.004,
           "display_name": "Voxtral Small"
+        },
+        "voxtral-mini-tts-latest": {
+          "per_1k_chars": 0.016,
+          "display_name": "Voxtral TTS"
+        },
+        "document-ai": {
+          "per_1k_pages": 5.0,
+          "display_name": "Document AI",
+          "kind": "product"
+        },
+        "classifier-3b": {
+          "in_per_mtok": 0.1,
+          "out_per_mtok": 0.1,
+          "train_per_mtok": 1.0,
+          "per_model_month": 2.0,
+          "display_name": "Classifier API Model 3B",
+          "kind": "product"
+        },
+        "classifier-8b": {
+          "in_per_mtok": 0.04,
+          "out_per_mtok": 0.04,
+          "train_per_mtok": 1.0,
+          "per_model_month": 2.0,
+          "display_name": "Classifier API Model 8B",
+          "kind": "product"
+        },
+        "libraries": {
+          "index_per_mtok": 1.0,
+          "per_1k_pages": 3.0,
+          "per_call": 0.01,
+          "display_name": "Libraries",
+          "kind": "product"
+        },
+        "code-execution": {
+          "per_1k_calls": 30.0,
+          "display_name": "Code Execution",
+          "kind": "product"
+        },
+        "web-search": {
+          "per_1k_calls": 30.0,
+          "display_name": "Web Search",
+          "kind": "product"
+        },
+        "premium-news": {
+          "per_1k_calls": 50.0,
+          "display_name": "Premium News",
+          "kind": "product"
+        },
+        "images": {
+          "per_1k_images": 100.0,
+          "display_name": "Images",
+          "kind": "product"
+        },
+        "data-capture": {
+          "per_mtok": 0.04,
+          "display_name": "Data Capture",
+          "kind": "product"
         }
       }
     }

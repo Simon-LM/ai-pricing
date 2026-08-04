@@ -12,6 +12,9 @@ resells several open models (gpt-oss, Qwen, Whisper) that have nothing to do wit
 Mistral. That is exactly why prices are grouped by **provider**, not just by model:
 the same model name can mean two different bills at two different providers.
 
+Both providers are covered in full: every model each one prices on its page is
+published, 30 entries for Mistral and 19 for OVH, rather than a hand-picked subset.
+
 ## Read this before you trust a number in it
 
 **These figures are scraped from public marketing pages**, one scraper per provider.
@@ -78,6 +81,8 @@ show it to whoever is reading your number. Display it:
 | `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
 | `providers.<name>.models` | Keyed by **API model id**, never by marketing name. |
 | `display_name` | The marketing name, kept only so that a diff is readable by a human. Never use it for matching. |
+| `free` | Present, and always `true`, when the provider gives the model away. The entry then carries **no price field at all** -- see below. |
+| `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model and has no API model id: Mistral's web search, code execution and image generation are priced on the same page as its models. Filter on it if you are listing models to call. |
 
 The unit is part of the key name, so that a consumer cannot silently apply a
 per-token price to a per-page model. There is deliberately no generic `price` field.
@@ -86,9 +91,23 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | --- | --- |
 | `in_per_mtok` | per million input tokens |
 | `out_per_mtok` | per million output tokens |
+| `per_mtok` | per million tokens, with no input/output split |
+| `index_per_mtok` | per million tokens indexed |
+| `train_per_mtok` | per million tokens trained on, one-off |
 | `per_1k_pages` | per thousand pages |
+| `per_1k_chars` | per thousand characters |
 | `per_audio_minute` | per minute of audio sent |
 | `per_audio_second` | per second of audio sent |
+| `per_call` | per API call |
+| `per_1k_calls` | per thousand API calls |
+| `per_1k_images` | per thousand images |
+| `per_model_month` | per month, per stored model |
+
+**A free model is `"free": true`, never a price of `0`.** Zero is also exactly what a
+broken parser reads off a page whose layout moved, and this repository refuses a
+figure of 0 for that reason. Publishing free models as a marker rather than a number
+is what lets that check stay strict. A consumer must treat an entry with `free` as
+costing nothing, not as missing data.
 
 **A model may carry several of them at once.** `voxtral-small-latest` above is billed
 both per minute of audio and per million tokens of text, and reading only one of the
@@ -207,7 +226,7 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 85 tests
+python3 -m unittest discover -s tests -v                          # 97 tests
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live page
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
 
@@ -224,24 +243,37 @@ right.
 
 ## Adding a model
 
-1. Add an entry to that provider's `mapping.json` -- Mistral's keys a card by
+1. Look the **API model id** up at the provider, not on the pricing page. The page's
+   card name is marketing copy and is regularly not the id: Mistral's `voxtral tts`
+   card is `voxtral-mini-tts-latest`, its `ministral 3 - 3b` card is
+   `ministral-3b-latest`, and OVH's catalog entry with `id: "qwen-3-6-27b"` is called
+   as `Qwen3.6-27B`. Mistral publishes ids on each model's card at
+   `docs.mistral.ai/models/model-cards/<slug>`; OVH puts the id in the catalog's own
+   `name` field, cross-checkable against its public model list at
+   `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`. Guessing here publishes
+   a key that resolves against nothing while looking perfectly reasonable.
+2. Add an entry to that provider's `mapping.json` -- Mistral's keys a card by
    `page_name` and a price row by `label`, copied byte-for-byte from the page;
-   OVH's keys a catalog entry by `catalog_id` and a price by `price_unit`, copied
-   byte-for-byte from its embedded data. Whatever the provider's own convention,
-   list every unit the model is billed in, not just the obvious one.
-2. Add the same model to `pricing.json`, under that provider's block, with the
-   figures you read on the page.
-3. If the model introduces a **new unit**, add it to `KNOWN_PRICE_FIELDS` in
+   OVH's keys a catalog entry by `catalog_id` **and** `catalog_name`, and a price by
+   `price_unit`, copied byte-for-byte from its embedded data. Whatever the provider's
+   own convention, list every unit the model is billed in, not just the obvious one.
+   A model the provider gives away gets `"free": true` instead of price fields, and a
+   billable thing that is not a model at all gets `"kind": "product"`.
+3. Add the same model to `pricing.json`, under that provider's block, with the
+   figures you read on the page. The job refuses to run against a `pricing.json` that
+   publishes a key the mapping does not know, so removing or renaming a key is
+   deliberately a hand edit, never something a scheduled run can do by itself.
+4. If the model introduces a **new unit**, add it to `KNOWN_PRICE_FIELDS` in
    [`scripts/pricing_validate.py`](scripts/pricing_validate.py) -- shared by every
    provider -- and check whether the default floor of 0.001 still makes sense for
    it. A unit whose prices are naturally small needs its own entry in
    `PRICE_BOUNDS`, or an ordinary price cut will be refused as a parsing accident.
    A test enforces that every published figure keeps a factor of 5 of room above its
    floor, so you will be told rather than left to find out on a Monday morning.
-4. Re-capture that provider's fixture (Mistral's is `tests/fixtures/mistral/page_ok.html`,
+5. Re-capture that provider's fixture (Mistral's is `tests/fixtures/mistral/page_ok.html`,
    OVH's is `tests/fixtures/ovh/catalog_ok.html`) so it contains the new entry, and
    regenerate its `baseline.json` from it.
-5. Run the tests. `tests/test_pricing_validate.py` checks the shared schema; each
+6. Run the tests. `tests/test_pricing_validate.py` checks the shared schema; each
    provider's `tests/scraper_tests/test_<name>.py` has its own
    `TestPublishedFileMatches<Name>` and `TestMapping` classes that check that
    provider's own files agree with each other.

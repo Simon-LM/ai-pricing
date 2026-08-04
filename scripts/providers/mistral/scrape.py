@@ -278,6 +278,11 @@ def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[
             entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, prices["priceUsd"])
 
         entry["display_name"] = spec["display_name"]
+        # Only written when the mapping says so. The page prices web search, image
+        # generation and code execution alongside the models, and those have no API
+        # model id to be called by; "model" is the default and stays unwritten.
+        if "kind" in spec:
+            entry["kind"] = spec["kind"]
         models[model_id] = entry
 
     return models

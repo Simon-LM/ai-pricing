@@ -74,13 +74,39 @@ def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> s
     return source.replace(old, new)
 
 
-def drop_card(source: str, data_name: str) -> str:
-    """Remove one whole model card from the page, as if the model had been withdrawn."""
+def card_span(source: str, data_name: str) -> tuple[int, int]:
+    """The exact character range one model card occupies in the page."""
     anchor = source.index(f'data-name="{data_name}"')
     start = source.rindex('<div class="model-item', 0, anchor)
     end = source.index("</mistral-block-card-model>", start) + len("</mistral-block-card-model>")
     end = source.index("</div>", end) + len("</div>")
+    return start, end
+
+
+def drop_card(source: str, data_name: str) -> str:
+    """Remove one whole model card from the page, as if the model had been withdrawn."""
+    start, end = card_span(source, data_name)
     return source[:start] + source[end:]
+
+
+def mutate_in_card(source: str, data_name: str, old: str, new: str, expected_count: int | None = 1) -> str:
+    """Replace `old` with `new` inside ONE named card, not across the whole page.
+
+    The fixture holds all 32 cards of the real page, so an ordinary figure like 1.5
+    is on several of them at once. A test that means "move Mistral Medium's input
+    price" has to say which card, or it quietly rewrites three unrelated models and
+    stops testing the thing its name claims.
+    """
+    start, end = card_span(source, data_name)
+    card = source[start:end]
+    found = card.count(old)
+    if found == 0 or (expected_count is not None and found != expected_count):
+        raise AssertionError(
+            f"fixture drift: expected {expected_count or 'at least one'} occurrence(s) of "
+            f"{old!r} inside the {data_name!r} card, found {found}. Re-capture "
+            f"tests/fixtures/mistral/page_ok.html from the live page."
+        )
+    return source[:start] + card.replace(old, new) + source[end:]
 
 
 class ScrapeTestCase(unittest.TestCase):
@@ -250,7 +276,7 @@ class TestUnchanged(ScrapeTestCase):
 
 class TestPriceChange(ScrapeTestCase):
     def test_normal_price_change_produces_a_candidate_not_a_publication(self) -> None:
-        html = mutate(self.page_ok, "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:2.25")
+        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:2.25")
 
         code, stdout, _ = self.run_scrape(html)
 
@@ -277,7 +303,7 @@ class TestPriceChange(ScrapeTestCase):
         self.assert_current_untouched()
 
     def test_a_price_going_down_is_also_a_change(self) -> None:
-        html = mutate(self.page_ok, "&quot;priceUsd&quot;:4", "&quot;priceUsd&quot;:2")
+        html = mutate_in_card(self.page_ok, "ocr 4", "&quot;priceUsd&quot;:4", "&quot;priceUsd&quot;:2")
         code, stdout, _ = self.run_scrape(html)
         self.assertEqual(code, 0)
         self.assertIn("mistral-ocr-latest.per_1k_pages", stdout)
@@ -308,7 +334,7 @@ class TestLayoutFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, "without data-prices")
 
     def test_row_label_renamed(self) -> None:
-        html = mutate(self.page_ok, "Input (/M tokens)", "Prompt (/M tokens)", expected_count=2)
+        html = mutate(self.page_ok, "Input (/M tokens)", "Prompt (/M tokens)", expected_count=None)
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "no row labelled", "'Input (/M tokens)'")
 
@@ -326,7 +352,7 @@ class TestLayoutFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, "not JSON")
 
     def test_missing_usd_figure(self) -> None:
-        html = mutate(self.page_ok, "&quot;priceUsd&quot;:1.5", "&quot;priceGbp&quot;:1.5")
+        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceGbp&quot;:1.5")
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "no priceUsd", "no conversion")
 
@@ -348,23 +374,23 @@ class TestMissingModel(ScrapeTestCase):
 
 class TestSanityBounds(ScrapeTestCase):
     def test_out_of_bounds_figure_is_refused(self) -> None:
-        html = mutate(self.page_ok, "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:4000")
+        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:4000")
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "outside the plausible range")
 
     def test_figure_below_the_floor_is_refused(self) -> None:
-        html = mutate(self.page_ok, "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:0")
+        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:0")
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "outside the plausible range")
 
     def test_plausible_figure_that_moved_implausibly_is_refused(self) -> None:
         """20 is a perfectly ordinary price. Going 1.5 -> 20 in one week is not."""
-        html = mutate(self.page_ok, "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:20")
+        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:20")
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "factor of", "Refusing to publish")
 
     def test_a_change_just_under_the_factor_limit_is_allowed_through(self) -> None:
-        html = mutate(self.page_ok, "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:6")
+        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:6")
         code, stdout, _ = self.run_scrape(html)
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
@@ -417,16 +443,20 @@ class TestCorruptInputs(ScrapeTestCase):
 
     def test_a_published_model_may_not_be_dropped_by_the_job(self) -> None:
         published = json.loads(self.current_bytes)
-        published["providers"]["mistral"]["models"]["mistral-large-latest"] = {
+        # A model id the mapping has never heard of, standing in for one that was
+        # published and then quietly dropped from the mapping. Deliberately not a
+        # real Mistral id: every real one is mapped now, and a test that starts
+        # passing because somebody mapped its subject proves nothing.
+        published["providers"]["mistral"]["models"]["mistral-retired-legacy"] = {
             "in_per_mtok": 0.5,
             "out_per_mtok": 1.5,
-            "display_name": "Mistral Large 3",
+            "display_name": "Retired Legacy Model",
         }
         self.current.write_text(json.dumps(published, indent=2) + "\n", encoding="utf-8")
         self.current_bytes = self.current.read_bytes()
 
         code, _, stderr = self.run_scrape(self.page_ok)
-        self.assert_failed(code, stderr, "mapping does not know", "mistral-large-latest")
+        self.assert_failed(code, stderr, "mapping does not know", "mistral-retired-legacy")
 
 
 # ======================================================================================
@@ -512,10 +542,35 @@ class TestMapping(unittest.TestCase):
                 self.assertIn(field, validate.KNOWN_PRICE_FIELDS, f"{model_id}.{field}")
                 self.assertTrue(field_spec.get("label"), f"{model_id}.{field}")
 
-    def test_page_names_are_distinct(self) -> None:
+    def test_no_two_entries_read_the_same_row_of_the_same_card(self) -> None:
+        """Two entries MAY share a page_name -- mistral-ocr-latest and document-ai are
+        two priced rows of the same 'ocr 4' card. What must never repeat is the pair:
+        the same row of the same card feeding two pricing.json keys means one of them
+        is publishing a figure that belongs to the other."""
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        names = [spec["page_name"] for spec in mapping["models"].values()]
-        self.assertEqual(len(names), len(set(names)), "two API ids point at the same card")
+        seen: dict[tuple[str, str], str] = {}
+        for model_id, spec in mapping["models"].items():
+            for field_spec in spec["fields"].values():
+                key = (spec["page_name"], field_spec["label"])
+                self.assertNotIn(key, seen, f"{model_id} reads the same row as {seen.get(key)}")
+                seen[key] = model_id
+
+    def test_every_product_is_marked_as_one(self) -> None:
+        """The nine non-model entries are the only ones allowed to carry a kind, and
+        they must carry it: without it a consumer iterating 'models' would treat web
+        search and image generation as things it can call as a model."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        products = {mid for mid, spec in mapping["models"].items() if spec.get("kind") == "product"}
+        self.assertEqual(
+            products,
+            {
+                "document-ai", "classifier-3b", "classifier-8b", "libraries",
+                "code-execution", "web-search", "premium-news", "images", "data-capture",
+            },
+        )
+        for model_id, spec in mapping["models"].items():
+            if "kind" in spec:
+                self.assertIn(spec["kind"], validate.KNOWN_KINDS, model_id)
 
 
 if __name__ == "__main__":
