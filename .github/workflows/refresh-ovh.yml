@@ -144,6 +144,46 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           cat .ci-out/summary.txt
 
+      # ---------------------------------------------------------------------------
+      # Coverage, not prices. Deliberately AFTER the price outcome is settled and
+      # deliberately unable to change it: this step reads no price and never fails
+      # the job. It answers the one question the scraper cannot ask itself -- is the
+      # catalog page still showing everything OVH sells? -- by comparing the page
+      # against OVH's own public model list. It exists because the page silently
+      # dropped five models it was still serving on 2026-08-04, and nothing in the
+      # scrape could have noticed.
+      #
+      # A gap is a notice, never a failed job: refusing to publish correct prices for
+      # nineteen models because a twentieth is missing from a page would also suppress
+      # the checked_utc stamp, which is the thing keeping this schedule alive.
+      # ---------------------------------------------------------------------------
+      - name: Check the catalog still lists everything OVH sells
+        id: coverage
+        continue-on-error: true
+        run: |
+          # pipefail, or `tee` would report its own exit code and every run would
+          # look like a clean one regardless of what the check actually found.
+          set -o pipefail
+          mkdir -p .ci-out
+          python3 scripts/providers/ovh/check_coverage.py | tee .ci-out/coverage.txt
+
+      - name: Report the coverage result
+        run: |
+          {
+            echo "### OVH catalog coverage"
+            echo '```'
+            cat .ci-out/coverage.txt 2>/dev/null || echo "The coverage check produced no output."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Exit code 2 means "a gap was found", which is a finding. Any other
+          # non-zero means the check itself could not run, which is a different thing
+          # and must not be reported as though the catalog were fine.
+          case "${{ steps.coverage.outcome }}" in
+            success) echo "::notice::OVH catalog coverage: no gap." ;;
+            *) echo "::warning::OVH catalog coverage: see the job summary. Either OVH sells a model its catalog page no longer lists, or the check could not run. No price was affected." ;;
+          esac
+
       - name: Dry run - stopping before anything is written
         if: inputs.dry_run
         run: |

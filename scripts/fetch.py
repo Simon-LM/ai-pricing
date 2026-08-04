@@ -7,8 +7,10 @@ per provider with a chance to drift.
 
 from __future__ import annotations
 
+import json
 import urllib.error
 import urllib.request
+from typing import Any
 
 
 class FetchError(Exception):
@@ -23,10 +25,10 @@ FETCH_TIMEOUT_SECONDS = 30
 MIN_PAGE_BYTES = 10_000
 
 
-def fetch_page(url: str, *, min_bytes: int = MIN_PAGE_BYTES) -> str:
+def fetch_page(url: str, *, min_bytes: int = MIN_PAGE_BYTES, accept: str = "text/html") -> str:
     """GET a public page. No credentials of any kind are sent, ever."""
     request = urllib.request.Request(
-        url, headers={"User-Agent": USER_AGENT, "Accept": "text/html"}
+        url, headers={"User-Agent": USER_AGENT, "Accept": accept}
     )
     try:
         with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
@@ -45,3 +47,24 @@ def fetch_page(url: str, *, min_bytes: int = MIN_PAGE_BYTES) -> str:
             f"page. Probably an error or consent page."
         )
     return body
+
+
+# A JSON endpoint's whole body is data, so it is legitimately far smaller than a
+# marketing page. The 10 kB floor above would reject a perfectly good response.
+MIN_JSON_BYTES = 100
+
+
+def fetch_json(url: str, *, min_bytes: int = MIN_JSON_BYTES) -> Any:
+    """GET a public JSON endpoint. No credentials of any kind are sent, ever.
+
+    Returns whatever the endpoint parses to, asserting nothing about its shape --
+    a caller that needs a particular structure checks for it itself. Raises
+    FetchError, not a JSON error, so a caller has one failure type to handle
+    whether the endpoint was unreachable or answered with something that is not
+    JSON at all.
+    """
+    body = fetch_page(url, min_bytes=min_bytes, accept="application/json")
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise FetchError(f"{url} did not return JSON: {exc}") from exc

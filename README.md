@@ -213,6 +213,19 @@ All providers' workflows share one `concurrency` group, `pricing-json-writes`, s
 they all commit to the same file: a second provider's run queues behind the first
 rather than racing it.
 
+**Refusing to publish a wrong number is only half the job.** A scraper fails loudly
+when a model it maps disappears from a page, and is completely silent about a model
+the provider sells that its page never mentions -- an absent row looks exactly like a
+model that does not exist. OVH's catalog page dropped five models it was still
+serving on 2026-08-04, and nothing in the scrape could have noticed. So OVH's
+workflow also runs
+[`scripts/providers/ovh/check_coverage.py`](scripts/providers/ovh/check_coverage.py),
+which compares the catalog page against OVH's own public model list and reports what
+each one has that the other does not. It reads no price, never touches
+`pricing.json`, and a gap is a warning rather than a failed job: refusing to publish
+nineteen correct prices because a twentieth is missing would also suppress the
+`checked_utc` stamp that keeps the schedule alive.
+
 The stamp commit on every run is not only informative. GitHub disables a scheduled
 workflow after 60 days without repository activity, and **only new commits reset that
 timer** -- not tags, not issues, not merged pull requests. A repository whose content
@@ -226,7 +239,7 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 97 tests
+python3 -m unittest discover -s tests -v                          # 109 tests
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live page
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
 
