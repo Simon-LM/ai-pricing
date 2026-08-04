@@ -1,11 +1,18 @@
-name: Refresh prices
+name: Refresh prices (OVH)
 
-# Reads a public marketing page once a week and works out whether pricing.json
-# should change. It has exactly three outcomes, and never a fourth:
+# Reads OVH's public AI Endpoints catalog once a week and works out whether
+# pricing.json's providers.ovh block should change. It has exactly three
+# outcomes, and never a fourth:
 #
 #   figures unchanged  -> commit the checked_utc stamp straight to main
 #   a figure changed   -> commit the stamp, then open a pull request. Never merge it.
 #   fetch/parse failed -> open an issue, fail the job, leave pricing.json untouched
+#
+# pricing.json holds one block per provider under `providers.<name>`. This workflow
+# only ever touches `providers.ovh`; every other provider's block is carried through
+# by the scraper itself (merge_provider_block()) exactly as committed. This file
+# follows the exact pattern of refresh-mistral.yml and joins the SAME concurrency
+# group below so the two queue on pricing.json writes instead of racing each other.
 #
 # The stamp commit happens on EVERY successful run, including the run that opens a
 # pull request. It is a real statement to consumers ("confirmed unchanged today"),
@@ -21,7 +28,9 @@ name: Refresh prices
 
 on:
   schedule:
-    - cron: "0 4 * * 1" # Mondays, 04:00 UTC
+    - cron: "0 5 * * 1" # Mondays, 05:00 UTC -- an hour after Mistral's, so the two
+    # scheduled runs don't both land in the same minute and fight over the
+    # pricing-json-writes concurrency group every single week.
   workflow_dispatch: # so a human can force a check
     inputs:
       dry_run:
@@ -35,7 +44,9 @@ permissions:
   issues: write
 
 concurrency:
-  group: refresh-prices
+  # Shared with every other provider's refresh-<name>.yml on purpose: they all
+  # write to the same pricing.json, so they must queue, never run concurrently.
+  group: pricing-json-writes
   cancel-in-progress: false
 
 jobs:
@@ -55,10 +66,10 @@ jobs:
         continue-on-error: true
         run: python3 -m unittest discover -s tests -v
 
-      - name: Read the pricing page
+      - name: Read the AI Endpoints catalog
         id: scrape
         continue-on-error: true
-        run: python3 scripts/scrape.py --out-dir .ci-out
+        run: python3 scripts/providers/ovh/scrape.py --out-dir .ci-out
 
       # ---------------------------------------------------------------------------
       # Outcome 3: something failed. Report it, change nothing, fail the job.
@@ -84,9 +95,9 @@ jobs:
           # the reason quotes text taken from a page this repository does not control.
           {
             cat <<'INTRO'
-          The weekly price check did not complete. `pricing.json` has **not** been modified:
-          the figures it currently publishes are the last ones a human reviewed, and the
-          `checked_utc` field still shows when they were last actually verified.
+          The weekly OVH price check did not complete. `pricing.json` has **not** been
+          modified: providers.ovh still shows the figures a human last reviewed, and its
+          `checked_utc` still shows when they were last actually verified.
 
           ```
           INTRO
@@ -94,40 +105,84 @@ jobs:
             echo '```'
             echo
             echo "Run: ${RUN_URL}"
-            echo "Page: https://mistral.ai/pricing/api"
+            echo "Page: https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/"
             cat <<'OUTRO'
 
-          This almost always means the page changed shape rather than the price changing.
-          Compare the page against `scripts/mapping.json`, fix the mapping by hand, and
-          re-run the workflow from the Actions tab.
+          This almost always means the catalog changed shape rather than a price
+          changing -- OVH embeds its model list as JSON inside a Next.js data chunk, so a
+          framework or page redesign can move or rename that structure entirely. Compare
+          the page against `scripts/providers/ovh/mapping.json`, fix the mapping by hand,
+          and re-run the workflow from the Actions tab.
           OUTRO
           } > /tmp/issue-body.md
 
           # One issue per outage, not one per week: comment on the open one if there is one.
-          EXISTING="$(gh issue list --label scraper-failure --state open --limit 1 --json number --jq '.[0].number // empty')"
+          # Scoped to an OVH-specific label so a stuck Mistral failure never suppresses a
+          # fresh OVH notification or vice versa.
+          EXISTING="$(gh issue list --label scraper-failure:ovh --state open --limit 1 --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body-file /tmp/issue-body.md
             echo "Commented on existing issue #$EXISTING"
           else
-            gh label create scraper-failure --color d73a4a --description "The price scraper could not complete" 2>/dev/null || true
+            gh label create scraper-failure:ovh --color d73a4a --description "The OVH price scraper could not complete" 2>/dev/null || true
             gh issue create \
-              --title "Price check failed on $(date -u +%Y-%m-%d)" \
-              --label scraper-failure \
+              --title "OVH price check failed on $(date -u +%Y-%m-%d)" \
+              --label scraper-failure:ovh \
               --body-file /tmp/issue-body.md
           fi
 
-          echo "::error::The price check failed. pricing.json was left untouched."
+          echo "::error::The OVH price check failed. pricing.json was left untouched."
           exit 1
 
       - name: Report what was found
         run: |
           {
-            echo "### Price check"
+            echo "### OVH price check"
             echo '```'
             cat .ci-out/summary.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           cat .ci-out/summary.txt
+
+      # ---------------------------------------------------------------------------
+      # Coverage, not prices. Deliberately AFTER the price outcome is settled and
+      # deliberately unable to change it: this step reads no price and never fails
+      # the job. It answers the one question the scraper cannot ask itself -- is the
+      # catalog page still showing everything OVH sells? -- by comparing the page
+      # against OVH's own public model list. It exists because the page silently
+      # dropped five models it was still serving on 2026-08-04, and nothing in the
+      # scrape could have noticed.
+      #
+      # A gap is a notice, never a failed job: refusing to publish correct prices for
+      # nineteen models because a twentieth is missing from a page would also suppress
+      # the checked_utc stamp, which is the thing keeping this schedule alive.
+      # ---------------------------------------------------------------------------
+      - name: Check the catalog still lists everything OVH sells
+        id: coverage
+        continue-on-error: true
+        run: |
+          # pipefail, or `tee` would report its own exit code and every run would
+          # look like a clean one regardless of what the check actually found.
+          set -o pipefail
+          mkdir -p .ci-out
+          python3 scripts/providers/ovh/check_coverage.py | tee .ci-out/coverage.txt
+
+      - name: Report the coverage result
+        run: |
+          {
+            echo "### OVH catalog coverage"
+            echo '```'
+            cat .ci-out/coverage.txt 2>/dev/null || echo "The coverage check produced no output."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Exit code 2 means "a gap was found", which is a finding. Any other
+          # non-zero means the check itself could not run, which is a different thing
+          # and must not be reported as though the catalog were fine.
+          case "${{ steps.coverage.outcome }}" in
+            success) echo "::notice::OVH catalog coverage: no gap." ;;
+            *) echo "::warning::OVH catalog coverage: see the job summary. Either OVH sells a model its catalog page no longer lists, or the check could not run. No price was affected." ;;
+          esac
 
       - name: Dry run - stopping before anything is written
         if: inputs.dry_run
@@ -152,7 +207,7 @@ jobs:
           fi
 
           git add pricing.json
-          git commit -m "chore: verified prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "chore: verified ovh prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push
           # Note: a push made with GITHUB_TOKEN does not trigger further workflow runs.
           # Nothing here depends on it -- the trigger is the schedule, not the push.
@@ -169,10 +224,10 @@ jobs:
 
           # A branch name derived from the figures themselves, so a change that persists
           # for weeks keeps updating one pull request instead of opening a new one every
-          # Monday.
-          BRANCH="price-update/$(python3 -c "
+          # Monday. Prefixed with the provider so it can never collide with Mistral's.
+          BRANCH="price-update/ovh-$(python3 -c "
           import hashlib, json
-          models = json.load(open('.ci-out/updated.json'))['models']
+          models = json.load(open('.ci-out/updated.json'))['providers']['ovh']['models']
           print(hashlib.sha256(json.dumps(models, sort_keys=True).encode()).hexdigest()[:8])
           ")"
 
@@ -184,14 +239,14 @@ jobs:
           git checkout -b "$BRANCH"
           cp .ci-out/updated.json pricing.json
           git add pricing.json
-          git commit -m "prices: update figures read from mistral.ai on $(date -u +%Y-%m-%d)"
+          git commit -m "prices: update ovh figures read from the AI Endpoints catalog on $(date -u +%Y-%m-%d)"
           git push --force --set-upstream origin "$BRANCH"
 
           # Same rule as the issue body: the summary is concatenated in, never
           # interpolated into a shell string.
           {
             cat <<'INTRO'
-          The scraper read different figures on <https://mistral.ai/pricing/api>.
+          The scraper read different figures on <https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/>.
 
           ```
           INTRO
@@ -199,14 +254,14 @@ jobs:
             echo '```'
             cat <<'OUTRO'
 
-          **Check the page yourself before merging.** This is a marketing page with no
-          contract and no versioning behind it, and these numbers become the numbers other
-          projects display to their users. Two things worth a moment:
+          **Check the catalog yourself before merging.** This is scraped from a page with
+          no contract and no versioning behind it, and these numbers become the numbers
+          other projects display to their users. Figures are read in EUR specifically,
+          from the `/fr/` locale of the catalog -- a currency change would mean this whole
+          mapping needs revisiting, not just the figures.
 
-          - Is this a real price change, or did the page move a number into a different row?
-          - `mistral-medium-latest` and `mistral-small-latest` are **aliases**. If one of
-            them now resolves to a different model, the price may be right while
-            `display_name` and `scripts/mapping.json` have quietly become wrong.
+          Only `providers.ovh` is touched by this PR -- every other provider's block is
+          carried through byte-for-byte.
           OUTRO
             echo
             echo "Merging publishes these figures to every consumer that fetches"
@@ -214,7 +269,7 @@ jobs:
           } > /tmp/pr-body.md
 
           gh pr create \
-            --title "prices: figures changed on mistral.ai" \
+            --title "prices: ovh figures changed on the AI Endpoints catalog" \
             --body-file /tmp/pr-body.md \
             --base main \
             --head "$BRANCH"

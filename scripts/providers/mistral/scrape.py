@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Read Mistral's public pricing page and work out what pricing.json should say.
+"""Read Mistral's public pricing page and work out what pricing.json's providers.mistral
+block should say.
 
 Standard library only. Reads a public web page and nothing else: it takes no API
 key, must never be given one, and never touches anyone's Mistral account.
@@ -9,6 +10,15 @@ directory and reports which one, if any, the caller should promote. That is
 deliberate: "leave pricing.json untouched on every failure path" is then a property
 of the design rather than a branch of code somebody has to remember to get right.
 
+pricing.json holds one block per provider under `providers.<name>`, because the same
+model name can mean two different prices at two different providers (OVH resells
+some of the same open models under providers.ovh, at OVH's own prices). This script
+only ever reads and writes `providers.mistral`: every other provider's block is
+carried through the candidate files byte-for-byte, untouched. The plumbing that
+makes that true -- reading, merging, writing, the three outcomes -- is shared with
+every other provider and lives in scripts/provider_runner.py. This file supplies
+only what is genuinely Mistral-specific: how to parse Mistral's page.
+
 Outcomes, matching the three the workflow must implement:
 
   unchanged  figures identical -> out/stamped.json  (same figures, fresh checked_utc)
@@ -16,58 +26,38 @@ Outcomes, matching the three the workflow must implement:
   failure    fetch, parse or validation failed -> out/error.txt, exit code 1, no candidates
 
 Usage:
-    scripts/scrape.py --out-dir .ci-out                    # fetch the live page
-    scripts/scrape.py --out-dir .ci-out --html page.html   # offline, for tests
+    scripts/providers/mistral/scrape.py --out-dir .ci-out                  # fetch the live page
+    scripts/providers/mistral/scrape.py --out-dir .ci-out --html page.html # offline, for tests
 """
 
 from __future__ import annotations
 
-import argparse
-import datetime as _dt
 import json
-import os
 import sys
-import urllib.error
-import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(_SCRIPTS_DIR))
 
-from pricing_validate import (  # noqa: E402
-    KNOWN_PRICE_FIELDS,
-    SCHEMA_VERSION,
-    JSONDict,
-    ValidationError,
-    check_change,
-    check_price,
-    diff_models,
-    validate_document,
-)
+import provider_runner  # noqa: E402
+from provider_runner import ScrapeError  # noqa: E402
+from pricing_validate import JSONDict, check_price  # noqa: E402
 
 # A price row on the page: (label, {"priceUsd": ..., "suffix": ..., ...}).
 PriceRow = tuple[str, JSONDict]
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MAPPING = REPO_ROOT / "scripts" / "mapping.json"
+PROVIDER_ID = "mistral"
+
+REPO_ROOT = _SCRIPTS_DIR.parent
+DEFAULT_MAPPING = Path(__file__).resolve().parent / "mapping.json"
 DEFAULT_CURRENT = REPO_ROOT / "pricing.json"
 
 # Kept as its own constant rather than read off __doc__: the module docstring is
 # stripped to None under `python -OO`, which would otherwise take this script down
 # for a reason with nothing to do with argparse.
-CLI_SUMMARY = "Read Mistral's public pricing page and work out what pricing.json should say."
-
-USER_AGENT = "ai-pricing-bot/1 (+https://github.com/Simon-LM/ai-pricing)"
-FETCH_TIMEOUT_SECONDS = 30
-
-# Below this, the response is not a pricing page -- it is an error page, a consent
-# wall, or a redirect stub. Fail rather than parse it and find nothing.
-MIN_PAGE_BYTES = 10_000
-
-
-class ScrapeError(Exception):
-    """Anything that means: do not publish, report it, leave the file alone."""
+CLI_SUMMARY = "Read Mistral's public pricing page and work out what providers.mistral should say."
 
 
 # --------------------------------------------------------------------------------------
@@ -242,7 +232,7 @@ def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[
         if page_name not in cards:
             raise ScrapeError(
                 f"{model_id}: the page has no model card named {page_name!r}. Either the "
-                f"page renamed it, or the model is gone. Update scripts/mapping.json by "
+                f"page renamed it, or the model is gone. Update {DEFAULT_MAPPING} by "
                 f"hand after checking {mapping['source']} -- do not let this be guessed."
             )
 
@@ -285,212 +275,26 @@ def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[
                     f"publishes USD and performs no conversion."
                 )
 
-            entry[field] = check_price(model_id, field, prices["priceUsd"])
+            entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, prices["priceUsd"])
 
         entry["display_name"] = spec["display_name"]
+        # Only written when the mapping says so. The page prices web search, image
+        # generation and code execution alongside the models, and those have no API
+        # model id to be called by; "model" is the default and stays unwritten.
+        if "kind" in spec:
+            entry["kind"] = spec["kind"]
         models[model_id] = entry
 
     return models
 
 
-# --------------------------------------------------------------------------------------
-# Fetching
-# --------------------------------------------------------------------------------------
-
-
-def fetch_page(url: str) -> str:
-    """GET a public page. No credentials of any kind are sent, ever."""
-    request = urllib.request.Request(
-        url, headers={"User-Agent": USER_AGENT, "Accept": "text/html"}
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
-            if response.status != 200:
-                raise ScrapeError(f"{url} returned HTTP {response.status}")
-            charset = response.headers.get_content_charset() or "utf-8"
-            body = response.read().decode(charset, errors="replace")
-    except urllib.error.HTTPError as exc:
-        raise ScrapeError(f"{url} returned HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ScrapeError(f"{url} could not be fetched: {exc}") from exc
-
-    if len(body) < MIN_PAGE_BYTES:
-        raise ScrapeError(
-            f"{url} returned only {len(body)} characters, too short to be the pricing "
-            f"page. Probably an error or consent page."
-        )
-    return body
-
-
-# --------------------------------------------------------------------------------------
-# Document assembly
-# --------------------------------------------------------------------------------------
-
-
-def build_document(
-    base: JSONDict,
-    models: dict[str, JSONDict],
-    checked_utc: str,
-    updated: str,
-    mapping: JSONDict,
-) -> JSONDict:
-    """Assemble a pricing.json document with a stable, reviewable key order."""
-    ordered_models: dict[str, JSONDict] = {}
-    for model_id, entry in models.items():
-        ordered: JSONDict = {}
-        for field in KNOWN_PRICE_FIELDS:
-            if field in entry:
-                ordered[field] = entry[field]
-        ordered["display_name"] = entry["display_name"]
-        ordered_models[model_id] = ordered
-
-    return {
-        "schema_version": base.get("schema_version", SCHEMA_VERSION),
-        "checked_utc": checked_utc,
-        "updated": updated,
-        "source": mapping["source"],
-        "currency": mapping["currency"],
-        "models": ordered_models,
-    }
-
-
-def write_json(path: Path, doc: JSONDict) -> None:
-    path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
-
-def load_json(path: Path, what: str) -> Any:
-    """Parse a JSON file without asserting anything about its shape.
-
-    Deliberately `Any`, not `JSONDict`: this only proves the bytes were valid JSON.
-    A file could still parse to a list, a string, or anything else JSON allows.
-    Callers that need an object -- `validate_document` for pricing.json, the shape
-    checks in `run()` for the mapping -- assert that themselves.
-    """
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise ScrapeError(f"{what} not found: {path}") from exc
-    except json.JSONDecodeError as exc:
-        raise ScrapeError(f"{what} is not valid JSON ({path}): {exc}") from exc
-
-
-# --------------------------------------------------------------------------------------
-# Main
-# --------------------------------------------------------------------------------------
-
-
-def run(args: argparse.Namespace) -> tuple[str, str]:
-    """Do the whole job. Returns (outcome, human-readable summary)."""
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    mapping = load_json(Path(args.mapping), "mapping")
-    current = load_json(Path(args.current), "current pricing.json")
-
-    # A committed file that is already invalid must not be used as a comparison base.
-    try:
-        validate_document(current)
-    except ValidationError as exc:
-        raise ScrapeError(f"the committed pricing.json is invalid: {exc}") from exc
-
-    if current.get("currency") != mapping["currency"]:
-        raise ScrapeError(
-            f"currency mismatch: pricing.json says {current.get('currency')!r}, mapping says "
-            f"{mapping['currency']!r}. This file performs no conversion, so this must be fixed by hand."
-        )
-
-    published_but_unmapped = sorted(set(current["models"]) - set(mapping["models"]))
-    if published_but_unmapped:
-        raise ScrapeError(
-            f"pricing.json publishes model(s) the mapping does not know: {published_but_unmapped}. "
-            f"Consumers may already depend on them; removing one is a deliberate human decision, "
-            f"not something this job may do."
-        )
-
-    html_text = (
-        Path(args.html).read_text(encoding="utf-8", errors="replace")
-        if args.html
-        else fetch_page(mapping["source"])
-    )
-
-    new_models = extract_models(parse_page(html_text), mapping)
-
-    # Compare against what is published before believing any of it.
-    for model_id, entry in new_models.items():
-        old_entry = current["models"].get(model_id)
-        if not old_entry:
-            continue
-        for field in KNOWN_PRICE_FIELDS:
-            if field in entry and field in old_entry:
-                check_change(model_id, field, float(old_entry[field]), float(entry[field]))
-
-    now = args.now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    today = now[:10]
-
-    changes = diff_models(current["models"], new_models)
-
-    # Always produced: the same figures with a fresh verification stamp. This is a real
-    # statement to consumers ("confirmed unchanged today") and it is also the commit that
-    # keeps GitHub from disabling the schedule after 60 days of no commits.
-    stamped = build_document(current, current["models"], now, current["updated"], mapping)
-    validate_document(stamped)
-    write_json(out_dir / "stamped.json", stamped)
-
-    if not changes:
-        return "unchanged", f"Figures unchanged. Verified against {mapping['source']} at {now}."
-
-    updated_doc = build_document(current, new_models, now, today, mapping)
-    validate_document(updated_doc)
-    write_json(out_dir / "updated.json", updated_doc)
-
-    summary = "\n".join(
-        [f"Figures changed, verified against {mapping['source']} at {now}:", ""]
-        + [f"  {line}" for line in changes]
-    )
-    return "changed", summary
-
-
-def emit_github_output(**values: str) -> None:
-    """Write step outputs for the workflow, if we are running inside one."""
-    path = os.environ.get("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as handle:
-        for key, value in values.items():
-            handle.write(f"{key}<<__AI_PRICING_EOF__\n{value}\n__AI_PRICING_EOF__\n")
+def extract_new_models(html_text: str, mapping: JSONDict) -> dict[str, JSONDict]:
+    """The one callback provider_runner needs: page text + mapping -> a models dict."""
+    return extract_models(parse_page(html_text), mapping)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=CLI_SUMMARY)
-    parser.add_argument("--out-dir", default=".ci-out", help="where candidate files are written")
-    parser.add_argument("--current", default=str(DEFAULT_CURRENT), help="the published pricing.json")
-    parser.add_argument("--mapping", default=str(DEFAULT_MAPPING), help="the explicit mapping")
-    parser.add_argument("--html", help="read this local HTML file instead of fetching (tests)")
-    parser.add_argument("--now", help="override the UTC stamp, format YYYY-MM-DDTHH:MM:SSZ (tests)")
-    args = parser.parse_args(argv)
-
-    try:
-        outcome, summary = run(args)
-    except (ScrapeError, ValidationError) as exc:
-        message = str(exc)
-        out_dir = Path(args.out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "error.txt").write_text(message + "\n", encoding="utf-8")
-        # Nothing may be published from here on. pricing.json was never opened for writing.
-        for stale in ("stamped.json", "updated.json", "summary.txt"):
-            (out_dir / stale).unlink(missing_ok=True)
-        print(f"FAILED: {message}", file=sys.stderr)
-        emit_github_output(outcome="failed", summary=message)
-        return 1
-
-    # The summary is written to a file as well as to the step output. The workflow
-    # reads the file: it must never interpolate text derived from a remote page into
-    # a shell command, and error messages quote labels found on that page.
-    (Path(args.out_dir) / "summary.txt").write_text(summary + "\n", encoding="utf-8")
-
-    print(summary)
-    emit_github_output(outcome=outcome, summary=summary)
-    return 0
+    return provider_runner.main(PROVIDER_ID, extract_new_models, DEFAULT_MAPPING, DEFAULT_CURRENT, CLI_SUMMARY, argv)
 
 
 if __name__ == "__main__":
