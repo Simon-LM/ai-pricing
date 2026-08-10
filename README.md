@@ -7,20 +7,25 @@ file at one URL:
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 ```
 
-Today that means Mistral called directly, OVH's AI Endpoints catalog, and Eden AI --
-an aggregator that resells all three and more. That is exactly why prices are grouped
-by **provider**, not just by model: the same model is a different bill depending on
-who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and
-$1.00/$3.00 through Eden AI, and both numbers are in this file.
+Today that means two providers called directly — Mistral and OVH's AI Endpoints
+catalog — and two aggregators that resell them and others, Eden AI and Hugging Face's
+Inference Providers router. That is exactly why prices are grouped by **provider**,
+not just by model: the same model is a different bill depending on who you actually
+paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
+`Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
+those numbers is in this file.
 
-| provider | entries | currency |
-| --- | --- | --- |
-| `mistral` | 30 | USD |
-| `ovh` | 19 | EUR |
-| `edenai` | 103 | USD |
+| provider | entries | currency | what it is |
+| --- | --- | --- | --- |
+| `mistral` | 30 | USD | called directly |
+| `ovh` | 19 | EUR | called directly |
+| `edenai` | 103 | USD | resold, 5 upstreams |
+| `huggingface` | 15 | USD | routed, 2 partners |
 
-Each is covered in full rather than as a hand-picked subset: every model the source
-prices is published.
+`huggingface` is keyed by `<model>:<partner>` rather than by model, because the
+router serves one model through several partners at several prices — `gpt-oss-120b`
+through eleven of them. The others are covered in full; `huggingface` covers the two
+partners asked for.
 
 ## Read this before you trust a number in it
 
@@ -207,7 +212,9 @@ Mondays at 04:00 UTC, and
 [`.github/workflows/refresh-ovh.yml`](.github/workflows/refresh-ovh.yml) an hour
 later at 05:00, and
 [`.github/workflows/refresh-edenai.yml`](.github/workflows/refresh-edenai.yml) at
-06:00 -- offset on purpose so the scheduled runs don't land in the same minute and
+06:00 and
+[`.github/workflows/refresh-huggingface.yml`](.github/workflows/refresh-huggingface.yml)
+at 07:00 -- offset on purpose so the scheduled runs don't land in the same minute and
 immediately queue behind each other every single week. All also run on demand. Every
 provider's workflow has three outcomes and never a fourth:
 
@@ -257,7 +264,7 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 137 tests
+python3 -m unittest discover -s tests -v                          # 164 tests
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live page
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
 
