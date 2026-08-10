@@ -814,6 +814,89 @@
           "display_name": "grok-4.5"
         }
       }
+    },
+    "huggingface": {
+      "checked_utc": "2026-08-10T00:00:00Z",
+      "updated": "2026-08-10",
+      "source": "https://router.huggingface.co/v1/models",
+      "currency": "USD",
+      "models": {
+        "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud": {
+          "in_per_mtok": 1.01,
+          "out_per_mtok": 1.01,
+          "display_name": "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud"
+        },
+        "Qwen/Qwen3-235B-A22B-Instruct-2507:scaleway": {
+          "in_per_mtok": 0.855,
+          "out_per_mtok": 2.565,
+          "display_name": "Qwen/Qwen3-235B-A22B-Instruct-2507:scaleway"
+        },
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct:scaleway": {
+          "in_per_mtok": 0.228,
+          "out_per_mtok": 0.912,
+          "display_name": "Qwen/Qwen3-Coder-30B-A3B-Instruct:scaleway"
+        },
+        "Qwen/Qwen3.5-397B-A17B:ovhcloud": {
+          "in_per_mtok": 0.71,
+          "out_per_mtok": 4.25,
+          "display_name": "Qwen/Qwen3.5-397B-A17B:ovhcloud"
+        },
+        "Qwen/Qwen3.5-397B-A17B:scaleway": {
+          "in_per_mtok": 0.684,
+          "out_per_mtok": 4.104,
+          "display_name": "Qwen/Qwen3.5-397B-A17B:scaleway"
+        },
+        "Qwen/Qwen3.5-9B:ovhcloud": {
+          "in_per_mtok": 0.12,
+          "out_per_mtok": 0.18,
+          "display_name": "Qwen/Qwen3.5-9B:ovhcloud"
+        },
+        "Qwen/Qwen3.6-27B:ovhcloud": {
+          "in_per_mtok": 0.47,
+          "out_per_mtok": 3.19,
+          "display_name": "Qwen/Qwen3.6-27B:ovhcloud"
+        },
+        "Qwen/Qwen3.6-35B-A3B:scaleway": {
+          "in_per_mtok": 0.285,
+          "out_per_mtok": 1.71,
+          "display_name": "Qwen/Qwen3.6-35B-A3B:scaleway"
+        },
+        "google/gemma-4-26B-A4B-it:scaleway": {
+          "in_per_mtok": 0.285,
+          "out_per_mtok": 0.57,
+          "display_name": "google/gemma-4-26B-A4B-it:scaleway"
+        },
+        "meta-llama/Llama-3.3-70B-Instruct:ovhcloud": {
+          "in_per_mtok": 0.74,
+          "out_per_mtok": 0.74,
+          "display_name": "meta-llama/Llama-3.3-70B-Instruct:ovhcloud"
+        },
+        "meta-llama/Llama-3.3-70B-Instruct:scaleway": {
+          "in_per_mtok": 1.026,
+          "out_per_mtok": 1.026,
+          "display_name": "meta-llama/Llama-3.3-70B-Instruct:scaleway"
+        },
+        "openai/gpt-oss-120b:ovhcloud": {
+          "in_per_mtok": 0.09,
+          "out_per_mtok": 0.47,
+          "display_name": "openai/gpt-oss-120b:ovhcloud"
+        },
+        "openai/gpt-oss-120b:scaleway": {
+          "in_per_mtok": 0.171,
+          "out_per_mtok": 0.684,
+          "display_name": "openai/gpt-oss-120b:scaleway"
+        },
+        "openai/gpt-oss-20b:ovhcloud": {
+          "in_per_mtok": 0.05,
+          "out_per_mtok": 0.18,
+          "display_name": "openai/gpt-oss-20b:ovhcloud"
+        },
+        "zai-org/GLM-5.2:scaleway": {
+          "in_per_mtok": 2.052,
+          "out_per_mtok": 6.27,
+          "display_name": "zai-org/GLM-5.2:scaleway"
+        }
+      }
     }
   }
 }
