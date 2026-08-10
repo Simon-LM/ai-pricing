@@ -7,27 +7,42 @@ file at one URL:
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 ```
 
-Today that means Mistral, called directly, and OVH's AI Endpoints catalog -- which
-resells several open models (gpt-oss, Qwen, Whisper) that have nothing to do with
-Mistral. That is exactly why prices are grouped by **provider**, not just by model:
-the same model name can mean two different bills at two different providers.
+Today that means Mistral called directly, OVH's AI Endpoints catalog, and Eden AI --
+an aggregator that resells all three and more. That is exactly why prices are grouped
+by **provider**, not just by model: the same model is a different bill depending on
+who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and
+$1.00/$3.00 through Eden AI, and both numbers are in this file.
 
-Both providers are covered in full: every model each one prices on its page is
-published, 30 entries for Mistral and 19 for OVH, rather than a hand-picked subset.
+| provider | entries | currency |
+| --- | --- | --- |
+| `mistral` | 30 | USD |
+| `ovh` | 19 | EUR |
+| `edenai` | 103 | USD |
+
+Each is covered in full rather than as a hand-picked subset: every model the source
+prices is published.
 
 ## Read this before you trust a number in it
 
-**These figures are scraped from public marketing pages**, one scraper per provider.
-Mistral, specifically, publishes no machine-readable pricing: there is no pricing
-endpoint in the API, and the one usage endpoint that returns a `prices` field
-requires an *admin* API key that an ordinary user of an open-source tool does not
-have and should never be asked for. So Mistral's numbers here come from reading
+**Most of these figures are scraped from public marketing pages**, one scraper per
+provider. Mistral, specifically, publishes no machine-readable pricing: there is no
+pricing endpoint in the API, and the one usage endpoint that returns a `prices`
+field requires an *admin* API key that an ordinary user of an open-source tool does
+not have and should never be asked for. So Mistral's numbers here come from reading
 <https://mistral.ai/pricing/api>, a page with no contract behind it and no
 versioning. OVH's are read the same way, from their public AI Endpoints catalog --
 a Next.js app that embeds its model list and pricing as JSON inside the page rather
-than rendering scrapeable card markup the way Mistral's does; see
-`scripts/providers/ovh/README.md` for exactly how. Each provider's own `README.md`
-under `scripts/providers/<name>/` explains that provider's specific situation.
+than rendering scrapeable card markup the way Mistral's does.
+
+Eden AI is the exception and the sturdiest source here: a real public JSON API,
+<https://api.edenai.run/v3/models>, stating an input and an output price per model
+under explicit field names, with no label to string-match and no layout to latch
+onto. Being an aggregator, its prices are what **Eden** charges to forward a call,
+so they differ from the same model's price under `providers.mistral` or
+`providers.ovh` — by design, not by error.
+
+Each provider's own `README.md` under `scripts/providers/<name>/` explains that
+provider's specific situation.
 
 **A human reviews every figure before it is published.** The weekly job for each
 provider may commit the "we checked, nothing moved" timestamp on its own. It may
@@ -92,6 +107,7 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `in_per_mtok` | per million input tokens |
 | `out_per_mtok` | per million output tokens |
 | `per_mtok` | per million tokens, with no input/output split |
+| `cache_read_per_mtok` | per million tokens read back from a prompt cache |
 | `index_per_mtok` | per million tokens indexed |
 | `train_per_mtok` | per million tokens trained on, one-off |
 | `per_1k_pages` | per thousand pages |
@@ -189,9 +205,11 @@ Each provider has its own workflow:
 [`.github/workflows/refresh-mistral.yml`](.github/workflows/refresh-mistral.yml) runs
 Mondays at 04:00 UTC, and
 [`.github/workflows/refresh-ovh.yml`](.github/workflows/refresh-ovh.yml) an hour
-later at 05:00 -- offset on purpose so the two scheduled runs don't land in the same
-minute and immediately queue behind each other every single week. Both also run on
-demand. Every provider's workflow has three outcomes and never a fourth:
+later at 05:00, and
+[`.github/workflows/refresh-edenai.yml`](.github/workflows/refresh-edenai.yml) at
+06:00 -- offset on purpose so the scheduled runs don't land in the same minute and
+immediately queue behind each other every single week. All also run on demand. Every
+provider's workflow has three outcomes and never a fourth:
 
 | outcome | what happens |
 | --- | --- |
@@ -239,7 +257,7 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 109 tests
+python3 -m unittest discover -s tests -v                          # 137 tests
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live page
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
 
