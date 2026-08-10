@@ -1,0 +1,244 @@
+name: Refresh prices (Eden AI)
+
+# Reads Eden AI's public model list once a week and works out whether
+# pricing.json's providers.edenai block should change. It has exactly three
+# outcomes, and never a fourth:
+#
+#   figures unchanged  -> commit the checked_utc stamp straight to main
+#   a figure changed   -> commit the stamp, then open a pull request. Never merge it.
+#   fetch/parse failed -> open an issue, fail the job, leave pricing.json untouched
+#
+# pricing.json holds one block per provider under `providers.<name>`. This workflow
+# only ever touches `providers.edenai`; every other provider's block is carried
+# through by the scraper itself (merge_provider_block()) exactly as committed. It
+# follows the exact pattern of refresh-mistral.yml and refresh-ovh.yml and joins the
+# SAME concurrency group below so all three queue on pricing.json writes instead of
+# racing each other.
+#
+# Eden AI is an aggregator: these are the prices EDEN charges to forward a call, not
+# the prices of calling those providers directly. providers.edenai is not a
+# cross-check of providers.mistral or providers.ovh, and a difference between them is
+# expected rather than a bug to reconcile.
+#
+# The stamp commit happens on EVERY successful run, including the run that opens a
+# pull request. It is a real statement to consumers ("confirmed unchanged today"),
+# and it is also what keeps this workflow alive: GitHub disables a scheduled
+# workflow after 60 days without repository activity, and only new commits reset
+# that timer -- not tags, not issues, not merged pull requests.
+#
+# The scraper needs no API key of any kind and must never be given one. It reads a
+# public endpoint. There are no secrets in this workflow beyond the automatic
+# GITHUB_TOKEN, which is used only to commit, to open a pull request, and to file
+# an issue.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, 06:00 UTC -- an hour after OVH's and two after
+    # Mistral's, so the three scheduled runs don't land in the same minute and
+    # fight over the pricing-json-writes concurrency group every single week.
+  workflow_dispatch: # so a human can force a check
+    inputs:
+      dry_run:
+        description: "Check the endpoint and report, but commit nothing and open nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  # Shared with every other provider's refresh-<name>.yml on purpose: they all
+  # write to the same pricing.json, so they must queue, never run concurrently.
+  group: pricing-json-writes
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # A scraper whose own tests fail has no business publishing a number.
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Read the Eden AI model list
+        id: scrape
+        continue-on-error: true
+        run: python3 scripts/providers/edenai/scrape.py --out-dir .ci-out
+
+      # ---------------------------------------------------------------------------
+      # Outcome 3: something failed. Report it, change nothing, fail the job.
+      # ---------------------------------------------------------------------------
+      - name: Report failure and stop
+        if: steps.tests.outcome == 'failure' || steps.scrape.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ "${{ steps.tests.outcome }}" = "failure" ]; then
+            echo "The test suite failed, so the scraper was not trusted to publish anything." \
+              > /tmp/reason.txt
+          elif [ -s .ci-out/error.txt ]; then
+            cp .ci-out/error.txt /tmp/reason.txt
+          else
+            echo "The scraper failed without writing a reason. See the run log." > /tmp/reason.txt
+          fi
+
+          # Built by concatenation, never by interpolating the reason into a shell string:
+          # the reason quotes text taken from a service this repository does not control.
+          {
+            cat <<'INTRO'
+          The weekly Eden AI price check did not complete. `pricing.json` has **not** been
+          modified: providers.edenai still shows the figures a human last reviewed, and its
+          `checked_utc` still shows when they were last actually verified.
+
+          ```
+          INTRO
+            cat /tmp/reason.txt
+            echo '```'
+            echo
+            echo "Run: ${RUN_URL}"
+            echo "Endpoint: https://api.edenai.run/v3/models"
+            cat <<'OUTRO'
+
+          Two failures are routine here and are not bugs: Eden adding a model from one of
+          the mapped upstreams, and Eden retiring one. Both are refused on purpose, because
+          publishing a price nobody read -- or dropping one consumers may depend on -- is a
+          human's decision. Add or remove the id in
+          `scripts/providers/edenai/mapping.json` after reading the figures, and re-run the
+          workflow from the Actions tab.
+          OUTRO
+          } > /tmp/issue-body.md
+
+          # One issue per outage, not one per week: comment on the open one if there is one.
+          # Scoped to an Eden-specific label so a stuck failure elsewhere never suppresses a
+          # fresh notification here or vice versa.
+          EXISTING="$(gh issue list --label scraper-failure:edenai --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file /tmp/issue-body.md
+            echo "Commented on existing issue #$EXISTING"
+          else
+            gh label create scraper-failure:edenai --color d73a4a --description "The Eden AI price scraper could not complete" 2>/dev/null || true
+            gh issue create \
+              --title "Eden AI price check failed on $(date -u +%Y-%m-%d)" \
+              --label scraper-failure:edenai \
+              --body-file /tmp/issue-body.md
+          fi
+
+          echo "::error::The Eden AI price check failed. pricing.json was left untouched."
+          exit 1
+
+      - name: Report what was found
+        run: |
+          {
+            echo "### Eden AI price check"
+            echo '```'
+            cat .ci-out/summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat .ci-out/summary.txt
+
+      - name: Dry run - stopping before anything is written
+        if: inputs.dry_run
+        run: |
+          echo "::notice::Dry run - nothing committed, no pull request opened."
+
+      # ---------------------------------------------------------------------------
+      # Every successful run: commit the verification stamp to main.
+      # ---------------------------------------------------------------------------
+      - name: Commit the verification stamp
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          cp .ci-out/stamped.json pricing.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- pricing.json; then
+            echo "Nothing to stamp; pricing.json is already current."
+            exit 0
+          fi
+
+          git add pricing.json
+          git commit -m "chore: verified edenai prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
+          # Note: a push made with GITHUB_TOKEN does not trigger further workflow runs.
+          # Nothing here depends on it -- the trigger is the schedule, not the push.
+
+      # ---------------------------------------------------------------------------
+      # Outcome 2: a figure moved. A human decides, not this job.
+      # ---------------------------------------------------------------------------
+      - name: Open a pull request for the new figures
+        if: ${{ steps.scrape.outputs.outcome == 'changed' && !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # A branch name derived from the figures themselves, so a change that persists
+          # for weeks keeps updating one pull request instead of opening a new one every
+          # Monday. Prefixed with the provider so it can never collide with another's.
+          BRANCH="price-update/edenai-$(python3 -c "
+          import hashlib, json
+          models = json.load(open('.ci-out/updated.json'))['providers']['edenai']['models']
+          print(hashlib.sha256(json.dumps(models, sort_keys=True).encode()).hexdigest()[:8])
+          ")"
+
+          if [ "$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')" != "0" ]; then
+            echo "::notice::A pull request for exactly these figures is already open. Nothing to do."
+            exit 0
+          fi
+
+          git checkout -b "$BRANCH"
+          cp .ci-out/updated.json pricing.json
+          git add pricing.json
+          git commit -m "prices: update edenai figures read from the model list on $(date -u +%Y-%m-%d)"
+          git push --force --set-upstream origin "$BRANCH"
+
+          # Same rule as the issue body: the summary is concatenated in, never
+          # interpolated into a shell string.
+          {
+            cat <<'INTRO'
+          The scraper read different figures from <https://api.edenai.run/v3/models>.
+
+          ```
+          INTRO
+            cat .ci-out/summary.txt
+            echo '```'
+            cat <<'OUTRO'
+
+          **Check the endpoint yourself before merging.** These numbers become the numbers
+          other projects display to their users. Figures are read in USD from
+          `list_pricing`, the public list price -- not `pricing`, which can be lower for an
+          account with a discount and would be wrong for everyone else.
+
+          Remember these are Eden's own resale prices. They are expected to differ from the
+          same model's price under `providers.mistral` or `providers.ovh`; a difference is
+          not a discrepancy to reconcile.
+
+          Only `providers.edenai` is touched by this PR -- every other provider's block is
+          carried through byte-for-byte.
+          OUTRO
+            echo
+            echo "Merging publishes these figures to every consumer that fetches"
+            echo "\`raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/pricing.json\`."
+          } > /tmp/pr-body.md
+
+          gh pr create \
+            --title "prices: edenai figures changed on the model list" \
+            --body-file /tmp/pr-body.md \
+            --base main \
+            --head "$BRANCH"

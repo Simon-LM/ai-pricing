@@ -61,6 +61,7 @@ KNOWN_PRICE_FIELDS = (
     "in_per_mtok",
     "out_per_mtok",
     "per_mtok",
+    "cache_read_per_mtok",
     "index_per_mtok",
     "train_per_mtok",
     # document prices

@@ -1,0 +1,5356 @@
+{
+ "_fixture_note": [
+  "Real capture of https://api.edenai.run/v3/models on 2026-08-10, reduced to the",
+  "five upstreams this repository publishes plus six decoys from upstreams it does",
+  "not. Every kept entry is verbatim, including its pricing object.",
+  "",
+  "The decoys are load-bearing: they prove the scraper filters on owned_by rather",
+  "than publishing whatever the endpoint returns. Delete them and that stops being",
+  "tested. The scraper ignores this _fixture_note key -- it reads only 'data'.",
+  "",
+  "Regenerate by re-fetching the endpoint and re-filtering, never by hand-editing a",
+  "figure: a fixture edited to match the code proves only that the code agrees with",
+  "itself."
+ ],
+ "object": "list",
+ "data": [
+  {
+   "id": "xai/grok-4.5",
+   "object": "model",
+   "created": 1783523154,
+   "owned_by": "xai",
+   "model_name": "grok-4.5",
+   "context_length": 500000,
+   "description": "Grok 4.5 is SpaceXAI's smartest model with frontier performance on coding, knowledge work, and STEM.",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 3e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 4e-06,
+    "output_cost_per_token_above_200k_tokens": 1.2e-05,
+    "cache_read_input_token_cost_above_200k_tokens": 6e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 3e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 4e-06,
+    "output_cost_per_token_above_200k_tokens": 1.2e-05,
+    "cache_read_input_token_cost_above_200k_tokens": 6e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-2508",
+   "object": "model",
+   "created": 1782745560,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-2508",
+   "context_length": 131072,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-2604",
+   "object": "model",
+   "created": 1782745560,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-2604",
+   "context_length": 262144,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/glm-5.2",
+   "object": "model",
+   "created": 1782376549,
+   "owned_by": "scaleway",
+   "model_name": "glm-5.2",
+   "context_length": 256000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.0762993885298304e-06,
+    "output_cost_per_token": 6.344248131618926e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.0762993885298304e-06,
+    "output_cost_per_token": 6.344248131618926e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/ministral-8b-latest",
+   "object": "model",
+   "created": 1780792123,
+   "owned_by": "mistral",
+   "model_name": "ministral-8b-latest",
+   "context_length": 262144,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 1.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 1.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/codestral-latest",
+   "object": "model",
+   "created": 1780673223,
+   "owned_by": "mistral",
+   "model_name": "codestral-latest",
+   "context_length": 256000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 3e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 3e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-tiny-latest",
+   "object": "model",
+   "created": 1780673223,
+   "owned_by": "mistral",
+   "model_name": "mistral-tiny-latest",
+   "context_length": 131072,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.5e-07,
+    "output_cost_per_token": 2.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.5e-07,
+    "output_cost_per_token": 2.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Qwen3.5-397B-A17B",
+   "object": "model",
+   "created": 1780673223,
+   "owned_by": "ovhcloud",
+   "model_name": "Qwen3.5-397B-A17B",
+   "context_length": 262144,
+   "description": null,
+   "source": null,
+   "capabilities": {},
+   "pricing": {
+    "input_cost_per_token": 7.1e-07,
+    "output_cost_per_token": 4.25e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 7.1e-07,
+    "output_cost_per_token": 4.25e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Qwen3.5-9B",
+   "object": "model",
+   "created": 1780673223,
+   "owned_by": "ovhcloud",
+   "model_name": "Qwen3.5-9B",
+   "context_length": 262144,
+   "description": null,
+   "source": null,
+   "capabilities": {},
+   "pricing": {
+    "input_cost_per_token": 1.2e-07,
+    "output_cost_per_token": 1.8e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.2e-07,
+    "output_cost_per_token": 1.8e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Qwen3.6-27B",
+   "object": "model",
+   "created": 1780673223,
+   "owned_by": "ovhcloud",
+   "model_name": "Qwen3.6-27B",
+   "context_length": 262144,
+   "description": null,
+   "source": null,
+   "capabilities": {},
+   "pricing": {
+    "input_cost_per_token": 4.7e-07,
+    "output_cost_per_token": 3.19e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4.7e-07,
+    "output_cost_per_token": 3.19e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Qwen3-Coder-30B-A3B-Instruct",
+   "object": "model",
+   "created": 1780673223,
+   "owned_by": "ovhcloud",
+   "model_name": "Qwen3-Coder-30B-A3B-Instruct",
+   "context_length": 262144,
+   "description": null,
+   "source": null,
+   "capabilities": {},
+   "pricing": {
+    "input_cost_per_token": 7e-08,
+    "output_cost_per_token": 2.6e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 7e-08,
+    "output_cost_per_token": 2.6e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4.20-0309-non-reasoning",
+   "object": "model",
+   "created": 1780673222,
+   "owned_by": "xai",
+   "model_name": "grok-4.20-0309-non-reasoning",
+   "context_length": 2000000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-build-0.1",
+   "object": "model",
+   "created": 1779298123,
+   "owned_by": "xai",
+   "model_name": "grok-build-0.1",
+   "context_length": 256000,
+   "description": "Grok Build 0.1 is xAI\u2019s fast coding model trained specifically for agentic software engineering workflows. It supports text and image inputs with text output, and is optimized for interactive coding...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 2e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 2e-06,
+    "output_cost_per_token_above_200k_tokens": 4e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 2e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 2e-06,
+    "output_cost_per_token_above_200k_tokens": 4e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4.3-latest",
+   "object": "model",
+   "created": 1778172174,
+   "owned_by": "xai",
+   "model_name": "grok-4.3-latest",
+   "context_length": 1000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "input_cost_per_token_above_200k_tokens": 2.5e-06,
+    "output_cost_per_token_above_200k_tokens": 5e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "input_cost_per_token_above_200k_tokens": 2.5e-06,
+    "output_cost_per_token_above_200k_tokens": 5e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/mistral-medium-3.5-128b",
+   "object": "model",
+   "created": 1778158991,
+   "owned_by": "scaleway",
+   "model_name": "mistral-medium-3.5-128b",
+   "context_length": 256000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.7302494904415252e-06,
+    "output_cost_per_token": 8.651247452207626e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.7302494904415252e-06,
+    "output_cost_per_token": 8.651247452207626e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/qwen3.6-35b-a3b",
+   "object": "model",
+   "created": 1778158991,
+   "owned_by": "scaleway",
+   "model_name": "qwen3.6-35b-a3b",
+   "context_length": 256000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.8837491507358754e-07,
+    "output_cost_per_token": 1.7302494904415252e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.8837491507358754e-07,
+    "output_cost_per_token": 1.7302494904415252e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4.3",
+   "object": "model",
+   "created": 1777591821,
+   "owned_by": "xai",
+   "model_name": "grok-4.3",
+   "context_length": 1000000,
+   "description": "Grok 4.3 is a reasoning model from xAI. It accepts text and image inputs with text output, and is suited for agentic workflows, instruction-following tasks, and applications requiring high factual...",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 2.5e-06,
+    "output_cost_per_token_above_200k_tokens": 5e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 2.5e-06,
+    "output_cost_per_token_above_200k_tokens": 5e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-3-5",
+   "object": "model",
+   "created": 1777570439,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-3-5",
+   "context_length": 262144,
+   "description": "Mistral Medium 3.5 is a dense 128B instruction-following model from Mistral AI. It supports text and image inputs with text output, and is designed for agentic workflows, coding, and complex...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-3.5",
+   "object": "model",
+   "created": 1777570439,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-3.5",
+   "context_length": 262144,
+   "description": "Mistral Medium 3.5 is a dense 128B instruction-following model from Mistral AI. It supports text and image inputs with text output, and is designed for agentic workflows, coding, and complex...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/gemma-4-26b-a4b-it",
+   "object": "model",
+   "created": 1777469299,
+   "owned_by": "scaleway",
+   "model_name": "gemma-4-26b-a4b-it",
+   "context_length": 256000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.8837491507358754e-07,
+    "output_cost_per_token": 5.767498301471751e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.8837491507358754e-07,
+    "output_cost_per_token": 5.767498301471751e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/codestral-2405",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "codestral-2405",
+   "context_length": 32000,
+   "description": "",
+   "source": "https://docs.mistral.ai/capabilities/code_generation/",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 3e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 3e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-large-2402",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "mistral-large-2402",
+   "context_length": 32000,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4e-06,
+    "output_cost_per_token": 1.2e-05
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4e-06,
+    "output_cost_per_token": 1.2e-05
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-2312",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-2312",
+   "context_length": 32000,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.7e-06,
+    "output_cost_per_token": 8.1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.7e-06,
+    "output_cost_per_token": 8.1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-small",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "mistral-small",
+   "context_length": 32000,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-tiny",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "mistral-tiny",
+   "context_length": 32000,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.5e-07,
+    "output_cost_per_token": 2.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.5e-07,
+    "output_cost_per_token": 2.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/open-mistral-7b",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "open-mistral-7b",
+   "context_length": 32000,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.5e-07,
+    "output_cost_per_token": 2.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.5e-07,
+    "output_cost_per_token": 2.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/open-mixtral-8x22b",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "open-mixtral-8x22b",
+   "context_length": 65336,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/open-mixtral-8x7b",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "open-mixtral-8x7b",
+   "context_length": 32000,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 7e-07,
+    "output_cost_per_token": 7e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 7e-07,
+    "output_cost_per_token": 7e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/pixtral-12b-2409",
+   "object": "model",
+   "created": 1777389105,
+   "owned_by": "mistral",
+   "model_name": "pixtral-12b-2409",
+   "context_length": 128000,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 1.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 1.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4.20-0309-reasoning",
+   "object": "model",
+   "created": 1776575593,
+   "owned_by": "xai",
+   "model_name": "grok-4.20-0309-reasoning",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4.20",
+   "object": "model",
+   "created": 1774979019,
+   "owned_by": "xai",
+   "model_name": "grok-4.20",
+   "context_length": 2000000,
+   "description": "Grok 4.20 is a reasoning model from xAI with industry-leading speed and agentic tool calling capabilities. It combines the lowest hallucination rate on the market with strict prompt adherance, delivering...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 2.5e-06,
+    "output_cost_per_token_above_200k_tokens": 5e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.25e-06,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 2.5e-06,
+    "output_cost_per_token_above_200k_tokens": 5e-06,
+    "cache_read_input_token_cost_above_200k_tokens": 4e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4.20-beta-0309-non-reasoning",
+   "object": "model",
+   "created": 1773897105,
+   "owned_by": "xai",
+   "model_name": "grok-4.20-beta-0309-non-reasoning",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4.20-beta-0309-reasoning",
+   "object": "model",
+   "created": 1773897105,
+   "owned_by": "xai",
+   "model_name": "grok-4.20-beta-0309-reasoning",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-small-2603",
+   "object": "model",
+   "created": 1773695685,
+   "owned_by": "mistral",
+   "model_name": "mistral-small-2603",
+   "context_length": 262144,
+   "description": "Mistral Small 4 is the next major release in the Mistral Small family, unifying the capabilities of several flagship Mistral models into a single system. It combines strong reasoning from...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 6e-07,
+    "cache_read_input_token_cost": 1.5e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 6e-07,
+    "cache_read_input_token_cost": 1.5e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/qwen3.5-397b-a17b",
+   "object": "model",
+   "created": 1773394870,
+   "owned_by": "scaleway",
+   "model_name": "qwen3.5-397b-a17b",
+   "context_length": 250000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 6.920997961766101e-07,
+    "output_cost_per_token": 4.152598777059661e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 6.920997961766101e-07,
+    "output_cost_per_token": 4.152598777059661e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/devstral-latest",
+   "object": "model",
+   "created": 1771588786,
+   "owned_by": "mistral",
+   "model_name": "devstral-latest",
+   "context_length": 262144,
+   "description": null,
+   "source": "https://mistral.ai/news/devstral-2-vibe-cli",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/devstral-medium-latest",
+   "object": "model",
+   "created": 1771588786,
+   "owned_by": "mistral",
+   "model_name": "devstral-medium-latest",
+   "context_length": 262144,
+   "description": null,
+   "source": "https://mistral.ai/news/devstral-2-vibe-cli",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/devstral-small-latest",
+   "object": "model",
+   "created": 1771588786,
+   "owned_by": "mistral",
+   "model_name": "devstral-small-latest",
+   "context_length": 256000,
+   "description": "",
+   "source": "https://docs.mistral.ai/models/devstral-small-2-25-12",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/gpt-oss-120b",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "gpt-oss-120b",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/gpt-oss-120b",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 9e-08,
+    "output_cost_per_token": 4.7e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 9e-08,
+    "output_cost_per_token": 4.7e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/gpt-oss-20b",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "gpt-oss-20b",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/gpt-oss-20b",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 5e-08,
+    "output_cost_per_token": 1.8e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 5e-08,
+    "output_cost_per_token": 1.8e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Meta-Llama-3_3-70B-Instruct",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "Meta-Llama-3_3-70B-Instruct",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/meta-llama-3-3-70b-instruct",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 7.4e-07,
+    "output_cost_per_token": 7.4e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 7.4e-07,
+    "output_cost_per_token": 7.4e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Mistral-7B-Instruct-v0.3",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "Mistral-7B-Instruct-v0.3",
+   "context_length": 65536,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/mistral-7b-instruct-v0-3",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.1e-07,
+    "output_cost_per_token": 1.1e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.1e-07,
+    "output_cost_per_token": 1.1e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Mistral-Nemo-Instruct-2407",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "Mistral-Nemo-Instruct-2407",
+   "context_length": 65536,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/mistral-nemo-instruct-2407",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.4e-07,
+    "output_cost_per_token": 1.4e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.4e-07,
+    "output_cost_per_token": 1.4e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Mistral-Small-3.2-24B-Instruct-2506",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "Mistral-Small-3.2-24B-Instruct-2506",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/mistral-small-3-2-24b-instruct-2506",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3.1e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3.1e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Qwen2.5-VL-72B-Instruct",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "Qwen2.5-VL-72B-Instruct",
+   "context_length": 32768,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/qwen2-5-vl-72b-instruct",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.01e-06,
+    "output_cost_per_token": 1.01e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.01e-06,
+    "output_cost_per_token": 1.01e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "ovhcloud/Qwen3-32B",
+   "object": "model",
+   "created": 1769507058,
+   "owned_by": "ovhcloud",
+   "model_name": "Qwen3-32B",
+   "context_length": 32768,
+   "description": "",
+   "source": "https://endpoints.ai.cloud.ovh.net/models/qwen3-32b",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 9e-08,
+    "output_cost_per_token": 2.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 9e-08,
+    "output_cost_per_token": 2.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/labs-devstral-small-2512",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "labs-devstral-small-2512",
+   "context_length": 256000,
+   "description": "",
+   "source": "https://docs.mistral.ai/models/devstral-small-2-25-12",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/magistral-medium-2509",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "magistral-medium-2509",
+   "context_length": 131072,
+   "description": null,
+   "source": "https://mistral.ai/news/magistral",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/magistral-medium-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "magistral-medium-latest",
+   "context_length": 131072,
+   "description": null,
+   "source": "https://mistral.ai/news/magistral",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/magistral-small-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "magistral-small-latest",
+   "context_length": 262144,
+   "description": "",
+   "source": "https://mistral.ai/pricing#api-pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium",
+   "context_length": 262144,
+   "description": "",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.7e-06,
+    "output_cost_per_token": 8.1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.7e-06,
+    "output_cost_per_token": 8.1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-2505",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-2505",
+   "context_length": 131072,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-latest",
+   "context_length": 262144,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-small-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "mistral-small-latest",
+   "context_length": 262144,
+   "description": "",
+   "source": "https://mistral.ai/pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 6e-08,
+    "output_cost_per_token": 1.8e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 6e-08,
+    "output_cost_per_token": 1.8e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/open-mistral-nemo",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "open-mistral-nemo",
+   "context_length": 131072,
+   "description": null,
+   "source": "https://mistral.ai/technology/",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/open-mistral-nemo-2407",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "mistral",
+   "model_name": "open-mistral-nemo-2407",
+   "context_length": 131072,
+   "description": null,
+   "source": "https://mistral.ai/technology/",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 3e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-fast-beta",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-3-fast-beta",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 5e-06,
+    "output_cost_per_token": 2.5e-05,
+    "cache_read_input_token_cost": 1.25e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 5e-06,
+    "output_cost_per_token": 2.5e-05,
+    "cache_read_input_token_cost": 1.25e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-fast-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-3-fast-latest",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 5e-06,
+    "output_cost_per_token": 2.5e-05,
+    "cache_read_input_token_cost": 1.25e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 5e-06,
+    "output_cost_per_token": 2.5e-05,
+    "cache_read_input_token_cost": 1.25e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-3-latest",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "cache_read_input_token_cost": 7.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "cache_read_input_token_cost": 7.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-mini-fast",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-3-mini-fast",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 6e-07,
+    "output_cost_per_token": 4e-06,
+    "cache_read_input_token_cost": 1.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 6e-07,
+    "output_cost_per_token": 4e-06,
+    "cache_read_input_token_cost": 1.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-mini-fast-beta",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-3-mini-fast-beta",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 6e-07,
+    "output_cost_per_token": 4e-06,
+    "cache_read_input_token_cost": 1.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 6e-07,
+    "output_cost_per_token": 4e-06,
+    "cache_read_input_token_cost": 1.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-mini-fast-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-3-mini-fast-latest",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 6e-07,
+    "output_cost_per_token": 4e-06,
+    "cache_read_input_token_cost": 1.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 6e-07,
+    "output_cost_per_token": 4e-06,
+    "cache_read_input_token_cost": 1.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-mini-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-3-mini-latest",
+   "context_length": 131072,
+   "description": "",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 7.5e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 7.5e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-0709",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-0709",
+   "context_length": 256000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "input_cost_per_token_above_128k_tokens": 6e-06,
+    "output_cost_per_token_above_128k_tokens": 3e-05
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "input_cost_per_token_above_128k_tokens": 6e-06,
+    "output_cost_per_token_above_128k_tokens": 3e-05
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-1-fast-non-reasoning",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-1-fast-non-reasoning",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models/grok-4-1-fast-non-reasoning",
+   "capabilities": {
+    "input_modalities": [
+     "audio",
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-1-fast-non-reasoning-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-1-fast-non-reasoning-latest",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models/grok-4-1-fast-non-reasoning",
+   "capabilities": {
+    "input_modalities": [
+     "audio",
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-1-fast-reasoning",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-1-fast-reasoning",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models/grok-4-1-fast-reasoning",
+   "capabilities": {
+    "input_modalities": [
+     "audio",
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-1-fast-reasoning-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-1-fast-reasoning-latest",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models/grok-4-1-fast-reasoning",
+   "capabilities": {
+    "input_modalities": [
+     "audio",
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-fast-non-reasoning",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-fast-non-reasoning",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-fast-reasoning",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-fast-reasoning",
+   "context_length": 2000000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-latest",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-4-latest",
+   "context_length": 256000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "input_cost_per_token_above_128k_tokens": 6e-06,
+    "output_cost_per_token_above_128k_tokens": 3e-05
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "input_cost_per_token_above_128k_tokens": 6e-06,
+    "output_cost_per_token_above_128k_tokens": 3e-05
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-code-fast",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-code-fast",
+   "context_length": 256000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-code-fast-1-0825",
+   "object": "model",
+   "created": 1767692616,
+   "owned_by": "xai",
+   "model_name": "grok-code-fast-1-0825",
+   "context_length": 256000,
+   "description": "",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/devstral-2-123b-instruct-2512",
+   "object": "model",
+   "created": 1766496679,
+   "owned_by": "scaleway",
+   "model_name": "devstral-2-123b-instruct-2512",
+   "context_length": 200000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4.593999547491045e-07,
+    "output_cost_per_token": 2.296999773745522e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4.593999547491045e-07,
+    "output_cost_per_token": 2.296999773745522e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/devstral-2512",
+   "object": "model",
+   "created": 1765285419,
+   "owned_by": "mistral",
+   "model_name": "devstral-2512",
+   "context_length": 262144,
+   "description": null,
+   "source": "https://mistral.ai/news/devstral-2-vibe-cli",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/ministral-14b-2512",
+   "object": "model",
+   "created": 1764681735,
+   "owned_by": "mistral",
+   "model_name": "ministral-14b-2512",
+   "context_length": 262144,
+   "description": "The largest model in the Ministral 3 family, Ministral 3 14B offers frontier capabilities and performance comparable to its larger Mistral Small 3.2 24B counterpart. A powerful and efficient language...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 2e-07,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 2e-07,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/ministral-8b-2512",
+   "object": "model",
+   "created": 1764681654,
+   "owned_by": "mistral",
+   "model_name": "ministral-8b-2512",
+   "context_length": 262144,
+   "description": "A balanced model in the Ministral 3 family, Ministral 3 8B is a powerful, efficient tiny language model with vision capabilities.",
+   "source": "https://mistral.ai/pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 1.5e-07,
+    "cache_read_input_token_cost": 1.5e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-07,
+    "output_cost_per_token": 1.5e-07,
+    "cache_read_input_token_cost": 1.5e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/ministral-3b-2512",
+   "object": "model",
+   "created": 1764681560,
+   "owned_by": "mistral",
+   "model_name": "ministral-3b-2512",
+   "context_length": 131072,
+   "description": "The smallest model in the Ministral 3 family, Ministral 3 3B is a powerful, efficient tiny language model with vision capabilities.",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 1e-07,
+    "cache_read_input_token_cost": 1e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 1e-07,
+    "cache_read_input_token_cost": 1e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-large-2512",
+   "object": "model",
+   "created": 1764624472,
+   "owned_by": "mistral",
+   "model_name": "mistral-large-2512",
+   "context_length": 262144,
+   "description": "Mistral Large 3 2512 is Mistral\u2019s most capable model to date, featuring a sparse mixture-of-experts architecture with 41B active parameters (675B total), and released under the Apache 2.0 license.",
+   "source": "https://docs.mistral.ai/models/mistral-large-3-25-12",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 5e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 5e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-1-fast",
+   "object": "model",
+   "created": 1763587502,
+   "owned_by": "xai",
+   "model_name": "grok-4-1-fast",
+   "context_length": 2000000,
+   "description": "Grok 4.1 Fast is xAI's best agentic tool calling model that shines in real-world use cases like customer support and deep research. 2M context window. Reasoning can be enabled/disabled using...",
+   "source": "https://docs.x.ai/docs/models/grok-4-1-fast-reasoning",
+   "capabilities": {
+    "input_modalities": [
+     "audio",
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "input_cost_per_token_above_128k_tokens": 4e-07,
+    "output_cost_per_token_above_128k_tokens": 1e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4-fast",
+   "object": "model",
+   "created": 1758240090,
+   "owned_by": "xai",
+   "model_name": "grok-4-fast",
+   "context_length": 2000000,
+   "description": "Grok 4 Fast is xAI's latest multimodal model with SOTA cost-efficiency and a 2M token context window. It comes in two flavors: non-reasoning and reasoning. Read more about the model...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "file",
+     "image",
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "search_context_cost_per_query": 0.005
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 5e-07,
+    "cache_read_input_token_cost": 5e-08,
+    "search_context_cost_per_query": 0.005
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/voxtral-small-24b-2507",
+   "object": "model",
+   "created": 1757330049,
+   "owned_by": "scaleway",
+   "model_name": "voxtral-small-24b-2507",
+   "context_length": 32000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.7227498303091418e-07,
+    "output_cost_per_token": 4.019749604054664e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.7227498303091418e-07,
+    "output_cost_per_token": 4.019749604054664e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-code-fast-1",
+   "object": "model",
+   "created": 1756238927,
+   "owned_by": "xai",
+   "model_name": "grok-code-fast-1",
+   "context_length": 256000,
+   "description": "Grok Code Fast 1 is a speedy and economical reasoning model that excels at agentic coding. With reasoning traces visible in the response, developers can steer Grok Code for high-quality...",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-07,
+    "output_cost_per_token": 1.5e-06,
+    "cache_read_input_token_cost": 2e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/gpt-oss-120b",
+   "object": "model",
+   "created": 1755093042,
+   "owned_by": "scaleway",
+   "model_name": "gpt-oss-120b",
+   "context_length": 128000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.7302494904415252e-07,
+    "output_cost_per_token": 6.920997961766101e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.7302494904415252e-07,
+    "output_cost_per_token": 6.920997961766101e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/holo2-30b-a3b",
+   "object": "model",
+   "created": 1755006551,
+   "owned_by": "scaleway",
+   "model_name": "holo2-30b-a3b",
+   "context_length": 22000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3.4604989808830504e-07,
+    "output_cost_per_token": 8.074497622060451e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3.4604989808830504e-07,
+    "output_cost_per_token": 8.074497622060451e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/mistral-small-3.2-24b-instruct-2506",
+   "object": "model",
+   "created": 1755006551,
+   "owned_by": "scaleway",
+   "model_name": "mistral-small-3.2-24b-instruct-2506",
+   "context_length": 128000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.7302494904415252e-07,
+    "output_cost_per_token": 4.0372488110302254e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.7302494904415252e-07,
+    "output_cost_per_token": 4.0372488110302254e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/qwen3-coder-30b-a3b-instruct",
+   "object": "model",
+   "created": 1755006551,
+   "owned_by": "scaleway",
+   "model_name": "qwen3-coder-30b-a3b-instruct",
+   "context_length": 128000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.3069993205887005e-07,
+    "output_cost_per_token": 9.227997282354802e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.3069993205887005e-07,
+    "output_cost_per_token": 9.227997282354802e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/codestral-2508",
+   "object": "model",
+   "created": 1754079630,
+   "owned_by": "mistral",
+   "model_name": "codestral-2508",
+   "context_length": 256000,
+   "description": "Mistral's cutting-edge language model for coding released end of July 2025. Codestral specializes in low-latency, high-frequency tasks such as fill-in-the-middle (FIM), code correction and test generation. [Blog Post](https://mistral.ai/news/codestral-25-08)",
+   "source": "https://mistral.ai/news/codestral-25-08",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 9e-07,
+    "cache_read_input_token_cost": 3e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 9e-07,
+    "cache_read_input_token_cost": 3e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/qwen3-235b-a22b-instruct-2507",
+   "object": "model",
+   "created": 1754049528,
+   "owned_by": "scaleway",
+   "model_name": "qwen3-235b-a22b-instruct-2507",
+   "context_length": 250000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 8.651247452207626e-07,
+    "output_cost_per_token": 2.5953742356622874e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 8.651247452207626e-07,
+    "output_cost_per_token": 2.5953742356622874e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-4",
+   "object": "model",
+   "created": 1752087689,
+   "owned_by": "xai",
+   "model_name": "grok-4",
+   "context_length": 256000,
+   "description": "Grok 4 is xAI's latest reasoning model with a 256k context window. It supports parallel tool calling, structured outputs, and both image and text inputs. Note that reasoning is not...",
+   "source": "https://docs.x.ai/docs/models",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3",
+   "object": "model",
+   "created": 1749582908,
+   "owned_by": "xai",
+   "model_name": "grok-3",
+   "context_length": 131072,
+   "description": "Grok 3 is the latest model from xAI. It's their flagship model that excels at enterprise use cases like data extraction, coding, and text summarization. Possesses deep domain knowledge in...",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "cache_read_input_token_cost": 7.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "cache_read_input_token_cost": 7.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-medium-3",
+   "object": "model",
+   "created": 1746627341,
+   "owned_by": "mistral",
+   "model_name": "mistral-medium-3",
+   "context_length": 262144,
+   "description": "Mistral Medium 3 is a high-performance enterprise-grade language model designed to deliver frontier-level capabilities at significantly reduced operational cost. It balances state-of-the-art reasoning and multimodal performance with 8\u00d7 lower cost...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06,
+    "cache_read_input_token_cost": 4e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 2e-06,
+    "cache_read_input_token_cost": 4e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-3-beta",
+   "object": "model",
+   "created": 1744240068,
+   "owned_by": "xai",
+   "model_name": "grok-3-beta",
+   "context_length": 131072,
+   "description": "Grok 3 is the latest model from xAI. It's their flagship model that excels at enterprise use cases like data extraction, coding, and text summarization. Possesses deep domain knowledge in...",
+   "source": "https://x.ai/api#pricing",
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "cache_read_input_token_cost": 7.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "cache_read_input_token_cost": 7.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "perplexityai/sonar-reasoning-pro",
+   "object": "model",
+   "created": 1741313308,
+   "owned_by": "perplexityai",
+   "model_name": "sonar-reasoning-pro",
+   "context_length": 128000,
+   "description": "Note: Sonar Pro pricing includes Perplexity search pricing. See [details here](https://docs.perplexity.ai/guides/pricing#detailed-pricing-breakdown-for-sonar-reasoning-pro-and-sonar-pro) Sonar Reasoning Pro is a premier reasoning model powered by DeepSeek R1 with Chain of Thought (CoT). Designed for...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 8e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    }
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 8e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    }
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "perplexityai/sonar-pro",
+   "object": "model",
+   "created": 1741312423,
+   "owned_by": "perplexityai",
+   "model_name": "sonar-pro",
+   "context_length": 200000,
+   "description": "Note: Sonar Pro pricing includes Perplexity search pricing. See [details here](https://docs.perplexity.ai/guides/pricing#detailed-pricing-breakdown-for-sonar-reasoning-pro-and-sonar-pro) For enterprises seeking more advanced capabilities, the Sonar Pro API can handle in-depth, multi-step queries with added extensibility, like...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    }
+   },
+   "list_pricing": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    }
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "perplexityai/sonar-deep-research",
+   "object": "model",
+   "created": 1741311246,
+   "owned_by": "perplexityai",
+   "model_name": "sonar-deep-research",
+   "context_length": 128000,
+   "description": "Sonar Deep Research is a research-focused model designed for multi-step retrieval, synthesis, and reasoning across complex topics. It autonomously searches, reads, and evaluates sources, refining its approach as it gathers...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 8e-06,
+    "citation_cost_per_token": 2e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "output_cost_per_reasoning_token": 3e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 8e-06,
+    "citation_cost_per_token": 2e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "output_cost_per_reasoning_token": 3e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "perplexityai/sonar",
+   "object": "model",
+   "created": 1738013808,
+   "owned_by": "perplexityai",
+   "model_name": "sonar",
+   "context_length": 127072,
+   "description": "Sonar is lightweight, affordable, fast, and simple to use \u2014 now featuring citations and the ability to customize sources. It is designed for companies seeking to integrate lightweight question-and-answer features...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": true,
+    "supports_tool_choice": false,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": false,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 1e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    }
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 1e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    }
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/llama-3.3-70b-instruct",
+   "object": "model",
+   "created": 1736258559,
+   "owned_by": "scaleway",
+   "model_name": "llama-3.3-70b-instruct",
+   "context_length": 128000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.0381496942649152e-06,
+    "output_cost_per_token": 1.0381496942649152e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.0381496942649152e-06,
+    "output_cost_per_token": 1.0381496942649152e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-large-2407",
+   "object": "model",
+   "created": 1731978415,
+   "owned_by": "mistral",
+   "model_name": "mistral-large-2407",
+   "context_length": 131072,
+   "description": "This is Mistral AI's flagship model, Mistral Large 2 (version mistral-large-2407). It's a proprietary weights-available model and excels at reasoning, code, JSON, chat, and more. Read the launch announcement [here](https://mistral.ai/news/mistral-large-2407/)....",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/gemma-3-27b-it",
+   "object": "model",
+   "created": 1730385501,
+   "owned_by": "scaleway",
+   "model_name": "gemma-3-27b-it",
+   "context_length": 40000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.8712497171819026e-07,
+    "output_cost_per_token": 5.742499434363805e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.8712497171819026e-07,
+    "output_cost_per_token": 5.742499434363805e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "scaleway/pixtral-12b-2409",
+   "object": "model",
+   "created": 1730385501,
+   "owned_by": "scaleway",
+   "model_name": "pixtral-12b-2409",
+   "context_length": 128000,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": false,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2.3069993205887005e-07,
+    "output_cost_per_token": 2.3069993205887005e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2.3069993205887005e-07,
+    "output_cost_per_token": 2.3069993205887005e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "mistral/mistral-large-latest",
+   "object": "model",
+   "created": 1708905600,
+   "owned_by": "mistral",
+   "model_name": "mistral-large-latest",
+   "context_length": 262144,
+   "description": "",
+   "source": "https://docs.mistral.ai/models/mistral-large-3-25-12",
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": false,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": true,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 2e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "xai/grok-latest",
+   "object": "model",
+   "created": 1783523154,
+   "owned_by": "xai",
+   "model_name": "grok-4.5",
+   "context_length": 500000,
+   "description": "Grok 4.5 is SpaceXAI's smartest model with frontier performance on coding, knowledge work, and STEM.",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 3e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 4e-06,
+    "output_cost_per_token_above_200k_tokens": 1.2e-05,
+    "cache_read_input_token_cost_above_200k_tokens": 6e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 3e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.005,
+     "search_context_size_high": 0.005,
+     "search_context_size_medium": 0.005
+    },
+    "input_cost_per_token_above_200k_tokens": 4e-06,
+    "output_cost_per_token_above_200k_tokens": 1.2e-05,
+    "cache_read_input_token_cost_above_200k_tokens": 6e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "us",
+     "name": "United States"
+    }
+   ],
+   "alias_of": "xai/grok-4.5"
+  },
+  {
+   "id": "google/gemini-robotics-er-1.6-preview",
+   "object": "model",
+   "created": 1785929637,
+   "owned_by": "google",
+   "model_name": "gemini-robotics-er-1.6-preview",
+   "context_length": 131072,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file",
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": true,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": true
+   },
+   "pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 5e-06,
+    "input_cost_per_audio_token": 2e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.014,
+     "search_context_size_high": 0.014,
+     "search_context_size_medium": 0.014
+    },
+    "output_cost_per_reasoning_token": 5e-06
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 5e-06,
+    "input_cost_per_audio_token": 2e-06,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.014,
+     "search_context_size_high": 0.014,
+     "search_context_size_medium": 0.014
+    },
+    "output_cost_per_reasoning_token": 5e-06
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "google/gemini-robotics-er-2-preview",
+   "object": "model",
+   "created": 1785929637,
+   "owned_by": "google",
+   "model_name": "gemini-robotics-er-2-preview",
+   "context_length": 131072,
+   "description": null,
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file",
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": true,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": true
+   },
+   "pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 1e-05,
+    "input_cost_per_audio_token": 2e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.014,
+     "search_context_size_high": 0.014,
+     "search_context_size_medium": 0.014
+    },
+    "output_cost_per_reasoning_token": 1e-05
+   },
+   "list_pricing": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 1e-05,
+    "input_cost_per_audio_token": 2e-06,
+    "cache_read_input_token_cost": 2e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.014,
+     "search_context_size_high": 0.014,
+     "search_context_size_medium": 0.014
+    },
+    "output_cost_per_reasoning_token": 1e-05
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "together_ai/deepseek-ai/DeepSeek-V4-Flash-0731",
+   "object": "model",
+   "created": 1785478908,
+   "owned_by": "together_ai",
+   "model_name": "deepseek-ai/DeepSeek-V4-Flash-0731",
+   "context_length": 1048576,
+   "description": "DeepSeek V4 Flash 0731 is a sparse mixture-of-experts model from DeepSeek, with 13B active parameters out of 284B total. This re-post-trained revision is suited for coding, reasoning, and agent workflows.",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 1.3999999999999998e-07,
+    "output_cost_per_token": 2.7999999999999997e-07,
+    "cache_read_input_token_cost": 3.0000000000000004e-08
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.3999999999999998e-07,
+    "output_cost_per_token": 2.7999999999999997e-07,
+    "cache_read_input_token_cost": 3.0000000000000004e-08
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "global",
+     "name": "Global"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "together_ai/thinkingmachines/Inkling-Small",
+   "object": "model",
+   "created": 1785443117,
+   "owned_by": "together_ai",
+   "model_name": "thinkingmachines/Inkling-Small",
+   "context_length": 524288,
+   "description": "Inkling Small is an open-weight multimodal mixture-of-experts model from Thinking Machines Lab, with 12B active parameters out of 276B total. It is positioned as the smaller, more efficient member of...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": false,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": false,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.2e-06,
+    "cache_read_input_token_cost": 1.0000000000000001e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.2e-06,
+    "cache_read_input_token_cost": 1.0000000000000001e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "global",
+     "name": "Global"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "anthropic/claude-opus-5",
+   "object": "model",
+   "created": 1784912544,
+   "owned_by": "anthropic",
+   "model_name": "claude-opus-5",
+   "context_length": 1000000,
+   "description": "Claude Opus 5 is Anthropic\u2019s flagship model for demanding reasoning, coding, and long-horizon agentic work. It is particularly strong at end-to-end software tasks, code review and bug finding, visual analysis...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "file"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": true,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": false,
+    "supports_function_calling": true,
+    "supports_native_streaming": false,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": false
+   },
+   "pricing": {
+    "input_cost_per_token": 5e-06,
+    "output_cost_per_token": 2.5e-05,
+    "cache_read_input_token_cost": 5e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.01,
+     "search_context_size_high": 0.01,
+     "search_context_size_medium": 0.01
+    },
+    "cache_creation_input_token_cost": 6.25e-06,
+    "cache_creation_input_token_cost_above_1hr": 1e-05
+   },
+   "list_pricing": {
+    "input_cost_per_token": 5e-06,
+    "output_cost_per_token": 2.5e-05,
+    "cache_read_input_token_cost": 5e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.01,
+     "search_context_size_high": 0.01,
+     "search_context_size_medium": 0.01
+    },
+    "cache_creation_input_token_cost": 6.25e-06,
+    "cache_creation_input_token_cost_above_1hr": 1e-05
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "global",
+     "name": "Global"
+    }
+   ],
+   "alias_of": null
+  },
+  {
+   "id": "google/gemini-3.6-flash",
+   "object": "model",
+   "created": 1784646733,
+   "owned_by": "google",
+   "model_name": "gemini-3.6-flash",
+   "context_length": 1048576,
+   "description": "Gemini 3.6 Flash is a high-efficiency model from Google for coding, agentic workflows, and web and app development. It is designed to produce polished outputs with fewer unnecessary edits and...",
+   "source": null,
+   "capabilities": {
+    "input_modalities": [
+     "text",
+     "image",
+     "video",
+     "file",
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ],
+    "supports_reasoning": true,
+    "supports_web_search": true,
+    "supports_tool_choice": true,
+    "supports_computer_use": false,
+    "supports_prompt_caching": true,
+    "supports_response_schema": true,
+    "supports_system_messages": true,
+    "supports_function_calling": true,
+    "supports_native_streaming": true,
+    "supports_assistant_prefill": false,
+    "supports_embedding_image_input": false,
+    "supports_parallel_function_calling": true
+   },
+   "pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06,
+    "input_cost_per_audio_token": 1.5e-06,
+    "input_cost_per_image_token": 1.5e-06,
+    "cache_read_input_token_cost": 1.5e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.014,
+     "search_context_size_high": 0.014,
+     "search_context_size_medium": 0.014
+    },
+    "cache_creation_input_token_cost": 8.33333333333333e-08,
+    "output_cost_per_reasoning_token": 7.5e-06,
+    "cache_read_input_audio_token_cost": 1.5e-07
+   },
+   "list_pricing": {
+    "input_cost_per_token": 1.5e-06,
+    "output_cost_per_token": 7.5e-06,
+    "input_cost_per_audio_token": 1.5e-06,
+    "input_cost_per_image_token": 1.5e-06,
+    "cache_read_input_token_cost": 1.5e-07,
+    "search_context_cost_per_query": {
+     "search_context_size_low": 0.014,
+     "search_context_size_high": 0.014,
+     "search_context_size_medium": 0.014
+    },
+    "cache_creation_input_token_cost": 8.33333333333333e-08,
+    "output_cost_per_reasoning_token": 7.5e-06,
+    "cache_read_input_audio_token_cost": 1.5e-07
+   },
+   "discount": null,
+   "regions": [
+    {
+     "code": "eu",
+     "name": "Europe"
+    }
+   ],
+   "alias_of": null
+  }
+ ]
+}
