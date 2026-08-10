@@ -45,8 +45,8 @@ PAGE_OK = FIXTURES / "page_ok.html"
 # The scrape scenarios compare the fixture page against a baseline pinned to that
 # same page, never against the live pricing.json. Otherwise every genuine price
 # change would fail the test suite until somebody re-captured the fixture, which
-# would put friction on exactly the path that must stay quick: a reviewed price
-# correction reaching consumers. The two only move together when the fixture is
+# would put friction on exactly the path that must stay quick: a price correction
+# reaching consumers. The two only move together when the fixture is
 # deliberately re-captured.
 BASELINE_JSON = FIXTURES / "baseline.json"
 
@@ -506,8 +506,8 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
 
     def test_the_published_audio_prices_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits
-        too close to it, a real price cut starts failing the job instead of opening a
-        pull request. Caught here rather than on the Monday it happens."""
+        too close to it, a real price cut starts failing the job instead of being
+        published. Caught here rather than on the Monday it happens."""
         published = self.mistral_block()["models"]
         for model_id, entry in published.items():
             for field, value in entry.items():

@@ -49,10 +49,17 @@ so they differ from the same model's price under `providers.mistral` or
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
 
-**A human reviews every figure before it is published.** The weekly job for each
-provider may commit the "we checked, nothing moved" timestamp on its own. It may
-never change a price on its own: a price change opens a pull request that a person
-reads and merges.
+**Price changes publish automatically.** The weekly job for each provider commits
+whatever it read, straight to `main` -- a moved price included. There is no review
+gate, because a price moving is not a decision anyone makes: the provider already
+changed it, and holding the new figure back only means shipping one known to be
+stale.
+
+What a reviewer would actually have caught is caught earlier and harder, before
+anything is written: a figure outside the plausible range for its unit, or one that
+moved by more than a factor of 5, fails the job and publishes nothing. Everything
+that reaches `main` has cleared those. `git log -- pricing.json` is the record of
+every move, dated, with the figures in the diff.
 
 **There is no guarantee of any kind.** Not of accuracy, not of freshness, not of
 continued existence. If money depends on the answer, read the authoritative page,
@@ -221,8 +228,8 @@ provider's workflow has three outcomes and never a fourth:
 | outcome | what happens |
 | --- | --- |
 | figures unchanged | that provider's `checked_utc` stamp is committed straight to `main` |
-| a figure changed | the stamp is committed, then a **pull request** is opened. Never auto-merged. |
-| fetch or parse failed | an issue is opened, the job fails, and `pricing.json` is left **untouched** |
+| a figure changed | the new figures are committed straight to `main`, with a `::notice::` on the run |
+| fetch or parse failed | an issue is opened **and assigned to the repository owner**, the job fails, and `pricing.json` is left **untouched** |
 
 A stale price whose date you can see is far better than a wrong one you cannot. So
 each job refuses rather than guesses whenever:
@@ -251,9 +258,16 @@ each one has that the other does not. It reads no price, never touches
 nineteen correct prices because a twentieth is missing would also suppress the
 `checked_utc` stamp that keeps the schedule alive.
 
+Being assigned is what actually delivers the alert: it notifies through a different
+channel than watching the repository, one that is on by default, and it subscribes
+the owner to the issue so that the follow-up comment on each repeated failure lands
+too. Note the one case neither covers -- if the workflow is *disabled* rather than
+failing, nothing runs, no issue is opened and no mail is sent. The only detector for
+that is a consumer watching `checked_utc` go stale.
+
 The stamp commit on every run is not only informative. GitHub disables a scheduled
 workflow after 60 days without repository activity, and **only new commits reset that
-timer** -- not tags, not issues, not merged pull requests. A repository whose content
+timer** -- not tags, not issues, nothing but commits. A repository whose content
 changes every few months is exactly the profile that gets silently switched off.
 Committing `checked_utc` weekly, per provider, is both a real statement to consumers
 and the thing that keeps each schedule alive.

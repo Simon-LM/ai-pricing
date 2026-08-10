@@ -5,7 +5,7 @@ name: Refresh prices (Hugging Face)
 # outcomes, and never a fourth:
 #
 #   figures unchanged  -> commit the checked_utc stamp straight to main
-#   a figure changed   -> commit the stamp, then open a pull request. Never merge it.
+#   a figure changed   -> commit the new figures straight to main
 #   fetch/parse failed -> open an issue, fail the job, leave pricing.json untouched
 #
 # pricing.json holds one block per provider under `providers.<name>`. This workflow
@@ -21,16 +21,16 @@ name: Refresh prices (Hugging Face)
 # partner directly -- providers.ovh prices the same models in EUR from OVH's own
 # catalog. A difference between the two blocks is expected, not a bug to reconcile.
 #
-# The stamp commit happens on EVERY successful run, including the run that opens a
-# pull request. It is a real statement to consumers ("confirmed unchanged today"),
+# A commit happens on EVERY successful run, whether or not a figure moved. When
+# nothing moved it is a real statement to consumers ("confirmed unchanged today"),
 # and it is also what keeps this workflow alive: GitHub disables a scheduled
 # workflow after 60 days without repository activity, and only new commits reset
-# that timer -- not tags, not issues, not merged pull requests.
+# that timer -- not tags, not issues, nothing but commits.
 #
 # The scraper needs no API key of any kind and must never be given one. It reads a
 # public endpoint. There are no secrets in this workflow beyond the automatic
-# GITHUB_TOKEN, which is used only to commit, to open a pull request, and to file
-# an issue.
+# GITHUB_TOKEN, which is used only to commit, and to file and assign an issue
+# when the check fails.
 
 on:
   schedule:
@@ -40,13 +40,12 @@ on:
   workflow_dispatch: # so a human can force a check
     inputs:
       dry_run:
-        description: "Check the endpoint and report, but commit nothing and open nothing"
+        description: "Check the source and report, but commit nothing"
         type: boolean
         default: false
 
 permissions:
   contents: write
-  pull-requests: write
   issues: write
 
 concurrency:
@@ -133,7 +132,13 @@ jobs:
             echo "Commented on existing issue #$EXISTING"
           else
             gh label create scraper-failure:huggingface --color d73a4a --description "The Hugging Face price scraper could not complete" 2>/dev/null || true
+            # --assignee, not just the label: being assigned notifies the owner
+            # through a different channel than watching the repository, one that is
+            # on by default and that a busy notification inbox does not bury. It also
+            # subscribes them to the issue, so the `gh issue comment` path above --
+            # taken on every repeat failure -- notifies them too.
             gh issue create \
+              --assignee ${{ github.repository_owner }} \
               --title "Hugging Face price check failed on $(date -u +%Y-%m-%d)" \
               --label scraper-failure:huggingface \
               --body-file /tmp/issue-body.md
@@ -155,92 +160,52 @@ jobs:
       - name: Dry run - stopping before anything is written
         if: inputs.dry_run
         run: |
-          echo "::notice::Dry run - nothing committed, no pull request opened."
+          echo "::notice::Dry run - nothing committed, nothing published."
 
       # ---------------------------------------------------------------------------
-      # Every successful run: commit the verification stamp to main.
+      # Every successful run commits, straight to main. Whether a figure moved only
+      # changes WHICH candidate is promoted and what the message says -- there is no
+      # review gate, on purpose.
+      #
+      # A price moving is not a decision anybody makes: the provider already changed
+      # it, and refusing to publish only means shipping a figure known to be stale.
+      # What a reviewer would actually have caught -- a misparse -- is caught earlier
+      # and harder, by bounds and the change-factor limit in pricing_validate.py, and
+      # that path fails the job instead of reaching here. Anything that gets this far
+      # is a plausible figure within a factor of 5 of the last one.
+      #
+      # The commit is the record. `git log -- pricing.json` shows every price move,
+      # dated, with the figures in the diff.
       # ---------------------------------------------------------------------------
-      - name: Commit the verification stamp
+      - name: Commit the figures
         if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
-          cp .ci-out/stamped.json pricing.json
+
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            # updated.json carries the new figures AND the fresh checked_utc, so this
+            # is one commit, not a stamp followed by a correction.
+            cp .ci-out/updated.json pricing.json
+            MESSAGE="prices: huggingface figures changed on $(date -u +%Y-%m-%d)"
+          else
+            cp .ci-out/stamped.json pricing.json
+            MESSAGE="chore: verified huggingface prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           if git diff --quiet -- pricing.json; then
-            echo "Nothing to stamp; pricing.json is already current."
+            echo "Nothing to commit; pricing.json is already current."
             exit 0
           fi
 
           git add pricing.json
-          git commit -m "chore: verified huggingface prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "$MESSAGE"
           git push
           # Note: a push made with GITHUB_TOKEN does not trigger further workflow runs.
           # Nothing here depends on it -- the trigger is the schedule, not the push.
 
-      # ---------------------------------------------------------------------------
-      # Outcome 2: a figure moved. A human decides, not this job.
-      # ---------------------------------------------------------------------------
-      - name: Open a pull request for the new figures
-        if: ${{ steps.scrape.outputs.outcome == 'changed' && !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          # A branch name derived from the figures themselves, so a change that persists
-          # for weeks keeps updating one pull request instead of opening a new one every
-          # Monday. Prefixed with the provider so it can never collide with another's.
-          BRANCH="price-update/huggingface-$(python3 -c "
-          import hashlib, json
-          models = json.load(open('.ci-out/updated.json'))['providers']['huggingface']['models']
-          print(hashlib.sha256(json.dumps(models, sort_keys=True).encode()).hexdigest()[:8])
-          ")"
-
-          if [ "$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')" != "0" ]; then
-            echo "::notice::A pull request for exactly these figures is already open. Nothing to do."
-            exit 0
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            echo "::notice::huggingface prices changed and are now published. See the job summary for the diff."
           fi
-
-          git checkout -b "$BRANCH"
-          cp .ci-out/updated.json pricing.json
-          git add pricing.json
-          git commit -m "prices: update huggingface figures read from the router listing on $(date -u +%Y-%m-%d)"
-          git push --force --set-upstream origin "$BRANCH"
-
-          # Same rule as the issue body: the summary is concatenated in, never
-          # interpolated into a shell string.
-          {
-            cat <<'INTRO'
-          The scraper read different figures from <https://router.huggingface.co/v1/models>.
-
-          ```
-          INTRO
-            cat .ci-out/summary.txt
-            echo '```'
-            cat <<'OUTRO'
-
-          **Check the endpoint yourself before merging.** These numbers become the numbers
-          other projects display to their users. Figures are read in USD, already per million
-          tokens, and each key is a `<model>:<partner>` route rather than a model -- the same
-          model served by two partners is two prices and must stay two entries.
-
-          Remember these are prices THROUGH the router. They are expected to differ from the
-          same model's price under `providers.ovh`, which reads OVH's own catalog in EUR; a
-          difference is not a discrepancy to reconcile.
-
-          Only `providers.huggingface` is touched by this PR -- every other provider's block
-          is carried through byte-for-byte.
-          OUTRO
-            echo
-            echo "Merging publishes these figures to every consumer that fetches"
-            echo "\`raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/pricing.json\`."
-          } > /tmp/pr-body.md
-
-          gh pr create \
-            --title "prices: huggingface figures changed on the router listing" \
-            --body-file /tmp/pr-body.md \
-            --base main \
-            --head "$BRANCH"
