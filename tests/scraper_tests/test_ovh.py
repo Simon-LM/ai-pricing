@@ -47,8 +47,8 @@ CATALOG_OK = FIXTURES / "catalog_ok.html"
 # The scrape scenarios compare the fixture page against a baseline pinned to that
 # same page, never against the live pricing.json. Otherwise every genuine price
 # change would fail the test suite until somebody re-captured the fixture, which
-# would put friction on exactly the path that must stay quick: a reviewed price
-# correction reaching consumers. The two only move together when the fixture is
+# would put friction on exactly the path that must stay quick: a price correction
+# reaching consumers. The two only move together when the fixture is
 # deliberately re-captured.
 BASELINE_JSON = FIXTURES / "baseline.json"
 
@@ -509,8 +509,8 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
 
     def test_the_published_figures_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits
-        too close to it, a real price cut starts failing the job instead of opening a
-        pull request. Caught here rather than on the Monday it happens. Especially
+        too close to it, a real price cut starts failing the job instead of being
+        published. Caught here rather than on the Monday it happens. Especially
         relevant for OVH: whisper's per_audio_second prices are close to the smallest
         this repository has ever published."""
         published = self.ovh_block()["models"]

@@ -138,7 +138,7 @@ def check_change(model_id: str, field: str, old: float, new: float) -> None:
         raise ValidationError(
             f"{model_id}.{field}: {old} -> {new} is a factor of {factor:.1f}, over the "
             f"limit of {MAX_CHANGE_FACTOR}. Refusing to publish. If this change is real, "
-            f"edit pricing.json by hand in a reviewed pull request."
+            f"edit pricing.json by hand -- a jump this large is not published unreviewed."
         )
 
 

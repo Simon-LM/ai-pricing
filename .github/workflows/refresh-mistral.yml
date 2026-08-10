@@ -5,7 +5,7 @@ name: Refresh prices (Mistral)
 # a fourth:
 #
 #   figures unchanged  -> commit the checked_utc stamp straight to main
-#   a figure changed   -> commit the stamp, then open a pull request. Never merge it.
+#   a figure changed   -> commit the new figures straight to main
 #   fetch/parse failed -> open an issue, fail the job, leave pricing.json untouched
 #
 # pricing.json holds one block per provider under `providers.<name>`. This workflow
@@ -15,17 +15,17 @@ name: Refresh prices (Mistral)
 # one, and joins the SAME concurrency group below so the two queue on pricing.json
 # writes instead of racing each other.
 #
-# The stamp commit happens on EVERY successful run, including the run that opens a
-# pull request. It is a real statement to consumers ("confirmed unchanged today"),
+# A commit happens on EVERY successful run, whether or not a figure moved. When
+# nothing moved it is a real statement to consumers ("confirmed unchanged today"),
 # and it is also what keeps this workflow alive: GitHub disables a scheduled
 # workflow after 60 days without repository activity, and only new commits reset
-# that timer -- not tags, not issues, not merged pull requests. A repository whose
+# that timer -- not tags, not issues, nothing but commits. A repository whose
 # content changes every few months is exactly the profile that gets switched off.
 #
 # The scraper needs no API key of any kind and must never be given one. It reads a
 # public page. There are no secrets in this workflow beyond the automatic
-# GITHUB_TOKEN, which is used only to commit, to open a pull request, and to file
-# an issue.
+# GITHUB_TOKEN, which is used only to commit, and to file and assign an issue
+# when the check fails.
 
 on:
   schedule:
@@ -33,13 +33,12 @@ on:
   workflow_dispatch: # so a human can force a check
     inputs:
       dry_run:
-        description: "Check the page and report, but commit nothing and open nothing"
+        description: "Check the source and report, but commit nothing"
         type: boolean
         default: false
 
 permissions:
   contents: write
-  pull-requests: write
   issues: write
 
 concurrency:
@@ -95,7 +94,7 @@ jobs:
           {
             cat <<'INTRO'
           The weekly Mistral price check did not complete. `pricing.json` has **not** been
-          modified: providers.mistral still shows the figures a human last reviewed, and its
+          modified: providers.mistral still shows the figures last successfully verified, and its
           `checked_utc` still shows when they were last actually verified.
 
           ```
@@ -122,7 +121,13 @@ jobs:
             echo "Commented on existing issue #$EXISTING"
           else
             gh label create scraper-failure:mistral --color d73a4a --description "The Mistral price scraper could not complete" 2>/dev/null || true
+            # --assignee, not just the label: being assigned notifies the owner
+            # through a different channel than watching the repository, one that is
+            # on by default and that a busy notification inbox does not bury. It also
+            # subscribes them to the issue, so the `gh issue comment` path above --
+            # taken on every repeat failure -- notifies them too.
             gh issue create \
+              --assignee ${{ github.repository_owner }} \
               --title "Mistral price check failed on $(date -u +%Y-%m-%d)" \
               --label scraper-failure:mistral \
               --body-file /tmp/issue-body.md
@@ -144,92 +149,52 @@ jobs:
       - name: Dry run - stopping before anything is written
         if: inputs.dry_run
         run: |
-          echo "::notice::Dry run - nothing committed, no pull request opened."
+          echo "::notice::Dry run - nothing committed, nothing published."
 
       # ---------------------------------------------------------------------------
-      # Every successful run: commit the verification stamp to main.
+      # Every successful run commits, straight to main. Whether a figure moved only
+      # changes WHICH candidate is promoted and what the message says -- there is no
+      # review gate, on purpose.
+      #
+      # A price moving is not a decision anybody makes: the provider already changed
+      # it, and refusing to publish only means shipping a figure known to be stale.
+      # What a reviewer would actually have caught -- a misparse -- is caught earlier
+      # and harder, by bounds and the change-factor limit in pricing_validate.py, and
+      # that path fails the job instead of reaching here. Anything that gets this far
+      # is a plausible figure within a factor of 5 of the last one.
+      #
+      # The commit is the record. `git log -- pricing.json` shows every price move,
+      # dated, with the figures in the diff.
       # ---------------------------------------------------------------------------
-      - name: Commit the verification stamp
+      - name: Commit the figures
         if: ${{ !inputs.dry_run }}
         run: |
           set -euo pipefail
-          cp .ci-out/stamped.json pricing.json
+
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            # updated.json carries the new figures AND the fresh checked_utc, so this
+            # is one commit, not a stamp followed by a correction.
+            cp .ci-out/updated.json pricing.json
+            MESSAGE="prices: mistral figures changed on $(date -u +%Y-%m-%d)"
+          else
+            cp .ci-out/stamped.json pricing.json
+            MESSAGE="chore: verified mistral prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           if git diff --quiet -- pricing.json; then
-            echo "Nothing to stamp; pricing.json is already current."
+            echo "Nothing to commit; pricing.json is already current."
             exit 0
           fi
 
           git add pricing.json
-          git commit -m "chore: verified mistral prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "$MESSAGE"
           git push
           # Note: a push made with GITHUB_TOKEN does not trigger further workflow runs.
           # Nothing here depends on it -- the trigger is the schedule, not the push.
 
-      # ---------------------------------------------------------------------------
-      # Outcome 2: a figure moved. A human decides, not this job.
-      # ---------------------------------------------------------------------------
-      - name: Open a pull request for the new figures
-        if: ${{ steps.scrape.outputs.outcome == 'changed' && !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          # A branch name derived from the figures themselves, so a change that persists
-          # for weeks keeps updating one pull request instead of opening a new one every
-          # Monday. Prefixed with the provider so a future OVH branch can never collide.
-          BRANCH="price-update/mistral-$(python3 -c "
-          import hashlib, json
-          models = json.load(open('.ci-out/updated.json'))['providers']['mistral']['models']
-          print(hashlib.sha256(json.dumps(models, sort_keys=True).encode()).hexdigest()[:8])
-          ")"
-
-          if [ "$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')" != "0" ]; then
-            echo "::notice::A pull request for exactly these figures is already open. Nothing to do."
-            exit 0
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            echo "::notice::mistral prices changed and are now published. See the job summary for the diff."
           fi
-
-          git checkout -b "$BRANCH"
-          cp .ci-out/updated.json pricing.json
-          git add pricing.json
-          git commit -m "prices: update mistral figures read from mistral.ai on $(date -u +%Y-%m-%d)"
-          git push --force --set-upstream origin "$BRANCH"
-
-          # Same rule as the issue body: the summary is concatenated in, never
-          # interpolated into a shell string.
-          {
-            cat <<'INTRO'
-          The scraper read different figures on <https://mistral.ai/pricing/api>.
-
-          ```
-          INTRO
-            cat .ci-out/summary.txt
-            echo '```'
-            cat <<'OUTRO'
-
-          **Check the page yourself before merging.** This is a marketing page with no
-          contract and no versioning behind it, and these numbers become the numbers other
-          projects display to their users. Two things worth a moment:
-
-          - Is this a real price change, or did the page move a number into a different row?
-          - `mistral-medium-latest` and `mistral-small-latest` are **aliases**. If one of
-            them now resolves to a different model, the price may be right while
-            `display_name` and `scripts/providers/mistral/mapping.json` have quietly become wrong.
-
-          Only `providers.mistral` is touched by this PR -- every other provider's block, if
-          any exists by the time you read this, is carried through byte-for-byte.
-          OUTRO
-            echo
-            echo "Merging publishes these figures to every consumer that fetches"
-            echo "\`raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/pricing.json\`."
-          } > /tmp/pr-body.md
-
-          gh pr create \
-            --title "prices: mistral figures changed on mistral.ai" \
-            --body-file /tmp/pr-body.md \
-            --base main \
-            --head "$BRANCH"
