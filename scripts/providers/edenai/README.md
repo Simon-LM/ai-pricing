@@ -3,9 +3,10 @@
 # Eden AI
 
 Reads Eden AI's [public model list](https://api.edenai.run/v3/models) and publishes
-`providers.edenai` in `pricing.json`. First implemented 2026-08-10, covering 103
-models across the five upstreams asked for: Mistral (39), xAI (33), Scaleway (15),
-OVHcloud (12) and Perplexity (4).
+`providers.edenai` in `pricing.json`. First implemented 2026-08-10, covering every
+model Eden offers from the five upstreams asked for: Mistral, xAI, Scaleway,
+OVHcloud and Perplexity. That was 103 models at the time and is 104 today; the
+count follows the source and nothing here has to be edited when it moves.
 
 ## These are Eden's prices, not the upstream provider's
 
@@ -33,13 +34,16 @@ There is nothing to string-match and no layout to latch onto, which makes this t
 sturdiest source in the repository and `scrape.py` the shortest scraper in it.
 
 `mapping.json` is shaped differently for the same reason. It does not name a page
-element per model, because there is none; a per-model spec would be 103 copies of
-the same three lines. What it pins instead is the **set**: which upstreams are
-covered, and exactly which model ids are expected. The scraper fails if a listed
-model disappears **and** if the mapped upstreams start offering one the mapping does
-not list. Both are routine and both are meant to reach a human -- a price nobody
-reviewed must never reach the file, and a model consumers may depend on must not
-vanish from it silently.
+element per model, because there is none; a per-model spec would be a hundred copies
+of the same three lines. What it names instead is the **upstreams** — and only those.
+
+It deliberately holds no model list. An earlier version pinned all 103 ids, and the
+only thing that achieved was failing the weekly job, and with it blocking 102 correct
+prices, the first time Eden retired a single model. Eden states each model's id in
+`id`, so there is nothing for a hand-written list to translate: a model Eden adds is
+published on the next run, one it drops keeps its last observed prices under an
+`absent_since` stamp, and the disappearance sends one email rather than stopping
+everything.
 
 ## `list_pricing`, not `pricing`
 

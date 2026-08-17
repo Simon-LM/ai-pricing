@@ -198,3 +198,59 @@ jobs:
           if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
             echo "::notice::mistral prices changed and are now published. See the job summary for the diff."
           fi
+
+      # ---------------------------------------------------------------------------
+      # A change to WHAT the source offers, rather than to a price. Not a failure --
+      # the prices published above are correct and were published -- but not something
+      # to absorb in silence either: a project reading pricing.json should not be the
+      # last to learn that a model it names is gone.
+      #
+      # Assigning the issue is what makes this an email. It is raised by the one run
+      # that observes the change and never repeated: an entry that is still absent next
+      # week already carries `absent_since` and says nothing further. A weekly reminder
+      # of a decision already taken is how an alert channel gets muted, and this one has
+      # to still work the day something real happens.
+      # ---------------------------------------------------------------------------
+      - name: Report inventory changes
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -s .ci-out/notes.txt ]; then
+            echo "The source offers the same things it did last week."
+            exit 0
+          fi
+
+          # Built by concatenation, never by interpolating the notes into a shell string:
+          # they quote model ids and labels taken from a page this repository does not
+          # control.
+          {
+            cat <<'INTRO'
+          The weekly Mistral check completed and published normally. It also found a change to
+          **what the source offers**, not just to a price:
+
+          ```
+          INTRO
+            cat .ci-out/notes.txt
+            echo '```'
+            echo
+            echo "Run: ${RUN_URL}"
+            cat <<'OUTRO'
+
+          Nothing is broken and nothing here needs fixing. An entry the source stopped offering
+          keeps the last prices that were actually observed, gains an `absent_since` date, and is
+          dropped a year later; one that came back has had its prices refreshed and the marker
+          removed. This issue exists so the change reaches a human by email. Close it once read.
+          OUTRO
+          } > /tmp/notes-body.md
+
+          gh label create inventory-change --color 0e8a16 \
+            --description "A source added, dropped or renamed something" 2>/dev/null || true
+          gh issue create \
+            --assignee ${{ github.repository_owner }} \
+            --title "Mistral inventory changed on $(date -u +%Y-%m-%d)" \
+            --label inventory-change \
+            --body-file /tmp/notes-body.md

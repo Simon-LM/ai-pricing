@@ -28,6 +28,7 @@ from typing import Any, Callable
 
 from fetch import FetchError, fetch_page  # noqa: E402
 from pricing_validate import (  # noqa: E402
+    ABSENT_RETENTION_DAYS,
     KNOWN_PRICE_FIELDS,
     SCHEMA_VERSION,
     JSONDict,
@@ -37,8 +38,11 @@ from pricing_validate import (  # noqa: E402
     validate_document,
 )
 
-# (html_text, mapping) -> the models dict a provider's page currently says.
-ExtractNewModels = Callable[[str, JSONDict], "dict[str, JSONDict]"]
+# (html_text, mapping) -> what a provider's source says today, plus any notes about
+# things a human should look at that are nonetheless not reasons to publish nothing
+# (a price row whose label this repository does not recognise, an entry the source
+# lists without a price). Notes never block a run; a real problem raises ScrapeError.
+ExtractNewModels = Callable[[str, JSONDict], "tuple[dict[str, JSONDict], list[str]]"]
 
 
 class ScrapeError(Exception):
@@ -55,14 +59,23 @@ class ScrapeError(Exception):
 def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated: str, mapping: JSONDict) -> JSONDict:
     """Assemble a `providers.<id>`-shaped block with a stable, reviewable key order.
 
-    Keys are emitted in a fixed order rather than whatever order a provider's
-    parser happened to build them in, so that a diff a human reads shows only
-    figures that moved. The two non-price markers travel with the entry: `free`
-    stands in place of the price fields for a model a provider gives away, and
-    `kind` marks an entry that is billable but is not a model at all.
+    Entries are sorted by key, and each entry's own fields are emitted in a fixed
+    order, rather than in whatever order a provider's parser happened to build them
+    -- so that a diff a human reads shows only figures that moved. Sorting is not
+    cosmetic here: two of these sources hand back their catalogue in an order they
+    never promised to keep, and following it would turn one reshuffle upstream into
+    a diff touching every line of the block, indistinguishable at a glance from a
+    hundred price changes.
+
+    The three non-price markers travel with the entry: `free` stands in place of the
+    price fields for a model a provider gives away, `kind` marks an entry that is
+    billable but is not a model at all, and `absent_since` marks one the source has
+    stopped offering, whose prices are therefore the last ones observed rather than
+    today's.
     """
     ordered_models: dict[str, JSONDict] = {}
-    for model_id, entry in models.items():
+    for model_id in sorted(models):
+        entry = models[model_id]
         ordered: JSONDict = {}
         for field in KNOWN_PRICE_FIELDS:
             if field in entry:
@@ -72,6 +85,8 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
         ordered["display_name"] = entry["display_name"]
         if "kind" in entry:
             ordered["kind"] = entry["kind"]
+        if "absent_since" in entry:
+            ordered["absent_since"] = entry["absent_since"]
         ordered_models[model_id] = ordered
 
     return {
@@ -81,6 +96,70 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
         "currency": mapping["currency"],
         "models": ordered_models,
     }
+
+
+def reconcile_inventory(
+    old_models: dict[str, JSONDict], new_models: dict[str, JSONDict], today: str
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """Combine what the source offers today with what this file already publishes.
+
+    The inventory follows the source: an entry the source has added is published, and
+    an entry it no longer offers stops being republished as though it were still on
+    sale. What it does NOT do is delete on sight. The entry stays, with the prices last
+    actually observed and an `absent_since` day stamp, until it has been gone for
+    ABSENT_RETENTION_DAYS; only then is it dropped.
+
+    Returns the merged models dict and a list of inventory notes -- disappearances,
+    returns and expiries, in words. Notes are for a human to read, and each one is
+    produced by the single run that makes the change, never repeated: an entry that is
+    still absent next week already carries `absent_since`, so it says nothing further.
+    A weekly reminder of a decision already taken is how an alert channel gets muted,
+    and this one has to still work the day something real happens.
+
+    Nothing here can fail. Neither a disappearance nor a return says anything about
+    whether the OTHER models' prices were read correctly, so neither is allowed to
+    stop them being published.
+    """
+    merged: dict[str, JSONDict] = {}
+    notes: list[str] = []
+    cutoff = _dt.date.fromisoformat(today) - _dt.timedelta(days=ABSENT_RETENTION_DAYS)
+
+    for model_id, entry in new_models.items():
+        entry = dict(entry)
+        # Whatever the source says today is current by definition, so a stamp left over
+        # from an earlier absence is not merely stale, it is now false.
+        was_absent = old_models.get(model_id, {}).get("absent_since")
+        entry.pop("absent_since", None)
+        if was_absent:
+            notes.append(f"{model_id}: offered again (absent since {was_absent}); prices are live again")
+        merged[model_id] = entry
+
+    for model_id, entry in old_models.items():
+        if model_id in new_models:
+            continue
+
+        absent_since = entry.get("absent_since")
+        if absent_since is None:
+            kept = dict(entry)
+            kept["absent_since"] = today
+            merged[model_id] = kept
+            notes.append(
+                f"{model_id}: no longer offered by the source. Kept with the prices last "
+                f"observed and absent_since={today}; it will be dropped after "
+                f"{ABSENT_RETENTION_DAYS} days of absence."
+            )
+            continue
+
+        if _dt.date.fromisoformat(absent_since) < cutoff:
+            notes.append(
+                f"{model_id}: absent since {absent_since}, more than {ABSENT_RETENTION_DAYS} "
+                f"days. Dropped from the file."
+            )
+            continue
+
+        merged[model_id] = dict(entry)
+
+    return merged, notes
 
 
 def merge_provider_block(full_doc: JSONDict, provider_id: str, provider_block: JSONDict) -> JSONDict:
@@ -126,8 +205,17 @@ def load_json(path: Path, what: str) -> Any:
         raise ScrapeError(f"{what} is not valid JSON ({path}): {exc}") from exc
 
 
-def run(provider_id: str, extract_new_models: ExtractNewModels, args: argparse.Namespace) -> tuple[str, str]:
-    """Do the whole job for one provider. Returns (outcome, human-readable summary)."""
+def run(
+    provider_id: str, extract_new_models: ExtractNewModels, args: argparse.Namespace
+) -> tuple[str, str, list[str]]:
+    """Do the whole job for one provider.
+
+    Returns (outcome, human-readable summary, inventory notes). Notes are things a
+    human should be told about but that are not reasons to withhold a price: an entry
+    that disappeared, one that came back, one dropped after a year away, a price row
+    whose label is not recognised. The workflow turns a non-empty list into one issue;
+    the run itself still succeeds and still publishes.
+    """
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -156,13 +244,13 @@ def run(provider_id: str, extract_new_models: ExtractNewModels, args: argparse.N
             f"must be fixed by hand."
         )
 
-    published_but_unmapped = sorted(set(current_block["models"]) - set(mapping["models"]))
-    if published_but_unmapped:
-        raise ScrapeError(
-            f"providers.{provider_id} publishes model(s) the mapping does not know: "
-            f"{published_but_unmapped}. Consumers may already depend on them; removing one "
-            f"is a deliberate human decision, not something this job may do."
-        )
+    # There is deliberately no check here that the published set still matches some
+    # hand-written list. This job exists to track what each source currently offers:
+    # a model the source has dropped is dropped, one it has added is added, and both
+    # show up as `- id: removed` / `+ id: added` lines in the summary that goes into
+    # the commit and the run's job summary. Refusing to publish anything until a
+    # human reconciled a list is what turned an automated tracker into a weekly
+    # chore, and it blocked correct prices for every other model in the block.
 
     try:
         html_text = (
@@ -173,10 +261,10 @@ def run(provider_id: str, extract_new_models: ExtractNewModels, args: argparse.N
     except FetchError as exc:
         raise ScrapeError(str(exc)) from exc
 
-    new_models = extract_new_models(html_text, mapping)
+    offered_models, notes = extract_new_models(html_text, mapping)
 
     # Compare against what is published before believing any of it.
-    for model_id, entry in new_models.items():
+    for model_id, entry in offered_models.items():
         old_entry = current_block["models"].get(model_id)
         if not old_entry:
             continue
@@ -186,6 +274,9 @@ def run(provider_id: str, extract_new_models: ExtractNewModels, args: argparse.N
 
     now = args.now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     today = now[:10]
+
+    new_models, inventory_notes = reconcile_inventory(current_block["models"], offered_models, today)
+    notes = notes + inventory_notes
 
     changes = diff_models(current_block["models"], new_models)
 
@@ -198,7 +289,12 @@ def run(provider_id: str, extract_new_models: ExtractNewModels, args: argparse.N
     write_json(out_dir / "stamped.json", stamped)
 
     if not changes:
-        return "unchanged", f"Figures unchanged. Verified against {mapping['source']} at {now}."
+        return (
+            "unchanged",
+            f"Figures unchanged. Verified against {mapping['source']} at {now}. "
+            f"{len(new_models)} entries.",
+            notes,
+        )
 
     updated_block = build_provider_block(new_models, now, today, mapping)
     updated_doc = merge_provider_block(current, provider_id, updated_block)
@@ -209,7 +305,7 @@ def run(provider_id: str, extract_new_models: ExtractNewModels, args: argparse.N
         [f"Figures changed, verified against {mapping['source']} at {now}:", ""]
         + [f"  {line}" for line in changes]
     )
-    return "changed", summary
+    return "changed", summary, notes
 
 
 def emit_github_output(**values: str) -> None:
@@ -239,24 +335,32 @@ def main(
     args = parser.parse_args(argv)
 
     try:
-        outcome, summary = run(provider_id, extract_new_models, args)
+        outcome, summary, notes = run(provider_id, extract_new_models, args)
     except (ScrapeError, ValidationError) as exc:
         message = str(exc)
         out_dir = Path(args.out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "error.txt").write_text(message + "\n", encoding="utf-8")
         # Nothing may be published from here on. pricing.json was never opened for writing.
-        for stale in ("stamped.json", "updated.json", "summary.txt"):
+        for stale in ("stamped.json", "updated.json", "summary.txt", "notes.txt"):
             (out_dir / stale).unlink(missing_ok=True)
         print(f"FAILED: {message}", file=sys.stderr)
-        emit_github_output(outcome="failed", summary=message)
+        emit_github_output(outcome="failed", summary=message, notes="")
         return 1
 
-    # The summary is written to a file as well as to the step output. The workflow
-    # reads the file: it must never interpolate text derived from a remote page into
-    # a shell command, and error messages quote labels found on that page.
-    (Path(args.out_dir) / "summary.txt").write_text(summary + "\n", encoding="utf-8")
+    # The summary and the notes are written to files as well as to step outputs. The
+    # workflow reads the files: it must never interpolate text derived from a remote
+    # page into a shell command, and both quote labels found on that page.
+    out_dir = Path(args.out_dir)
+    (out_dir / "summary.txt").write_text(summary + "\n", encoding="utf-8")
+    notes_text = "\n".join(notes)
+    (out_dir / "notes.txt").write_text(notes_text + "\n" if notes else "", encoding="utf-8")
 
     print(summary)
-    emit_github_output(outcome=outcome, summary=summary)
+    if notes:
+        print("\nInventory notes:")
+        for note in notes:
+            print(f"  {note}")
+
+    emit_github_output(outcome=outcome, summary=summary, notes=notes_text)
     return 0

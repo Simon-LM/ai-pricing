@@ -92,7 +92,7 @@ def drop_card(source: str, data_name: str) -> str:
 def mutate_in_card(source: str, data_name: str, old: str, new: str, expected_count: int | None = 1) -> str:
     """Replace `old` with `new` inside ONE named card, not across the whole page.
 
-    The fixture holds all 32 cards of the real page, so an ordinary figure like 1.5
+    The fixture holds all 25 cards of the real page, so an ordinary figure like 1.5
     is on several of them at once. A test that means "move Mistral Medium's input
     price" has to say which card, or it quietly rewrites three unrelated models and
     stops testing the thing its name claims.
@@ -161,6 +161,9 @@ class ScrapeTestCase(unittest.TestCase):
             self.assertIn(fragment, stderr)
         self.assert_current_untouched()
 
+    def notes(self) -> str:
+        return (self.out_dir / "notes.txt").read_text(encoding="utf-8")
+
     def candidate(self, name: str) -> JSONDict:
         return json.loads((self.out_dir / name).read_text(encoding="utf-8"))
 
@@ -207,35 +210,55 @@ class TestUnchanged(ScrapeTestCase):
         """The decoy: 'libraries' also has an OCR row, at $3 per 1K pages."""
         self.run_scrape(self.page_ok)
         models = self.candidate_block("stamped.json")["models"]
-        self.assertEqual(models["mistral-ocr-latest"]["per_1k_pages"], 4.0)
-        self.assertNotEqual(models["mistral-ocr-latest"]["per_1k_pages"], 3.0)
+        self.assertEqual(models["ocr 4.1 / ocr"]["per_1k_pages"], 4.0)
+        self.assertEqual(models["libraries"]["per_1k_pages"], 3.0)
 
-    def test_voxtral_mini_price_is_not_read_from_the_realtime_card(self) -> None:
-        """The second decoy: 'voxtral mini transcribe realtime' has a row labelled
-        'Audio Input/min' too, at $0.006 -- double. Same label, different card."""
+    def test_two_rows_of_one_card_in_the_same_unit_become_two_entries(self) -> None:
+        """The 'ocr 4.1' card prices OCR at $4 and Document AI at $5, both per 1000
+        pages. One entry has exactly one per_1k_pages field, so they cannot share one --
+        and both are keyed by their row label rather than the first one keeping the
+        plain card name, so the two cannot swap the day Mistral reorders the rows."""
         self.run_scrape(self.page_ok)
         models = self.candidate_block("stamped.json")["models"]
-        self.assertEqual(models["voxtral-mini-latest"]["per_audio_minute"], 0.003)
-        self.assertNotEqual(models["voxtral-mini-latest"]["per_audio_minute"], 0.006)
+
+        self.assertEqual(models["ocr 4.1 / ocr"]["per_1k_pages"], 4.0)
+        self.assertEqual(models["ocr 4.1 / document ai"]["per_1k_pages"], 5.0)
+        self.assertNotIn("ocr 4.1", models, "the plain card key would be ambiguous here")
+        self.assertEqual(models["ocr 4.1 / document ai"]["kind"], "product")
+        self.assertNotIn("kind", models["ocr 4.1 / ocr"])
 
     def test_a_model_billed_in_two_units_keeps_both(self) -> None:
-        """voxtral-small is billed per minute of audio AND per million tokens. Code
+        """'voxtral small' is billed per minute of audio AND per million tokens. Code
         that assumes one unit per model truncates it, and the truncation is silent."""
         self.run_scrape(self.page_ok)
-        entry = self.candidate_block("stamped.json")["models"]["voxtral-small-latest"]
+        entry = self.candidate_block("stamped.json")["models"]["voxtral small"]
 
         self.assertEqual(entry["per_audio_minute"], 0.004)
         self.assertEqual(entry["in_per_mtok"], 0.1)
         self.assertEqual(entry["out_per_mtok"], 0.4)
 
-    def test_every_mapped_model_reaches_the_output(self) -> None:
-        """Adding a model to the mapping without it appearing here would be a silent
-        omission, which is the one failure mode this repository must not have."""
+    def test_a_cached_input_price_is_published_under_its_own_field(self) -> None:
+        """'glm 5.2' states three prices, not two. Folding a cached-read rate into
+        in_per_mtok would understate every ordinary input token by a factor of ten."""
         self.run_scrape(self.page_ok)
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(
-            set(self.candidate_block("stamped.json")["models"]), set(mapping["models"])
-        )
+        entry = self.candidate_block("stamped.json")["models"]["glm 5.2"]
+        self.assertEqual(entry["in_per_mtok"], 1.4)
+        self.assertEqual(entry["cache_read_per_mtok"], 0.14)
+        self.assertEqual(entry["out_per_mtok"], 4.4)
+
+    def test_every_priced_card_reaches_the_output(self) -> None:
+        """There is no list to reconcile: every card the page states a price for is
+        published, keyed by the card name the page states. A card quietly dropping out
+        between the page and the file is the one failure mode this repository must not
+        have."""
+        self.run_scrape(self.page_ok)
+        cards = scrape.parse_page(self.page_ok)
+        priced = {name for name, rows in cards.items() if rows}
+        published = set(self.candidate_block("stamped.json")["models"])
+
+        # 'ocr 4.1' is the one card that becomes two entries; every other priced card
+        # is one entry under its own name.
+        self.assertEqual(published - {"ocr 4.1 / ocr", "ocr 4.1 / document ai"}, priced - {"ocr 4.1"})
 
     def test_other_providers_blocks_are_never_touched(self) -> None:
         """The entire reason pricing.json nests under providers.<name>: a run that
@@ -282,16 +305,16 @@ class TestPriceChange(ScrapeTestCase):
 
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
-        self.assertIn("mistral-medium-latest.in_per_mtok", stdout)
+        self.assertIn("mistral medium 3.5.in_per_mtok", stdout)
         self.assertIn("1.5", stdout)
         self.assertIn("2.25", stdout)
 
         updated = self.candidate_block("updated.json")
-        self.assertEqual(updated["models"]["mistral-medium-latest"]["in_per_mtok"], 2.25)
+        self.assertEqual(updated["models"]["mistral medium 3.5"]["in_per_mtok"], 2.25)
         self.assertEqual(updated["checked_utc"], FIXED_NOW)
         self.assertEqual(updated["updated"], FIXED_NOW[:10], "updated must move with the figure")
         self.assertEqual(
-            updated["models"]["mistral-medium-latest"]["out_per_mtok"],
+            updated["models"]["mistral medium 3.5"]["out_per_mtok"],
             7.5,
             "an unrelated figure was disturbed",
         )
@@ -303,18 +326,32 @@ class TestPriceChange(ScrapeTestCase):
         self.assert_current_untouched()
 
     def test_a_price_going_down_is_also_a_change(self) -> None:
-        html = mutate_in_card(self.page_ok, "ocr 4", "&quot;priceUsd&quot;:4", "&quot;priceUsd&quot;:2")
+        html = mutate_in_card(self.page_ok, "ocr 4.1", "&quot;priceUsd&quot;:4,", "&quot;priceUsd&quot;:2,")
         code, stdout, _ = self.run_scrape(html)
         self.assertEqual(code, 0)
-        self.assertIn("mistral-ocr-latest.per_1k_pages", stdout)
-        self.assertEqual(self.candidate_block("updated.json")["models"]["mistral-ocr-latest"]["per_1k_pages"], 2.0)
+        self.assertIn("ocr 4.1 / ocr.per_1k_pages", stdout)
+        self.assertEqual(self.candidate_block("updated.json")["models"]["ocr 4.1 / ocr"]["per_1k_pages"], 2.0)
         self.assert_current_untouched()
 
-    def test_a_renamed_marketing_name_is_never_absorbed_silently(self) -> None:
-        """display_name comes from the mapping, so the page renaming a model is a failure."""
+    def test_a_renamed_card_publishes_the_new_name_and_keeps_the_old(self) -> None:
+        """The key IS the card name, so a rename is two facts at once: an entry exists
+        under a new name, and the old name is not on the page any more. Both are
+        published -- the new key with today's price, the old one frozen and dated.
+
+        This is the case that failed the real job: Mistral renamed six cards in one
+        week, and refusing to publish until a human reconciled a list held back
+        twenty-two prices that had nothing to do with the renames."""
         html = mutate(self.page_ok, 'data-name="mistral medium 3.5"', 'data-name="mistral medium 4"')
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "mistral-medium-latest", "mapping.json")
+        code, _, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+
+        models = self.candidate_block("updated.json")["models"]
+        self.assertEqual(models["mistral medium 4"]["in_per_mtok"], 1.5)
+        self.assertNotIn("absent_since", models["mistral medium 4"])
+        self.assertEqual(models["mistral medium 3.5"]["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
+        self.assertIn("no longer offered", self.notes())
+        self.assert_current_untouched()
 
 
 # ======================================================================================
@@ -333,10 +370,20 @@ class TestLayoutFailures(ScrapeTestCase):
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "without data-prices")
 
-    def test_row_label_renamed(self) -> None:
+    def test_an_unrecognised_row_label_is_reported_and_never_guessed_at(self) -> None:
+        """There is no honest way to name the unit of a figure whose label this file
+        does not recognise, so that row is not published. The rows that WERE recognised
+        still are: a renamed input label says nothing about whether the output price
+        beside it was read correctly."""
         html = mutate(self.page_ok, "Input (/M tokens)", "Prompt (/M tokens)", expected_count=None)
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "no row labelled", "'Input (/M tokens)'")
+        code, _, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["mistral medium 3.5"]
+        self.assertNotIn("in_per_mtok", entry)
+        self.assertEqual(entry["out_per_mtok"], 7.5)
+        self.assertIn("Prompt (/M tokens)", self.notes())
+        self.assertIn("has no field for that label", self.notes())
 
     def test_empty_page(self) -> None:
         code, _, stderr = self.run_scrape("<html><body></body></html>")
@@ -351,25 +398,91 @@ class TestLayoutFailures(ScrapeTestCase):
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "not JSON")
 
-    def test_missing_usd_figure(self) -> None:
+    def test_missing_usd_figure_is_reported_and_not_converted(self) -> None:
+        """This file publishes USD and performs no conversion anywhere. A row that stops
+        stating a USD figure has no publishable price, whatever else it states."""
         html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceGbp&quot;:1.5")
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "no priceUsd", "no conversion")
+        code, _, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["mistral medium 3.5"]
+        self.assertNotIn("in_per_mtok", entry)
+        self.assertEqual(entry["out_per_mtok"], 7.5)
+        self.assertIn("could not be read as stated", self.notes())
 
 
-class TestMissingModel(ScrapeTestCase):
-    def test_model_in_the_mapping_but_absent_from_the_page(self) -> None:
-        html = drop_card(self.page_ok, "ocr 4")
-        self.assertNotIn('data-name="ocr 4"', html)
+class TestWithdrawnCard(ScrapeTestCase):
+    """A card the page stops showing. This is the case that used to fail the whole job,
+    blocking correct prices for everything else until a human edited a list."""
 
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "mistral-ocr-latest", "no model card named 'ocr 4'")
+    def without_codestral(self) -> str:
+        html = drop_card(self.page_ok, "codestral")
+        self.assertNotIn('data-name="codestral"', html)
+        return html
 
-    def test_the_other_models_are_not_published_when_one_is_missing(self) -> None:
-        """A partial file is not an acceptable outcome: it is all three or nothing."""
-        html = drop_card(self.page_ok, "ocr 4")
-        self.run_scrape(html)
-        self.assertFalse(any(self.out_dir.glob("*.json")))
+    def test_it_is_kept_with_its_last_prices_and_a_date(self) -> None:
+        code, _, _ = self.run_scrape(self.without_codestral())
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["codestral"]
+        published = json.loads(self.current_bytes)["providers"]["mistral"]["models"]["codestral"]
+        self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(entry["in_per_mtok"], published["in_per_mtok"])
+        self.assertEqual(entry["out_per_mtok"], published["out_per_mtok"])
+
+    def test_every_other_card_is_still_published(self) -> None:
+        """The point of the whole change: one model going away is not a reason to
+        withhold every other price on the page."""
+        self.run_scrape(self.without_codestral())
+        models = self.candidate_block("updated.json")["models"]
+        still_offered = [m for m in models if "absent_since" not in models[m]]
+        self.assertEqual(len(still_offered), 22)
+        self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
+
+    def test_it_is_reported_once_and_not_again(self) -> None:
+        self.run_scrape(self.without_codestral())
+        self.assertIn("codestral", self.notes())
+        self.assertIn("365 days", self.notes())
+
+        self.current.write_text(
+            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.current_bytes = self.current.read_bytes()
+        code, stdout, _ = self.run_scrape(self.without_codestral(), now="2026-08-10T04:00:00Z")
+
+        self.assertEqual(code, 0)
+        self.assertIn("unchanged", stdout)
+        self.assertEqual(self.notes(), "", "the same disappearance was reported twice")
+
+    def test_it_is_dropped_after_a_year_and_not_before(self) -> None:
+        self.run_scrape(self.without_codestral())
+        aged = json.loads((self.out_dir / "updated.json").read_text(encoding="utf-8"))
+        aged["providers"]["mistral"]["models"]["codestral"]["absent_since"] = "2025-08-03"
+        self.current.write_text(json.dumps(aged, indent=2) + "\n", encoding="utf-8")
+        self.current_bytes = self.current.read_bytes()
+
+        self.run_scrape(self.without_codestral(), now="2026-08-02T04:00:00Z")
+        self.assertIn("codestral", self.candidate_block("stamped.json")["models"])
+
+        code, _, _ = self.run_scrape(self.without_codestral(), now="2026-08-04T04:00:00Z")
+        self.assertEqual(code, 0)
+        self.assertNotIn("codestral", self.candidate_block("updated.json")["models"])
+        self.assertIn("Dropped from the file", self.notes())
+
+    def test_a_card_that_comes_back_loses_the_marker(self) -> None:
+        self.run_scrape(self.without_codestral())
+        self.current.write_text(
+            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.current_bytes = self.current.read_bytes()
+
+        code, _, _ = self.run_scrape(self.page_ok, now="2026-08-10T04:00:00Z")
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["codestral"]
+        self.assertNotIn("absent_since", entry)
+        self.assertEqual(entry["in_per_mtok"], 0.3)
+        self.assertIn("offered again", self.notes())
 
 
 class TestSanityBounds(ScrapeTestCase):
@@ -396,16 +509,25 @@ class TestSanityBounds(ScrapeTestCase):
         self.assertIn("changed", stdout)
         self.assert_current_untouched()
 
-    def test_unit_change_on_the_page_is_refused(self) -> None:
-        """per_1k_pages must not keep its name if the page stops meaning 1000 pages."""
+    def test_unit_change_on_the_page_is_reported_and_never_published(self) -> None:
+        """per_1k_pages must not keep its name if the page stops meaning 1000 pages. The
+        figure is dropped rather than republished under a field name that would now be a
+        lie, and the two entries that lose their only price go absent like any other."""
         html = mutate(
             self.page_ok,
             "&quot;suffix&quot;:&quot;/ 1000 pages&quot;",
             "&quot;suffix&quot;:&quot;/ 100 pages&quot;",
             expected_count=2,
         )
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "unit may have changed")
+        code, _, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+
+        models = self.candidate_block("updated.json")["models"]
+        self.assertIn("/ 100 pages", self.notes())
+        self.assertIn("no price on this card could be published", self.notes())
+        for key in ("ocr 4.1 / ocr", "ocr 4.1 / document ai"):
+            self.assertEqual(models[key]["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
 
 
 class TestCorruptInputs(ScrapeTestCase):
@@ -441,22 +563,26 @@ class TestCorruptInputs(ScrapeTestCase):
         code, _, stderr = self.run_scrape(self.page_ok)
         self.assert_failed(code, stderr, "no providers.mistral block")
 
-    def test_a_published_model_may_not_be_dropped_by_the_job(self) -> None:
+    def test_a_published_model_the_page_never_shows_is_kept_not_dropped(self) -> None:
+        """Something in the file that the page has never shown is not deleted on sight.
+        It is dated and kept for a year, like anything else that goes away."""
         published = json.loads(self.current_bytes)
-        # A model id the mapping has never heard of, standing in for one that was
-        # published and then quietly dropped from the mapping. Deliberately not a
-        # real Mistral id: every real one is mapped now, and a test that starts
-        # passing because somebody mapped its subject proves nothing.
-        published["providers"]["mistral"]["models"]["mistral-retired-legacy"] = {
+        published["providers"]["mistral"]["models"]["mistral retired legacy"] = {
             "in_per_mtok": 0.5,
             "out_per_mtok": 1.5,
-            "display_name": "Retired Legacy Model",
+            "display_name": "mistral retired legacy",
         }
         self.current.write_text(json.dumps(published, indent=2) + "\n", encoding="utf-8")
         self.current_bytes = self.current.read_bytes()
 
-        code, _, stderr = self.run_scrape(self.page_ok)
-        self.assert_failed(code, stderr, "mapping does not know", "mistral-retired-legacy")
+        code, _, _ = self.run_scrape(self.page_ok)
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["mistral retired legacy"]
+        self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(entry["in_per_mtok"], 0.5)
+        self.assertIn("mistral retired legacy", self.notes())
+        self.assert_current_untouched()
 
 
 # ======================================================================================
@@ -478,10 +604,16 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
         validate.validate_document(json.loads(BASELINE_JSON.read_text(encoding="utf-8")))
 
     def test_the_baseline_has_the_same_shape_as_the_published_file(self) -> None:
-        """Figures may differ -- the baseline is pinned to an older capture -- but the
-        set of models and the units they are priced in may not drift apart unnoticed."""
-        published = self.mistral_block()["models"]
+        """Figures may differ -- the baseline is pinned to its own capture -- but the
+        set of entries still on sale, and the units they are priced in, may not drift
+        apart unnoticed. Entries marked `absent_since` are excluded on both sides: the
+        published file keeps a withdrawn model for a year and the fixture, being a
+        single capture, has no way to know about one."""
+        published = {
+            k: v for k, v in self.mistral_block()["models"].items() if "absent_since" not in v
+        }
         baseline = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))["providers"]["mistral"]["models"]
+        baseline = {k: v for k, v in baseline.items() if "absent_since" not in v}
 
         self.assertEqual(set(published), set(baseline))
         for model_id, entry in published.items():
@@ -492,17 +624,28 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
             )
 
     def test_the_committed_file_matches_the_mapping(self) -> None:
+        """There is no model list to agree with any more, so what is checked is what the
+        mapping still decides: where the figures come from, what currency they are in,
+        and which price fields the rows table can produce."""
         published = self.mistral_block()
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 
-        self.assertEqual(set(published["models"]), set(mapping["models"]))
         self.assertEqual(published["source"], mapping["source"])
         self.assertEqual(published["currency"], mapping["currency"])
+
+        producible = {spec["field"] for spec in mapping["rows"].values()}
         for model_id, entry in published["models"].items():
-            self.assertEqual(entry["display_name"], mapping["models"][model_id]["display_name"])
-            expected_fields = set(mapping["models"][model_id]["fields"])
-            actual_fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
-            self.assertEqual(actual_fields, expected_fields, model_id)
+            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
+            self.assertTrue(fields, model_id)
+            self.assertLessEqual(fields, producible, model_id)
+
+    def test_every_key_is_a_card_name_the_page_states(self) -> None:
+        """The keys are page card names, deliberately not API model ids. An API-shaped
+        key creeping back in would mean somebody had started translating names by hand
+        again, which is the thing that made this block need a human every week."""
+        for model_id, entry in self.mistral_block()["models"].items():
+            self.assertEqual(model_id, entry["display_name"], model_id)
+            self.assertEqual(model_id, model_id.lower(), model_id)
 
     def test_the_published_audio_prices_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits
@@ -532,45 +675,45 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
 
 
 class TestMapping(unittest.TestCase):
-    def test_every_mapped_field_is_a_known_unit(self) -> None:
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        for model_id, spec in mapping["models"].items():
-            self.assertTrue(spec["page_name"], model_id)
-            self.assertTrue(spec["display_name"], model_id)
-            self.assertTrue(spec["fields"], model_id)
-            for field, field_spec in spec["fields"].items():
-                self.assertIn(field, validate.KNOWN_PRICE_FIELDS, f"{model_id}.{field}")
-                self.assertTrue(field_spec.get("label"), f"{model_id}.{field}")
+    def mapping(self) -> JSONDict:
+        return json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 
-    def test_no_two_entries_read_the_same_row_of_the_same_card(self) -> None:
-        """Two entries MAY share a page_name -- mistral-ocr-latest and document-ai are
-        two priced rows of the same 'ocr 4' card. What must never repeat is the pair:
-        the same row of the same card feeding two pricing.json keys means one of them
-        is publishing a figure that belongs to the other."""
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        seen: dict[tuple[str, str], str] = {}
-        for model_id, spec in mapping["models"].items():
-            for field_spec in spec["fields"].values():
-                key = (spec["page_name"], field_spec["label"])
-                self.assertNotIn(key, seen, f"{model_id} reads the same row as {seen.get(key)}")
-                seen[key] = model_id
+    def test_there_is_no_model_list(self) -> None:
+        """Load-bearing, not pedantry. A hand-written model list is exactly what made a
+        week of renames block twenty-two correct prices, and re-adding one would bring
+        that back without anything else in the tests noticing."""
+        self.assertNotIn("models", self.mapping())
 
-    def test_every_product_is_marked_as_one(self) -> None:
-        """The nine non-model entries are the only ones allowed to carry a kind, and
-        they must carry it: without it a consumer iterating 'models' would treat web
-        search and image generation as things it can call as a model."""
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        products = {mid for mid, spec in mapping["models"].items() if spec.get("kind") == "product"}
-        self.assertEqual(
-            products,
-            {
-                "document-ai", "classifier-3b", "classifier-8b", "libraries",
-                "code-execution", "web-search", "premium-news", "images", "data-capture",
-            },
-        )
-        for model_id, spec in mapping["models"].items():
+    def test_every_mapped_row_names_a_known_price_field(self) -> None:
+        for label, spec in self.mapping()["rows"].items():
+            self.assertIn(spec["field"], validate.KNOWN_PRICE_FIELDS, label)
             if "kind" in spec:
-                self.assertIn(spec["kind"], validate.KNOWN_KINDS, model_id)
+                self.assertIn(spec["kind"], validate.KNOWN_KINDS, label)
+
+    def test_every_row_label_on_the_page_is_mapped(self) -> None:
+        """Catches the gap on the day the fixture is re-captured rather than on the
+        Monday a price silently stops being published."""
+        rows_table = self.mapping()["rows"]
+        cards = scrape.parse_page(PAGE_OK.read_text(encoding="utf-8"))
+        for card_name, rows in cards.items():
+            for label, _ in rows:
+                self.assertIsNotNone(
+                    scrape.resolve_field(label, rows_table), f"{card_name}: {label!r}"
+                )
+
+    def test_a_prefix_never_shadows_a_longer_exact_label(self) -> None:
+        """'OCR' is in the table and so is 'OCR (per 1K pages)'. Longest match wins, and
+        an exact match wins outright -- otherwise the libraries card's per-1K-pages row
+        would be read through the OCR model's entry, which expects a different suffix."""
+        rows_table = self.mapping()["rows"]
+        matched, _ = scrape.resolve_field("OCR (per 1K pages)", rows_table)
+        self.assertEqual(matched, "OCR (per 1K pages)")
+
+    def test_products_are_card_names_that_exist_on_the_page(self) -> None:
+        """The list is an annotation and gates nothing, so a stale name cannot break a
+        run -- but it can quietly stop marking anything, which is worth catching."""
+        cards = set(scrape.parse_page(PAGE_OK.read_text(encoding="utf-8")))
+        self.assertLessEqual(set(self.mapping()["products"]), cards)
 
 
 if __name__ == "__main__":

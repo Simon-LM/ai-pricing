@@ -181,55 +181,55 @@ def extract_catalog_models(html_text: str) -> list[JSONDict]:
 # --------------------------------------------------------------------------------------
 
 
-def extract_models(catalog_models: list[JSONDict], mapping: JSONDict) -> dict[str, JSONDict]:
-    """Turn the catalog into a `models` block, through the explicit mapping only.
+def extract_models(
+    catalog_models: list[JSONDict], mapping: JSONDict
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """Turn the catalog into a `models` block: every model the catalog prices, no list.
 
-    Every lookup here is an exact string match against a hand-committed value. A
-    catalog id, or a pricing unit, the mapping does not know is a failure to
-    report, never a row to guess at.
+    The mapping says which PRICING UNITS this repository knows how to publish, and
+    nothing else. Which models the catalog offers is OVH's business and changes week to
+    week; following that is the whole point of this job. A model OVH adds is published
+    on the next run, one it withdraws keeps its last observed prices under an
+    `absent_since` stamp, and nothing here needs a human to reconcile a list first.
+
+    That is possible because the catalog states the callable model id itself, in
+    `name`. Note `name`, NOT `id`: `id` is a CMS slug for the catalog's own URLs
+    ("qwen-3-6-27b" against the callable "Qwen3.6-27B"), and publishing it would give
+    consumers a string OVH's API does not answer to.
+
+    A unit the mapping does not know is skipped and reported, not guessed at: the unit
+    is part of the field name, so there is no honest way to publish a figure whose unit
+    this repository cannot name. Skipping one row still publishes the others, which is
+    why this returns notes rather than raising.
     """
-    by_catalog_id: dict[str, JSONDict] = {}
-    for entry in catalog_models:
-        catalog_id = cast(str, entry["id"])
-        if catalog_id in by_catalog_id:
-            raise ScrapeError(
-                f"the catalog lists {catalog_id!r} more than once. Refusing to guess "
-                f"which entry carries the real price."
-            )
-        by_catalog_id[catalog_id] = entry
+    units: dict[str, str] = mapping["units"]
 
     models: dict[str, JSONDict] = {}
+    notes: list[str] = []
 
-    for model_id, spec in mapping["models"].items():
-        catalog_id = spec["catalog_id"]
-        entry = by_catalog_id.get(catalog_id)
-
-        if entry is None:
+    for entry in catalog_models:
+        catalog_id = cast(str, entry["id"])
+        model_id = entry.get("name")
+        if not isinstance(model_id, str) or not model_id:
             raise ScrapeError(
-                f"{model_id}: the catalog has no model with id {catalog_id!r}. Either OVH "
-                f"renamed or withdrew it. Update {DEFAULT_MAPPING} by hand after checking "
-                f"{mapping['source']} -- do not let this be guessed."
+                f"catalog entry {catalog_id!r} has no string 'name'. That field is the "
+                f"callable model id and the key this block is published under, so the "
+                f"catalog's data shape has changed in a way that cannot be worked around."
             )
-
-        # The key this is published under is the API model id, and the catalog states
-        # it in `name` -- NOT in `id`, which is a CMS slug ("qwen-3-6-27b" against the
-        # callable "Qwen3.6-27B"). Both are checked byte-for-byte, so a rename of
-        # either one stops the run instead of quietly republishing a model id that no
-        # longer resolves against OVH's API.
-        if entry.get("name") != spec["catalog_name"]:
+        if model_id in models:
             raise ScrapeError(
-                f"{model_id}: catalog entry {catalog_id!r} is now named "
-                f"{entry.get('name')!r}, not {spec['catalog_name']!r}. The API model id "
-                f"this is published under may have changed with it; check "
-                f"{mapping['source']} and update the mapping by hand."
+                f"the catalog lists two entries named {model_id!r}. Refusing to guess "
+                f"which one carries the real price."
             )
 
         raw_pricing = entry.get("metadata", {}).get("usage_information", {}).get("pricing")
-        if not isinstance(raw_pricing, list):
-            raise ScrapeError(
-                f"{model_id}: {catalog_id!r} has no metadata.usage_information.pricing "
-                f"list. The catalog's data shape has changed."
+        if not isinstance(raw_pricing, list) or not raw_pricing:
+            notes.append(
+                f"{model_id}: the catalog lists it with no "
+                f"metadata.usage_information.pricing, so there is no price to publish. "
+                f"Skipped."
             )
+            continue
         raw_pricing = cast("list[Any]", raw_pricing)
         if not all(isinstance(p, dict) for p in raw_pricing):
             raise ScrapeError(
@@ -241,63 +241,70 @@ def extract_models(catalog_models: list[JSONDict], mapping: JSONDict) -> dict[st
 
         result_entry: JSONDict = {}
 
-        # A model the mapping calls free is never taken on trust: the catalog must
-        # still say 0, for exactly the units the mapping expects and no others. The
-        # day OVH starts charging for one of these, or adds a second billable unit
-        # alongside the free one, that has to reach a human -- publishing "free" for
-        # a model that now costs money is a worse failure than publishing nothing.
-        if spec.get("free"):
-            expected_units = sorted(spec["expect_zero_units"])
-            found_units = sorted(str(p.get("price_unit")) for p in pricing)
-            if found_units != expected_units:
-                raise ScrapeError(
-                    f"{model_id}: {catalog_id!r} is mapped as free with units "
-                    f"{expected_units}, but the catalog now prices it in {found_units}. "
-                    f"Re-check the catalog by hand before publishing anything for it."
-                )
-            for p in pricing:
-                price = p.get("price")
-                if isinstance(price, bool) or not isinstance(price, (int, float)) or price != 0:
-                    raise ScrapeError(
-                        f"{model_id}: {catalog_id!r} is mapped as free, but the catalog "
-                        f"now charges {price!r} per {p.get('price_unit')!r}. Remove the "
-                        f"free marker and map the real price by hand."
-                    )
+        # A model OVH gives away is published with the shared `free` marker and no price
+        # field, never as a price of 0 -- 0 is also exactly what a broken parser reads,
+        # which is what check_price's floor exists to catch. "Free" is read off the
+        # catalog every week rather than remembered, so the day OVH starts charging for
+        # one of these, the price simply appears and the marker simply goes.
+        prices = [p.get("price") for p in pricing]
+        if all(not isinstance(p, bool) and isinstance(p, (int, float)) and p == 0 for p in prices):
             result_entry["free"] = True
-            result_entry["display_name"] = spec["display_name"]
+            result_entry["display_name"] = model_id
             models[model_id] = result_entry
             continue
 
-        for field, field_spec in spec["fields"].items():
-            price_unit = field_spec["price_unit"]
-            matches = [p for p in pricing if p.get("price_unit") == price_unit]
+        for price_entry in pricing:
+            price_unit = str(price_entry.get("price_unit"))
+            field = units.get(price_unit)
 
-            if not matches:
-                # A pricing entry missing its own price_unit is itself a shape change,
-                # not something to silently drop from this message -- but it must not
-                # crash the message either: sorting a set that mixes None with strings
-                # raises, and this branch runs precisely when the catalog looks wrong.
-                found_units = sorted(str(p.get("price_unit")) for p in pricing)
-                raise ScrapeError(
-                    f"{model_id}.{field}: {catalog_id!r} has no pricing entry with "
-                    f"price_unit {price_unit!r}. Units found: {found_units}. The unit may "
-                    f"have changed; {field} would no longer mean what it says."
+            if field is None:
+                notes.append(
+                    f"{model_id}: priced per {price_unit!r}, a unit "
+                    f"{DEFAULT_MAPPING.name} has no field for. That price is not "
+                    f"published. Add the unit to the mapping's 'units' table, and a "
+                    f"matching field to KNOWN_PRICE_FIELDS, to publish it."
                 )
-            if len(matches) > 1:
+                continue
+
+            if field in result_entry:
                 raise ScrapeError(
-                    f"{model_id}.{field}: {catalog_id!r} has {len(matches)} pricing entries "
-                    f"with price_unit {price_unit!r}. Refusing to guess which is the price."
+                    f"{model_id}.{field}: {catalog_id!r} has two pricing entries mapping "
+                    f"to it. Refusing to guess which is the price."
                 )
 
-            result_entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, matches[0].get("price"))
+            price = price_entry.get("price")
+            # Zero beside a real price is not "free" -- free is all-zero, handled above.
+            # It is either a genuine giveaway of one side of a token price, which this
+            # schema has no way to say, or a misparse. Either way it is not publishable.
+            if not isinstance(price, bool) and isinstance(price, (int, float)) and price == 0:
+                notes.append(
+                    f"{model_id}: priced at 0 per {price_unit!r} while charging for other "
+                    f"units. Not published: this file distinguishes a free model, which is "
+                    f"free in every unit, from a price of 0, which is also what a misparse "
+                    f"reads."
+                )
+                continue
 
-        result_entry["display_name"] = spec["display_name"]
+            result_entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, price)
+
+        if not result_entry:
+            notes.append(f"{model_id}: no publishable price could be read at all. Skipped.")
+            continue
+
+        result_entry["display_name"] = model_id
         models[model_id] = result_entry
 
-    return models
+    if not models:
+        raise ScrapeError(
+            "the catalog priced not a single model this scraper could publish. Either "
+            "OVH restructured it, or the page is not what it looks like. Refusing to "
+            "publish an empty block."
+        )
+
+    return models, notes
 
 
-def extract_new_models(html_text: str, mapping: JSONDict) -> dict[str, JSONDict]:
+def extract_new_models(html_text: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     """The one callback provider_runner needs: page text + mapping -> a models dict."""
     return extract_models(extract_catalog_models(html_text), mapping)
 

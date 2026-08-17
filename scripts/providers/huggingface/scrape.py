@@ -10,19 +10,23 @@ directory and reports which one, if any, the caller should promote. That is
 deliberate: "leave pricing.json untouched on every failure path" is then a property
 of the design rather than a branch of code somebody has to remember to get right.
 
-Hugging Face routes a call to a partner that actually serves the model, and the same
-model is served by several partners at several prices -- openai/gpt-oss-120b is
-offered by eleven of them, from $0.05 to $0.35 per million input tokens. So the unit
-of pricing here is not a model, it is a (model, partner) PAIR, and the key published
-for it is exactly the string the router takes: `<model id>:<partner>`, the form
-Hugging Face's own documentation uses ("openai/gpt-oss-120b:groq"). A key without
-the suffix would name eleven different prices at once.
+This block covers OVHcloud and Scaleway, the two partners named in mapping.json, and
+nothing else.
 
-This block covers only the partners named in mapping.json. Note what that means: a
-price here is what the partner charges when reached THROUGH the router, and is a
-different figure from calling that partner directly -- OVHcloud's own catalog prices
-Qwen3.6-27B at 0.40 EUR while the router quotes 0.47 USD for the same model. Both
-are correct and both are in this file, under their own provider.
+Hugging Face routes a call to the partner that actually serves the model, and the
+same model can be served by both of those partners at different prices --
+openai/gpt-oss-120b is $0.09 per million input tokens through OVHcloud and $0.171
+through Scaleway. So the unit of pricing here is not a model, it is a (model,
+partner) PAIR, and the key published for it is exactly the string the router takes:
+`<model id>:<partner>`, the form Hugging Face's own documentation uses
+("openai/gpt-oss-120b:ovhcloud"). A key without the suffix would name two different
+prices at once.
+
+Note what "through the router" means: a price here is what the partner charges when
+reached THROUGH Hugging Face, and is a different figure from calling that partner
+directly -- OVHcloud's own catalog prices Qwen3.6-27B at 0.40 EUR while the router
+quotes 0.47 USD for the same model. Both are correct and both are in this file,
+under their own provider.
 
 Outcomes, matching the three the workflow must implement:
 
@@ -130,43 +134,33 @@ def parse_routes(body: str) -> dict[str, JSONDict]:
 def extract_models(routes: dict[str, JSONDict], mapping: JSONDict) -> dict[str, JSONDict]:
     """Turn the routes into a `models` block, through the explicit mapping only."""
     partners = mapping["partners"]
-    expected: list[str] = mapping["models"]
     field_specs: JSONDict = mapping["fields"]
 
-    # The mapping pins the exact set. A route appearing or disappearing is a real
-    # change a human should see, not something to absorb quietly in either
-    # direction: a vanished route would otherwise drop out of pricing.json without
-    # a word, and a new one would appear without anyone reading its price.
-    missing = [r for r in expected if r not in routes]
-    if missing:
+    # The mapping picks PARTNERS, not routes. Which models a partner serves through the
+    # router is Hugging Face's business and changes constantly; following that is the
+    # whole point of this job. The route id is stated by the source itself, so there is
+    # nothing here for a hand-written list to translate -- and pinning one would only
+    # mean that the first model a partner retires blocks every other partner's prices
+    # too.
+    #
+    # A route the router does not mark `live` is treated as not offered, exactly like
+    # one that has vanished: a price for a call that cannot be served is worse than no
+    # price. The entry does not disappear from the file when that happens -- the runner
+    # keeps it, with its last observed prices and an `absent_since` stamp.
+    offered = sorted(
+        r for r, o in routes.items() if o.get("provider") in partners and o.get("status") == LIVE
+    )
+    if not offered:
         raise ScrapeError(
-            f"{len(missing)} mapped route(s) are no longer offered: {missing[:10]}. Either "
-            f"the partner stopped serving the model or Hugging Face renamed it. Update "
-            f"{DEFAULT_MAPPING} by hand after checking {mapping['source']} -- do not let "
-            f"this be guessed."
-        )
-
-    offered = sorted(r for r, o in routes.items() if o.get("provider") in partners)
-    unexpected = [r for r in offered if r not in set(expected)]
-    if unexpected:
-        raise ScrapeError(
-            f"the mapped partners now serve {len(unexpected)} route(s) that "
-            f"{DEFAULT_MAPPING} does not list: {unexpected[:10]}. Add them by hand after "
-            f"reading their prices, or the file would publish a figure nobody reviewed."
+            f"none of the mapped partners {sorted(partners)} serve a single live route. "
+            f"Either Hugging Face restructured the listing, or the response is not what "
+            f"it looks like. Refusing to publish an empty block."
         )
 
     models: dict[str, JSONDict] = {}
 
-    for route in expected:
+    for route in offered:
         offer = routes[route]
-
-        status = offer.get("status")
-        if status != LIVE:
-            raise ScrapeError(
-                f"{route}: the router reports status {status!r}, not {LIVE!r}. Publishing a "
-                f"price for a route that cannot serve a call would be worse than publishing "
-                f"nothing."
-            )
 
         result_entry: JSONDict = {}
 
@@ -210,9 +204,13 @@ def extract_models(routes: dict[str, JSONDict], mapping: JSONDict) -> dict[str, 
     return models
 
 
-def extract_new_models(body: str, mapping: JSONDict) -> dict[str, JSONDict]:
-    """The one callback provider_runner needs: source text + mapping -> a models dict."""
-    return extract_models(parse_routes(body), mapping)
+def extract_new_models(body: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs: source text + mapping -> a models dict.
+
+    No notes: the listing states every route's price under a fixed field name, so there
+    is nothing left over for a human to look at.
+    """
+    return extract_models(parse_routes(body), mapping), []
 
 
 def main(argv: list[str] | None = None) -> int:

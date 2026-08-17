@@ -1,0 +1,93 @@
+name: Weekly report
+
+# Sends one email a week saying whether the four price checks actually ran.
+#
+# The other four workflows report by exception: they open an issue when something
+# breaks. That covers every failure they can see, and none of the ones they cannot --
+# a workflow disabled by GitHub after 60 idle days, broken by a bad edit to its own
+# YAML, or simply never scheduled, produces no failure to report. pricing.json just
+# quietly stops moving, looking exactly as it always did.
+#
+# So this runs after all four and states the outcome either way: every provider
+# refreshed, or which ones were not. A receipt that arrives every Monday is worth
+# more than silence, because a receipt that DOESN'T arrive is itself the alarm --
+# and that is the one alarm no code inside this repository could ever raise.
+#
+# Nothing here can change pricing.json. It reads the file, writes an issue, and has
+# no `contents: write` permission to do anything else with.
+
+on:
+  schedule:
+    # Mondays, 08:00 UTC -- an hour after the last of the four price checks (07:00),
+    # so every stamp it reads is from this morning's runs rather than last week's.
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Deliberately NOT in the pricing-json-writes group: this workflow writes nothing, so
+# it has no reason to queue behind a scrape, and every reason to still run if one is
+# stuck. A report that cannot run when things are going wrong is not a report.
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read the published stamps
+        id: report
+        run: python3 scripts/weekly_report.py --out-dir .ci-out
+
+      - name: Put the report in the run summary
+        run: cat .ci-out/report-body.md >> "$GITHUB_STEP_SUMMARY"
+
+      # An issue is the delivery mechanism, not a task list. Assigning it is what makes
+      # GitHub send an email, through a channel that is on by default and does not
+      # depend on watching the repository.
+      #
+      # When everything is fine the issue is closed in the same run: the email has
+      # already been sent by then, the text stays readable in the issue history, and
+      # nobody has to close 52 notifications a year by hand. When a provider did NOT
+      # refresh, it stays open, because then there is something to do.
+      - name: Send the report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          echo >> .ci-out/report-body.md
+          echo "Run: ${RUN_URL}" >> .ci-out/report-body.md
+
+          gh label create weekly-report --color 1d76db \
+            --description "The Monday receipt from the price checks" 2>/dev/null || true
+
+          # gh has --body-file but no --title-file, so the title does have to travel
+          # through the shell. It goes through a quoted variable rather than being
+          # spliced into the command text, which is what keeps a provider id read out
+          # of pricing.json from being interpreted as anything but a title.
+          TITLE="$(cat .ci-out/report-title.txt)"
+
+          # `gh issue create` prints the new issue's URL, which ends in its number.
+          NUMBER="$(gh issue create \
+            --assignee ${{ github.repository_owner }} \
+            --title "$TITLE" \
+            --label weekly-report \
+            --body-file .ci-out/report-body.md \
+            | grep -oE '[0-9]+$')"
+
+          if [ "${{ steps.report.outputs.all_fresh }}" = "true" ]; then
+            gh issue close "$NUMBER" \
+              --comment "Closed automatically: this is a receipt, and it says everything is fine."
+            echo "::notice::All four providers refreshed on schedule."
+          else
+            echo "::warning::At least one provider did not refresh. Issue #$NUMBER is open."
+          fi

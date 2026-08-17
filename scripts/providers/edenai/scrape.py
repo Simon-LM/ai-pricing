@@ -20,9 +20,9 @@ Unlike the other providers here, the source is a real JSON API rather than a
 marketing page: <https://api.edenai.run/v3/models>, public and keyless, with
 `pricing.input_cost_per_token` and `pricing.output_cost_per_token` stated per model
 under explicit field names. There is no label to string-match and no layout to
-latch onto, so this scraper is short. What it still refuses to do is guess: the
-mapping pins which upstream providers are covered and which model ids are expected,
-so a model appearing or vanishing is reported rather than silently absorbed.
+latch onto, so this scraper is short. The mapping picks which UPSTREAM providers are
+covered; which models each of them offers is read from the endpoint every week, not
+written down here.
 
 Outcomes, matching the three the workflow must implement:
 
@@ -130,33 +130,26 @@ def parse_model_list(body: str) -> dict[str, JSONDict]:
 def extract_models(catalog: dict[str, JSONDict], mapping: JSONDict) -> dict[str, JSONDict]:
     """Turn the model list into a `models` block, through the explicit mapping only."""
     upstreams = mapping["upstreams"]
-    expected: list[str] = mapping["models"]
     field_specs: JSONDict = mapping["fields"]
 
-    # The mapping pins the exact set. Eden adding or retiring a model is a real
-    # change a human should see, not something to absorb quietly in either
-    # direction: a vanished model would otherwise disappear from pricing.json
-    # without a word, and a new one would appear without anyone reading its price.
-    missing = [m for m in expected if m not in catalog]
-    if missing:
-        raise ScrapeError(
-            f"{len(missing)} mapped model(s) are no longer in Eden AI's list: {missing[:10]}. "
-            f"Either Eden retired them or renamed them. Update {DEFAULT_MAPPING} by hand "
-            f"after checking {mapping['source']} -- do not let this be guessed."
-        )
-
+    # The mapping picks UPSTREAMS, not models. Which models each upstream offers is
+    # Eden's business and changes constantly; tracking that is the whole job. A model
+    # Eden adds is published, one it drops is dropped, and both appear as `+`/`-`
+    # lines in the summary that reaches the commit and the run.
+    #
+    # Eden states the model id itself, in `id`, so nothing has to be translated by
+    # hand here -- which is exactly why no hand-written model list is needed.
     offered = sorted(m for m, e in catalog.items() if e.get("owned_by") in upstreams)
-    unexpected = [m for m in offered if m not in set(expected)]
-    if unexpected:
+    if not offered:
         raise ScrapeError(
-            f"Eden AI now offers {len(unexpected)} model(s) from the mapped upstreams that "
-            f"{DEFAULT_MAPPING} does not list: {unexpected[:10]}. Add them by hand after "
-            f"reading their prices, or the file would publish a figure nobody reviewed."
+            f"none of the mapped upstreams {sorted(upstreams)} offer a single model. "
+            f"Either Eden restructured `owned_by`, or the response is not what it "
+            f"looks like. Refusing to publish an empty block."
         )
 
     models: dict[str, JSONDict] = {}
 
-    for model_id in expected:
+    for model_id in offered:
         entry = catalog[model_id]
 
         # `list_pricing` is the public list price; `pricing` is what the caller of the
@@ -211,9 +204,13 @@ def extract_models(catalog: dict[str, JSONDict], mapping: JSONDict) -> dict[str,
     return models
 
 
-def extract_new_models(body: str, mapping: JSONDict) -> dict[str, JSONDict]:
-    """The one callback provider_runner needs: source text + mapping -> a models dict."""
-    return extract_models(parse_model_list(body), mapping)
+def extract_new_models(body: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs: source text + mapping -> a models dict.
+
+    No notes: every field this source states is either read or deliberately skipped by
+    the mapping, so there is nothing left over for a human to look at.
+    """
+    return extract_models(parse_model_list(body), mapping), []
 
 
 def main(argv: list[str] | None = None) -> int:

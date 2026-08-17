@@ -141,6 +141,9 @@ class ScrapeTestCase(unittest.TestCase):
             self.assertIn(fragment, stderr)
         self.assert_current_untouched()
 
+    def notes(self) -> str:
+        return (self.out_dir / "notes.txt").read_text(encoding="utf-8")
+
     def candidate(self, name: str) -> JSONDict:
         return json.loads((self.out_dir / name).read_text(encoding="utf-8"))
 
@@ -179,12 +182,17 @@ class TestUnchanged(ScrapeTestCase):
         self.assertEqual(code, 0)
         self.assertIn("unchanged", stdout)
 
-    def test_every_mapped_model_reaches_the_output(self) -> None:
-        """Adding a model to the mapping without it appearing here would be a silent
-        omission, which is the one failure mode this repository must not have."""
+    def test_every_catalog_entry_reaches_the_output(self) -> None:
+        """There is no list to reconcile: every model the catalog states a price for is
+        published, keyed by the callable id the catalog puts in `name`. A model quietly
+        dropping out between the page and the file is the one failure mode this
+        repository must not have."""
         self.run_scrape(self.catalog_ok)
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(set(self.candidate_block("stamped.json")["models"]), set(mapping["models"]))
+        catalog = scrape.extract_catalog_models(self.catalog_ok)
+        self.assertEqual(
+            set(self.candidate_block("stamped.json")["models"]),
+            {entry["name"] for entry in catalog},
+        )
 
     def test_free_models_are_published_as_free_and_never_as_zero(self) -> None:
         """The catalog states 0 for these and the page renders the word "Gratuit".
@@ -201,31 +209,54 @@ class TestUnchanged(ScrapeTestCase):
                 self.assertEqual(prices, [], "a free model must carry no price field at all")
                 self.assertNotIn(0, entry.values())
 
-    def test_a_renamed_api_model_id_is_refused(self) -> None:
+    def test_a_renamed_api_model_id_publishes_the_new_one_and_keeps_the_old(self) -> None:
         """The pricing.json key IS the callable API model id, and the catalog states it
-        in `name`. If OVH renames it, every consumer's calls start failing -- so the
-        run must stop and get a human, not republish an id that resolves against
-        nothing while the price it carries still looks perfectly plausible."""
+        in `name`. A rename is therefore two facts at once: a model exists under a new
+        id, and nothing answers to the old one any more. Both are published -- the new
+        key with today's price, the old one frozen and dated -- because a consumer
+        still calling the old id needs to find out, and a consumer calling the new one
+        needs a price."""
         html = mutate(
             self.catalog_ok,
             'name\\":\\"Qwen3.6-27B\\"',
             'name\\":\\"Qwen3.6-27B-v2\\"',
         )
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "Qwen3.6-27B", "is now named")
+        code, stdout, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
 
-    def test_a_free_model_that_starts_costing_money_is_refused(self) -> None:
+        models = self.candidate_block("updated.json")["models"]
+        old = json.loads(self.current_bytes)["providers"]["ovh"]["models"]["Qwen3.6-27B"]
+
+        self.assertNotIn("absent_since", models["Qwen3.6-27B-v2"])
+        self.assertEqual(models["Qwen3.6-27B"]["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(
+            {k: v for k, v in models["Qwen3.6-27B"].items() if k in validate.KNOWN_PRICE_FIELDS},
+            {k: v for k, v in old.items() if k in validate.KNOWN_PRICE_FIELDS},
+            "the frozen entry must keep the prices last actually observed",
+        )
+        self.assertIn("Qwen3.6-27B", self.notes())
+        self.assertIn("no longer offered", self.notes())
+        self.assert_current_untouched()
+
+    def test_a_free_model_that_starts_costing_money_publishes_the_price(self) -> None:
         """The free marker is a claim about the catalog, and the catalog is re-read
-        every week. The day OVH prices one of these, the run must stop rather than
-        keep publishing "free" for something that now bills."""
+        every week -- never remembered. The day OVH prices one of these, the price
+        simply appears and the marker simply goes."""
         html = mutate(
             self.catalog_ok,
             '\\"price\\":0,\\"price_unit\\":\\"million_input_chars\\"',
             '\\"price\\":0.5,\\"price_unit\\":\\"million_input_chars\\"',
             expected_count=None,
         )
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "mapped as free", "0.5")
+        code, stdout, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+        self.assertIn("changed", stdout)
+
+        entry = self.candidate_block("updated.json")["models"]["nvr-tts-en-us"]
+        self.assertNotIn("free", entry, "a model with a price is not free")
+        self.assertEqual(entry["per_mchars"], 0.5)
+        self.assertEqual(self.notes(), "", "a price appearing is not something to alert about")
+        self.assert_current_untouched()
 
     def test_other_providers_blocks_are_never_touched(self) -> None:
         """The entire reason pricing.json nests under providers.<name>: a run that
@@ -294,12 +325,17 @@ class TestPriceChange(ScrapeTestCase):
         self.assertEqual(self.candidate_block("updated.json")["models"]["gpt-oss-120b"]["out_per_mtok"], 0.2)
         self.assert_current_untouched()
 
-    def test_a_renamed_catalog_id_is_never_absorbed_silently(self) -> None:
-        """The pricing.json key comes from the mapping, so the catalog renaming its
-        id for this model is a failure, never something to follow along with."""
+    def test_a_renamed_cms_slug_changes_nothing(self) -> None:
+        """The catalog's `id` is a slug for its own URLs and is NOT what a consumer
+        calls. Nothing published here is keyed off it, so OVH reorganising its own URLs
+        must not show up in pricing.json at all -- not as a change, and certainly not
+        as a failure."""
         html = mutate(self.catalog_ok, '\\"id\\":\\"gpt-oss-120b\\"', '\\"id\\":\\"gpt-oss-120b-v2\\"')
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "gpt-oss-120b", "mapping.json")
+        code, stdout, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+        self.assertIn("unchanged", stdout)
+        self.assertFalse((self.out_dir / "updated.json").exists())
+        self.assert_current_untouched()
 
 
 # ======================================================================================
@@ -337,23 +373,99 @@ class TestLayoutFailures(ScrapeTestCase):
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, 'missing a string "id"')
 
-    def test_a_duplicate_catalog_id_is_refused(self) -> None:
-        html = mutate(self.catalog_ok, '\\"id\\":\\"gpt-oss-20b\\"', '\\"id\\":\\"gpt-oss-120b\\"')
+    def test_a_duplicate_model_name_is_refused(self) -> None:
+        """`name` is the key everything is published under, so two entries claiming the
+        same one is an ambiguity about which price is real -- and that is the one class
+        of problem this job refuses to guess through."""
+        html = mutate(self.catalog_ok, 'name\\":\\"gpt-oss-20b\\"', 'name\\":\\"gpt-oss-120b\\"')
         code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "lists 'gpt-oss-120b' more than once")
+        self.assert_failed(code, stderr, "two entries named 'gpt-oss-120b'")
 
-
-class TestMissingModel(ScrapeTestCase):
-    def test_model_in_the_mapping_but_absent_from_the_catalog(self) -> None:
-        html = mutate(self.catalog_ok, '\\"id\\":\\"gpt-oss-120b\\"', '\\"id\\":\\"gpt-oss-120b-renamed\\"')
+    def test_an_entry_without_a_name_is_refused(self) -> None:
+        html = mutate(self.catalog_ok, 'name\\":\\"gpt-oss-120b\\"', 'label\\":\\"gpt-oss-120b\\"')
         code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "gpt-oss-120b", "no model with id 'gpt-oss-120b'")
+        self.assert_failed(code, stderr, "has no string 'name'")
 
-    def test_the_other_models_are_not_published_when_one_is_missing(self) -> None:
-        """A partial file is not an acceptable outcome: it is all eight or nothing."""
-        html = mutate(self.catalog_ok, '\\"id\\":\\"gpt-oss-120b\\"', '\\"id\\":\\"gpt-oss-120b-renamed\\"')
-        self.run_scrape(html)
-        self.assertFalse(any(self.out_dir.glob("*.json")))
+
+class TestWithdrawnModel(ScrapeTestCase):
+    """A model the catalog stops listing. This is the case that used to fail the whole
+    job, blocking correct prices for everything else until a human edited a list."""
+
+    def withdraw_gpt_oss_120b(self) -> str:
+        return mutate(
+            self.catalog_ok, 'name\\":\\"gpt-oss-120b\\"', 'name\\":\\"gpt-oss-120b-renamed\\"'
+        )
+
+    def test_it_is_kept_with_its_last_prices_and_a_date(self) -> None:
+        code, stdout, _ = self.run_scrape(self.withdraw_gpt_oss_120b())
+        self.assertEqual(code, 0)
+
+        models = self.candidate_block("updated.json")["models"]
+        published = json.loads(self.current_bytes)["providers"]["ovh"]["models"]["gpt-oss-120b"]
+
+        self.assertEqual(models["gpt-oss-120b"]["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(models["gpt-oss-120b"]["in_per_mtok"], published["in_per_mtok"])
+        self.assertEqual(models["gpt-oss-120b"]["out_per_mtok"], published["out_per_mtok"])
+
+    def test_every_other_model_is_still_published(self) -> None:
+        """The point of the whole change: one model going away is not a reason to
+        withhold eighteen correct prices."""
+        self.run_scrape(self.withdraw_gpt_oss_120b())
+        models = self.candidate_block("updated.json")["models"]
+        still_offered = [m for m in models if "absent_since" not in models[m]]
+        self.assertEqual(len(still_offered), 19)
+        self.assertIn("gpt-oss-120b-renamed", still_offered)
+
+    def test_it_is_reported_once_and_not_again(self) -> None:
+        """The run that first sees it gone says so. A run a week later, with the stamp
+        already in place, says nothing: a channel that repeats itself gets muted, and
+        this one has to still work the day something real happens."""
+        self.run_scrape(self.withdraw_gpt_oss_120b())
+        self.assertIn("gpt-oss-120b", self.notes())
+        self.assertIn("365 days", self.notes())
+
+        # Second week: the file already carries the marker.
+        self.current.write_text(
+            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.current_bytes = self.current.read_bytes()
+        code, stdout, _ = self.run_scrape(self.withdraw_gpt_oss_120b(), now="2026-08-17T04:00:00Z")
+
+        self.assertEqual(code, 0)
+        self.assertIn("unchanged", stdout)
+        self.assertEqual(self.notes(), "", "the same disappearance was reported twice")
+
+    def test_it_is_dropped_after_a_year_and_not_before(self) -> None:
+        self.run_scrape(self.withdraw_gpt_oss_120b())
+        aged = json.loads((self.out_dir / "updated.json").read_text(encoding="utf-8"))
+        aged["providers"]["ovh"]["models"]["gpt-oss-120b"]["absent_since"] = "2025-08-10"
+        self.current.write_text(json.dumps(aged, indent=2) + "\n", encoding="utf-8")
+        self.current_bytes = self.current.read_bytes()
+
+        # 2026-08-09: 364 days. Still published, because a year has not passed.
+        self.run_scrape(self.withdraw_gpt_oss_120b(), now="2026-08-09T04:00:00Z")
+        self.assertIn("gpt-oss-120b", self.candidate_block("stamped.json")["models"])
+
+        # 2026-08-11: 366 days. Gone, and said out loud.
+        code, _, _ = self.run_scrape(self.withdraw_gpt_oss_120b(), now="2026-08-11T04:00:00Z")
+        self.assertEqual(code, 0)
+        self.assertNotIn("gpt-oss-120b", self.candidate_block("updated.json")["models"])
+        self.assertIn("Dropped from the file", self.notes())
+
+    def test_a_model_that_comes_back_loses_the_marker(self) -> None:
+        self.run_scrape(self.withdraw_gpt_oss_120b())
+        self.current.write_text(
+            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.current_bytes = self.current.read_bytes()
+
+        code, _, _ = self.run_scrape(self.catalog_ok, now="2026-08-17T04:00:00Z")
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["gpt-oss-120b"]
+        self.assertNotIn("absent_since", entry, "a model on sale again must not look withdrawn")
+        self.assertEqual(entry["in_per_mtok"], 0.08)
+        self.assertIn("offered again", self.notes())
 
 
 class TestSanityBounds(ScrapeTestCase):
@@ -363,11 +475,20 @@ class TestSanityBounds(ScrapeTestCase):
         code, _, stderr = self.run_scrape(html)
         self.assert_failed(code, stderr, "outside the plausible range")
 
-    def test_figure_below_the_floor_is_refused(self) -> None:
+    def test_a_lone_zero_beside_a_real_price_is_not_published(self) -> None:
+        """Free means free in every unit, and it is checked that way. A single 0 next to
+        a real price is either a giveaway this schema cannot express or a misparse; both
+        get reported and neither gets published as a number."""
         html = mutate(self.catalog_ok, '\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"',
                        '\\"price\\":0,\\"price_unit\\":\\"million_input_tokens\\"')
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "outside the plausible range")
+        code, _, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["gpt-oss-120b"]
+        self.assertNotIn("in_per_mtok", entry)
+        self.assertNotIn("free", entry)
+        self.assertEqual(entry["out_per_mtok"], 0.4, "the price that WAS readable must publish")
+        self.assertIn("priced at 0", self.notes())
 
     def test_plausible_figure_that_moved_implausibly_is_refused(self) -> None:
         """1.0 is a perfectly ordinary price for this unit. Going 0.08 -> 1.0 in one
@@ -385,14 +506,23 @@ class TestSanityBounds(ScrapeTestCase):
         self.assertIn("changed", stdout)
         self.assert_current_untouched()
 
-    def test_price_unit_change_is_refused(self) -> None:
-        """per_audio_second must not keep its name if the catalog stops meaning
-        seconds -- OVH's own machine-readable unit tag changing is unambiguous,
-        unlike Mistral's page where only a formatted label hints at the unit."""
+    def test_an_unknown_price_unit_is_reported_and_never_guessed_at(self) -> None:
+        """per_audio_second must not keep its name if the catalog stops meaning seconds.
+        There is no honest field to put a per-minute figure in, so that price is not
+        published at all -- but the other eighteen models' prices are, because the unit
+        of an audio model says nothing about whether a token price was read correctly."""
         html = mutate(self.catalog_ok, '\\"price_unit\\":\\"audio_duration_seconds\\"',
                        '\\"price_unit\\":\\"audio_duration_minutes\\"', expected_count=2)
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "no pricing entry with", "price_unit")
+        code, _, _ = self.run_scrape(html)
+        self.assertEqual(code, 0)
+
+        models = self.candidate_block("updated.json")["models"]
+        self.assertIn("audio_duration_minutes", self.notes())
+        self.assertIn("no publishable price", self.notes())
+        for model_id in ("whisper-large-v3", "whisper-large-v3-turbo"):
+            self.assertEqual(models[model_id]["absent_since"], FIXED_NOW[:10])
+            self.assertEqual(models[model_id]["per_audio_second"], 4.083e-05 if model_id == "whisper-large-v3" else 1.278e-05)
+        self.assertEqual(models["gpt-oss-120b"]["in_per_mtok"], 0.08)
 
     def test_a_duplicate_price_unit_is_refused(self) -> None:
         """Two pricing entries for the same model claiming the same unit is exactly
@@ -407,7 +537,7 @@ class TestSanityBounds(ScrapeTestCase):
             '{\\"price\\":0.4,\\"price_unit\\":\\"million_output_tokens\\"}]',
         )
         code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "2 pricing entries", "million_input_tokens")
+        self.assert_failed(code, stderr, "two pricing entries mapping to it", "in_per_mtok")
 
 
 class TestCorruptInputs(ScrapeTestCase):
@@ -443,7 +573,11 @@ class TestCorruptInputs(ScrapeTestCase):
         code, _, stderr = self.run_scrape(self.catalog_ok)
         self.assert_failed(code, stderr, "no providers.ovh block")
 
-    def test_a_published_model_may_not_be_dropped_by_the_job(self) -> None:
+    def test_a_published_model_the_catalog_never_mentions_is_kept_not_dropped(self) -> None:
+        """Something in the file that the source has never heard of is not deleted on
+        sight. It is dated and kept for a year, like anything else that goes away --
+        deleting a price a consumer might still be reading, with no warning and no way
+        to look up what it used to be, is not an improvement on a stale one."""
         published = json.loads(self.current_bytes)
         published["providers"]["ovh"]["models"]["some-withdrawn-model"] = {
             "in_per_mtok": 0.5,
@@ -452,8 +586,14 @@ class TestCorruptInputs(ScrapeTestCase):
         self.current.write_text(json.dumps(published, indent=2) + "\n", encoding="utf-8")
         self.current_bytes = self.current.read_bytes()
 
-        code, _, stderr = self.run_scrape(self.catalog_ok)
-        self.assert_failed(code, stderr, "mapping does not know", "some-withdrawn-model")
+        code, _, _ = self.run_scrape(self.catalog_ok)
+        self.assertEqual(code, 0)
+
+        entry = self.candidate_block("updated.json")["models"]["some-withdrawn-model"]
+        self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(entry["in_per_mtok"], 0.5)
+        self.assertIn("some-withdrawn-model", self.notes())
+        self.assert_current_untouched()
 
 
 # ======================================================================================
@@ -489,23 +629,23 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
             )
 
     def test_the_committed_file_matches_the_mapping(self) -> None:
+        """There is no model list to agree with any more, so what is checked is what the
+        mapping still decides: where the figures come from and what currency they are
+        in. Every published price field must be one the units table can produce."""
         published = self.ovh_block()
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 
-        self.assertEqual(set(published["models"]), set(mapping["models"]))
         self.assertEqual(published["source"], mapping["source"])
         self.assertEqual(published["currency"], mapping["currency"])
+
+        producible = set(mapping["units"].values())
         for model_id, entry in published["models"].items():
-            spec = mapping["models"][model_id]
-            self.assertEqual(entry["display_name"], spec["display_name"])
-            if spec.get("free"):
-                self.assertIs(entry.get("free"), True, model_id)
-                expected_fields: set[str] = set()
+            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
+            if entry.get("free") is True:
+                self.assertEqual(fields, set(), f"{model_id} is free and priced at once")
             else:
-                self.assertNotIn("free", entry, model_id)
-                expected_fields = set(spec["fields"])
-            actual_fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
-            self.assertEqual(actual_fields, expected_fields, model_id)
+                self.assertTrue(fields, model_id)
+                self.assertLessEqual(fields, producible, model_id)
 
     def test_the_published_figures_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits
@@ -535,49 +675,34 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
 
 
 class TestMapping(unittest.TestCase):
-    def test_every_mapped_field_is_a_known_unit_with_a_price_unit(self) -> None:
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        for model_id, spec in mapping["models"].items():
-            self.assertTrue(spec["catalog_id"], model_id)
-            self.assertTrue(spec["catalog_name"], model_id)
-            self.assertTrue(spec["display_name"], model_id)
+    def mapping(self) -> JSONDict:
+        return json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 
-            # A free entry states the units it expects to find at 0 instead of
-            # mapping them to price fields. It is one shape or the other, never both
-            # and never neither -- an entry with no fields and no free marker would
-            # publish a model with nothing in it.
-            if spec.get("free"):
-                self.assertNotIn("fields", spec, model_id)
-                self.assertTrue(spec["expect_zero_units"], model_id)
-                continue
+    def test_there_is_no_model_list(self) -> None:
+        """Load-bearing, not pedantry. A hand-written model list is exactly what made a
+        single withdrawn model block every other price in this block, and re-adding one
+        would bring that back without anything else in the tests noticing."""
+        self.assertNotIn("models", self.mapping())
 
-            self.assertTrue(spec["fields"], model_id)
-            for field, field_spec in spec["fields"].items():
-                self.assertIn(field, validate.KNOWN_PRICE_FIELDS, f"{model_id}.{field}")
-                self.assertTrue(field_spec.get("price_unit"), f"{model_id}.{field}")
+    def test_every_mapped_unit_names_a_known_price_field(self) -> None:
+        for price_unit, field in self.mapping()["units"].items():
+            self.assertIn(field, validate.KNOWN_PRICE_FIELDS, price_unit)
 
-    def test_every_key_is_the_api_model_id_the_catalog_states(self) -> None:
-        """The pricing.json key is what a consumer passes to OVH's API, and the
-        catalog puts it in `name`. Its `id` is a CMS slug and is NOT callable:
-        'qwen-3-6-27b' against the real 'Qwen3.6-27B'. Keying off the wrong one
-        would publish model ids that resolve against nothing."""
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        for model_id, spec in mapping["models"].items():
-            self.assertEqual(model_id, spec["catalog_name"], model_id)
+    def test_no_two_units_map_to_the_same_field(self) -> None:
+        """Two catalog units sharing a field would make the entry order-dependent, and
+        would mean one of the two figures is silently the one that wins."""
+        fields = list(self.mapping()["units"].values())
+        self.assertEqual(len(fields), len(set(fields)))
 
-    def test_catalog_ids_are_distinct(self) -> None:
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        ids = [spec["catalog_id"] for spec in mapping["models"].values()]
-        self.assertEqual(len(ids), len(set(ids)), "two pricing.json keys point at the same catalog id")
-
-    def test_no_model_is_mapped_to_more_than_one_field_with_the_same_price_unit(self) -> None:
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        for model_id, spec in mapping["models"].items():
-            if spec.get("free"):
-                units = spec["expect_zero_units"]
-            else:
-                units = [f["price_unit"] for f in spec["fields"].values()]
-            self.assertEqual(len(units), len(set(units)), model_id)
+    def test_every_unit_the_catalog_actually_uses_is_mapped(self) -> None:
+        """Catches the gap on the day the fixture is re-captured rather than on the
+        Monday a price silently stops being published."""
+        used = {
+            str(price["price_unit"])
+            for entry in scrape.extract_catalog_models(CATALOG_OK.read_text(encoding="utf-8"))
+            for price in entry["metadata"]["usage_information"]["pricing"]
+        }
+        self.assertLessEqual(used, set(self.mapping()["units"]))
 
 
 if __name__ == "__main__":

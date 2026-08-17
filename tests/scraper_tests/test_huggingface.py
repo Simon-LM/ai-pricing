@@ -101,6 +101,9 @@ class ScrapeTestCase(unittest.TestCase):
     def candidate_block(self, name: str) -> JSONDict:
         return json.loads((self.out_dir / name).read_text(encoding="utf-8"))["providers"]["huggingface"]
 
+    def notes(self) -> str:
+        return (self.out_dir / "notes.txt").read_text(encoding="utf-8")
+
     @property
     def models_ok(self) -> str:
         return MODELS_OK.read_text(encoding="utf-8")
@@ -197,35 +200,45 @@ class TestPayloadFailures(ScrapeTestCase):
 
 
 class TestRouteSetDrift(ScrapeTestCase):
-    def test_a_mapped_route_that_disappears_is_refused(self) -> None:
+    """What the two partners serve through the router moves constantly. The mapping
+    names partners, never routes, so this is the ordinary case, not the exceptional
+    one."""
+
+    def test_a_route_that_disappears_is_kept_with_its_last_prices_and_a_date(self) -> None:
         payload = self.payload()
         for model in payload["data"]:
             if model["id"] == "openai/gpt-oss-20b":
                 model["providers"] = [o for o in model["providers"] if o["provider"] != "ovhcloud"]
-        code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "no longer offered", "openai/gpt-oss-20b:ovhcloud")
+        code, _, _ = self.run_scrape(json.dumps(payload))
+        self.assertEqual(code, 0)
 
-    def test_a_new_route_on_a_mapped_partner_is_refused(self) -> None:
-        """Not an error in the data -- a price no human has read."""
+        route = "openai/gpt-oss-20b:ovhcloud"
+        entry = self.candidate_block("updated.json")["models"][route]
+        published = json.loads(self.current_bytes)["providers"]["huggingface"]["models"][route]
+        self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(entry["in_per_mtok"], published["in_per_mtok"])
+        self.assertIn("no longer offered", self.notes())
+        self.assert_current_untouched()
+
+    def test_a_new_route_on_a_mapped_partner_is_published(self) -> None:
+        """The router states the model id, the partner and the price itself, so there is
+        nothing for a human to translate and nothing to wait for."""
         payload = self.payload()
-        for model in payload["data"]:
-            if model["id"] == "openai/gpt-oss-120b":
-                newcomer = dict(self.offer(payload, model["id"], "ovhcloud"))
-                model["providers"] = [o for o in model["providers"] if o["provider"] != "groq"]
-                newcomer["provider"] = "groq"
-                model["providers"].append(newcomer)
-        # groq is not mapped, so that alone must NOT fail; the real newcomer below must.
         for model in payload["data"]:
             if model["id"] == "Qwen/Qwen3.5-9B":
                 extra = dict(self.offer(payload, model["id"], "ovhcloud"))
                 extra["provider"] = "scaleway"
                 model["providers"].append(extra)
-        code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "does not list", "Qwen/Qwen3.5-9B:scaleway")
+        code, stdout, _ = self.run_scrape(json.dumps(payload))
+
+        self.assertEqual(code, 0)
+        self.assertIn("+ Qwen/Qwen3.5-9B:scaleway: added", stdout)
+        self.assertEqual(self.notes(), "", "a route being added is not something to alert about")
+        self.assert_current_untouched()
 
     def test_a_new_route_on_an_unmapped_partner_is_ignored(self) -> None:
-        """A thirteenth partner adding a model is none of this block's business and
-        must not fail the weekly run."""
+        """A partner outside the two this block covers adding a model is none of its
+        business and must not disturb the weekly run."""
         payload = self.payload()
         for model in payload["data"]:
             if model["id"] == "openai/gpt-oss-120b":
@@ -238,11 +251,20 @@ class TestRouteSetDrift(ScrapeTestCase):
 
 
 class TestPriceFailures(ScrapeTestCase):
-    def test_a_route_that_is_not_live_is_refused(self) -> None:
+    def test_a_route_that_is_not_live_is_treated_as_not_offered(self) -> None:
+        """A price for a call that cannot be served is worse than no price, so a route
+        the router will not run is not published as a current one. It is not deleted
+        either: it keeps its last observed prices under an `absent_since` stamp, like
+        any other route that stops being available."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["status"] = "staging"
-        code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "openai/gpt-oss-120b:ovhcloud", "status 'staging'")
+        code, _, _ = self.run_scrape(json.dumps(payload))
+        self.assertEqual(code, 0)
+
+        route = "openai/gpt-oss-120b:ovhcloud"
+        entry = self.candidate_block("updated.json")["models"][route]
+        self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
+        self.assertIn("no longer offered", self.notes())
 
     def test_a_missing_pricing_object_is_refused(self) -> None:
         payload = self.payload()
@@ -315,11 +337,22 @@ class TestPublishedFileMatchesHuggingFace(unittest.TestCase):
         return json.loads(PRICING_JSON.read_text(encoding="utf-8"))["providers"]["huggingface"]
 
     def test_the_committed_file_matches_the_mapping(self) -> None:
+        """There is no route list to agree with any more, so what is checked is what the
+        mapping still decides: where the figures come from and what currency they are
+        in."""
         published = self.block()
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(set(published["models"]), set(mapping["models"]))
         self.assertEqual(published["source"], mapping["source"])
         self.assertEqual(published["currency"], mapping["currency"])
+
+        producible = set(mapping["fields"])
+        for route, entry in published["models"].items():
+            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
+            if entry.get("free") is True:
+                self.assertEqual(fields, set(), f"{route} is free and priced at once")
+            else:
+                self.assertTrue(fields, route)
+                self.assertLessEqual(fields, producible, route)
 
     def test_every_key_carries_a_mapped_partner_suffix(self) -> None:
         """The key is the exact string the router takes. Without the suffix it would
@@ -367,18 +400,22 @@ class TestPublishedFileMatchesHuggingFace(unittest.TestCase):
 
 
 class TestMapping(unittest.TestCase):
+    def mapping(self) -> JSONDict:
+        return json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+
     def test_the_mapping_is_shaped_as_the_scraper_expects(self) -> None:
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        mapping = self.mapping()
         self.assertEqual(mapping["partners"], ["ovhcloud", "scaleway"])
-        self.assertTrue(mapping["models"])
         for field, spec in mapping["fields"].items():
             self.assertIn(field, validate.KNOWN_PRICE_FIELDS, field)
             self.assertTrue(spec["api_field"], field)
 
-    def test_routes_are_unique_and_sorted(self) -> None:
-        routes = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))["models"]
-        self.assertEqual(len(routes), len(set(routes)))
-        self.assertEqual(routes, sorted(routes))
+    def test_there_is_no_route_list(self) -> None:
+        """Load-bearing, not pedantry. A hand-written route list would mean the first
+        model either partner retires blocks the other partner's prices too, and
+        re-adding one would bring that back without anything else in the tests
+        noticing."""
+        self.assertNotIn("models", self.mapping())
 
 
 if __name__ == "__main__":

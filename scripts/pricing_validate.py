@@ -64,6 +64,7 @@ KNOWN_PRICE_FIELDS = (
     "cache_read_per_mtok",
     "index_per_mtok",
     "train_per_mtok",
+    "per_mchars",
     # document prices
     "per_1k_pages",
     "per_1k_chars",
@@ -74,6 +75,7 @@ KNOWN_PRICE_FIELDS = (
     "per_call",
     "per_1k_calls",
     "per_1k_images",
+    "per_image",
     # subscription prices
     "per_model_month",
 )
@@ -98,6 +100,23 @@ PRICE_BOUNDS = {
 # unwritten in the file; "product" is a billable thing that is not a model and has no
 # API model id (Mistral's web search, code execution, image generation and the like).
 KNOWN_KINDS = ("model", "product")
+
+# An entry whose source no longer offers it is NOT deleted on the spot. It keeps the
+# last prices that were actually observed, frozen, and gains `absent_since` -- the day
+# the source was first seen without it. Deleting immediately would be the automatic
+# behaviour, and it is the wrong one: a consumer that still references the model would
+# lose its price with no warning and no way to look up what it used to be, and a
+# price series would develop a hole exactly where a comparison is most interesting.
+#
+# The entry is dropped once it has been absent for this long. A year rather than a
+# few months on purpose: the projects reading this file are not all actively
+# maintained, and one that quietly still names a withdrawn model should have a stale
+# figure and an `absent_since` date to notice, for a good while, rather than a
+# KeyError.
+#
+# A price carrying `absent_since` is a LAST KNOWN price, not a current one. Consumers
+# must treat the two differently; that is the entire point of the field.
+ABSENT_RETENTION_DAYS = 365
 
 SCHEMA_VERSION = 2
 
@@ -247,10 +266,25 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
                 f"{full_id}: kind must be one of {list(KNOWN_KINDS)}, got {kind!r}"
             )
 
+        # Set on the day the source was first seen without this entry, and cleared the
+        # day it comes back. Its presence changes what every price beside it means --
+        # last known rather than current -- so the format is pinned as tightly as
+        # `updated` is, and a value that is not a plain day is refused rather than
+        # published as something a consumer would have to guess at.
+        if "absent_since" in entry:
+            absent_since = entry["absent_since"]
+            if not isinstance(absent_since, str) or not _ISO_DAY.match(absent_since):
+                raise ValidationError(
+                    f"{full_id}: absent_since must be a plain day, YYYY-MM-DD, got "
+                    f"{absent_since!r}. An entry the source still offers omits the field; "
+                    f"null and false are ways of writing something it cannot mean."
+                )
+
         unknown = [
             k
             for k in entry
-            if k not in KNOWN_PRICE_FIELDS and k not in ("display_name", "free", "kind")
+            if k not in KNOWN_PRICE_FIELDS
+            and k not in ("display_name", "free", "kind", "absent_since")
         ]
         if unknown:
             raise ValidationError(f"{full_id}: unknown field(s) {unknown}")
