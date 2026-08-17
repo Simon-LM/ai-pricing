@@ -7,16 +7,6 @@
       "source": "https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/",
       "currency": "EUR",
       "models": {
-        "gpt-oss-120b": {
-          "in_per_mtok": 0.08,
-          "out_per_mtok": 0.4,
-          "display_name": "gpt-oss-120b"
-        },
-        "gpt-oss-20b": {
-          "in_per_mtok": 0.04,
-          "out_per_mtok": 0.15,
-          "display_name": "gpt-oss-20b"
-        },
         "Meta-Llama-3_3-70B-Instruct": {
           "in_per_mtok": 0.67,
           "out_per_mtok": 0.67,
@@ -26,6 +16,10 @@
           "in_per_mtok": 0.91,
           "out_per_mtok": 0.91,
           "display_name": "Qwen2.5-VL-72B-Instruct"
+        },
+        "Qwen3-Embedding-8B": {
+          "in_per_mtok": 0.1,
+          "display_name": "Qwen3-Embedding-8B"
         },
         "Qwen3.5-397B-A17B": {
           "in_per_mtok": 0.6,
@@ -42,9 +36,13 @@
           "out_per_mtok": 2.7,
           "display_name": "Qwen3.6-27B"
         },
-        "Qwen3-Embedding-8B": {
-          "in_per_mtok": 0.1,
-          "display_name": "Qwen3-Embedding-8B"
+        "Qwen3Guard-Gen-0.6B": {
+          "free": true,
+          "display_name": "Qwen3Guard-Gen-0.6B"
+        },
+        "Qwen3Guard-Gen-8B": {
+          "free": true,
+          "display_name": "Qwen3Guard-Gen-8B"
         },
         "bge-m3": {
           "in_per_mtok": 0.01,
@@ -54,33 +52,23 @@
           "in_per_mtok": 0.01,
           "display_name": "bge-multilingual-gemma2"
         },
-        "whisper-large-v3": {
-          "per_audio_second": 4.083e-05,
-          "display_name": "whisper-large-v3"
+        "gpt-oss-120b": {
+          "in_per_mtok": 0.08,
+          "out_per_mtok": 0.4,
+          "display_name": "gpt-oss-120b"
         },
-        "whisper-large-v3-turbo": {
-          "per_audio_second": 1.278e-05,
-          "display_name": "whisper-large-v3-turbo"
-        },
-        "Qwen3Guard-Gen-8B": {
-          "free": true,
-          "display_name": "Qwen3Guard-Gen-8B"
-        },
-        "Qwen3Guard-Gen-0.6B": {
-          "free": true,
-          "display_name": "Qwen3Guard-Gen-0.6B"
-        },
-        "stable-diffusion-xl-base-v10": {
-          "free": true,
-          "display_name": "stable-diffusion-xl-base-v10"
-        },
-        "nvr-tts-en-us": {
-          "free": true,
-          "display_name": "nvr-tts-en-us"
+        "gpt-oss-20b": {
+          "in_per_mtok": 0.04,
+          "out_per_mtok": 0.15,
+          "display_name": "gpt-oss-20b"
         },
         "nvr-tts-de-de": {
           "free": true,
           "display_name": "nvr-tts-de-de"
+        },
+        "nvr-tts-en-us": {
+          "free": true,
+          "display_name": "nvr-tts-en-us"
         },
         "nvr-tts-es-es": {
           "free": true,
@@ -89,6 +77,18 @@
         "nvr-tts-it-it": {
           "free": true,
           "display_name": "nvr-tts-it-it"
+        },
+        "stable-diffusion-xl-base-v10": {
+          "free": true,
+          "display_name": "stable-diffusion-xl-base-v10"
+        },
+        "whisper-large-v3": {
+          "per_audio_second": 4.083e-05,
+          "display_name": "whisper-large-v3"
+        },
+        "whisper-large-v3-turbo": {
+          "per_audio_second": 1.278e-05,
+          "display_name": "whisper-large-v3-turbo"
         }
       }
     }

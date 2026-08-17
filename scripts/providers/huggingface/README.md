@@ -4,20 +4,21 @@
 
 Reads the [Inference Providers router listing](https://router.huggingface.co/v1/models)
 and publishes `providers.huggingface` in `pricing.json`. First implemented
-2026-08-10, covering the 15 routes served by the two partners asked for: OVHcloud
-(7) and Scaleway (8).
+2026-08-10, covering every route served by the two partners asked for, OVHcloud and
+Scaleway. That is 15 routes today; the count follows the source and nothing here has
+to be edited when it moves.
 
 ## The unit here is a route, not a model
 
 This is what makes this provider different from every other one in the repository.
 Hugging Face does not serve models itself; it routes a call to a partner that does,
-and the same model is served by several partners at several prices.
-`openai/gpt-oss-120b` is offered by **eleven** of them, from `$0.05` to `$0.35` per
-million input tokens.
+and the same model is served by both covered partners at different prices.
+`openai/gpt-oss-120b` is `$0.09` per million input tokens through OVHcloud and
+`$0.171` through Scaleway.
 
 So a key here is a `<model id>:<partner>` pair, which is exactly the string the
 router takes — the form Hugging Face's own documentation uses
-(`"openai/gpt-oss-120b:groq"`). A key without the suffix would name eleven different
+(`"openai/gpt-oss-120b:ovhcloud"`). A key without the suffix would name two different
 prices at once, and there would be no honest way to pick one.
 
 That also means one model legitimately appears more than once:
@@ -50,29 +51,33 @@ sources this project fetches separately agreeing to a single exchange rate is wh
 pins both the unit and the currency here, and a test enforces the band so that a
 silent change to either breaks the build rather than the file.
 
-## What is refused
+## What happens when the route set moves
 
-- **A route that is not `live`.** A price for a call that cannot be served is worse
-  than no price.
-- **A route appearing or disappearing** on a mapped partner. A new one is not an
-  error in the data — it is a price nobody has read, and it must reach a person
-  through `mapping.json` before it reaches consumers. A vanished one must not drop
-  out of the file silently.
-- **A price of `0` with `is_free` false.** The router does carry such routes. That
-  is not a declared free tier, it is a figure nothing vouches for, and the shared
-  sanity floor catches it. A route Hugging Face genuinely marks `is_free` is
-  published with the shared `"free": true` marker and no price field, exactly as
-  OVH's free models are.
+Which routes the two partners serve changes constantly, and following that is the
+job. A route either of them starts serving is published on the next run; the router
+states the model id, the partner and the price itself, so there is nothing for a
+human to translate and nothing to wait for.
 
-Routes on the other twelve partners are ignored, not refused — a partner this block
-does not cover adding a model is none of its business and must not fail the weekly
-run.
+A route that stops being served is **not** deleted. It keeps the last prices actually
+observed, gains an `absent_since` date, and is dropped a year later — and the run
+that first sees it gone sends one email. The same applies to a route the router stops
+marking `live`: a price for a call that cannot be served is worse than no price, so it
+is treated as not offered rather than published as current.
+
+**A price of `0` with `is_free` false** is still refused outright. The router does
+carry such routes. That is not a declared free tier, it is a figure nothing vouches
+for, and the shared sanity floor catches it. A route Hugging Face genuinely marks
+`is_free` is published with the shared `"free": true` marker and no price field,
+exactly as OVH's free models are.
+
+Routes on partners this block does not cover are ignored, not refused — none of its
+business, and no reason to disturb the weekly run.
 
 ## Widening the set
 
-`mapping.json` pins `partners` and the exact routes. Adding `together` or `groq` is
-a one-line change to `partners` plus their routes in `models` — and reading every
-one of those prices first.
+`mapping.json` names `partners` and nothing else about what to publish. Adding one is
+a one-line change; its routes follow on the next run without anything else being
+edited.
 
 ## Running it yourself
 

@@ -19,6 +19,12 @@ makes that true -- reading, merging, writing, the three outcomes -- is shared wi
 every other provider and lives in scripts/provider_runner.py. This file supplies
 only what is genuinely Mistral-specific: how to parse Mistral's page.
 
+Entries are keyed by the CARD NAME the page states -- "devstral 2", not
+"devstral-medium-latest". The page never says which API id a card refers to, so any
+id here would be a human's translation of a name, re-checked by hand forever; that is
+exactly the kind of hand-maintained list this job is not supposed to need. Consumers
+that call the model resolve the id themselves.
+
 Outcomes, matching the three the workflow must implement:
 
   unchanged  figures identical -> out/stamped.json  (same figures, fresh checked_utc)
@@ -214,81 +220,157 @@ def parse_page(html_text: str) -> dict[str, list[PriceRow]]:
 
 
 # --------------------------------------------------------------------------------------
-# Mapping the page onto API model ids
+# Turning cards into entries
 # --------------------------------------------------------------------------------------
 
 
-def extract_models(cards: dict[str, list[PriceRow]], mapping: JSONDict) -> dict[str, JSONDict]:
-    """Turn parsed cards into a `models` block, through the explicit mapping only.
+def resolve_field(label: str, rows_table: JSONDict) -> tuple[str, JSONDict] | None:
+    """Find which price field a row label states, or None if this file cannot tell.
 
-    Every lookup here is an exact string match against a hand-committed value. A name
-    the mapping does not know is a failure to report, never a row to guess at.
+    An exact match wins. Failing that, the longest table entry the label STARTS with
+    wins, because Mistral appends an explanatory sentence to some labels -- the storage
+    row reads "Storage cost (per month per model) Price per month per model for storage
+    (irrespective of model usage; models can be deleted any time)." Matching those in
+    full would tie this repository to prose Mistral rewrites at will, including a figure
+    ("minimum fee per fine-tuning job of $4") that is itself a price and will change.
+
+    The unit is always in the leading segment, which is what makes a prefix enough here:
+    "Training cost (/M tokens)" says per-million-tokens no matter what follows it.
     """
+    exact = rows_table.get(label)
+    if exact is not None:
+        return label, exact
+
+    candidates = [key for key in rows_table if label.startswith(key)]
+    if not candidates:
+        return None
+    best = max(candidates, key=len)
+    return best, rows_table[best]
+
+
+def read_price(prices: JSONDict, spec: JSONDict) -> float | None:
+    """Return the USD figure for a row, or None if it cannot be read as stated.
+
+    Returning None rather than raising: one unreadable row is not a reason to withhold
+    every other price on the page, and the caller turns it into a reported note.
+    """
+    # The unit lives in the field name, so a change of unit on the page must never be
+    # absorbed silently: a suffix that used to read "/ 1000 pages" and now reads
+    # something else invalidates per_1k_pages entirely.
+    expected_suffix = spec.get("expect_suffix")
+    if expected_suffix is not None:
+        actual_suffix = (prices.get("suffix") or "").strip()
+        if actual_suffix != expected_suffix.strip():
+            return None
+
+    raw = prices.get("priceUsd")
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    return float(raw)
+
+
+def _entry_key(card_name: str, label: str) -> str:
+    """The key for a row that has to live in its own entry. See extract_models."""
+    return f"{card_name} / {' '.join(label.split()).lower()}"
+
+
+def extract_models(
+    cards: dict[str, list[PriceRow]], mapping: JSONDict
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """Turn parsed cards into a `models` block: every card the page prices, no list.
+
+    The mapping says which ROW LABELS this repository knows how to publish, and nothing
+    else. Which models the page shows is Mistral's business and changes week to week;
+    following that is the whole point of this job. A card Mistral adds is published on
+    the next run, one it withdraws keeps its last observed prices under an
+    `absent_since` stamp, and a card it renames is simply a removal and an addition.
+
+    The key is the card name exactly as the page states it -- "devstral 2", not
+    "devstral-medium-latest". The page does not say which API id a card refers to, and
+    nothing else on it does either, so any such key would be a human's translation
+    rather than something read from the source. Consumers that need to call the model
+    resolve the id themselves, from Mistral's own model cards.
+
+    Most cards become one entry. A card that prices two DIFFERENT things in the same
+    unit cannot: "ocr 4.1" states a per-1000-pages price for OCR and another for
+    Document AI, and one entry has exactly one per_1k_pages field. Those rows each get
+    their own entry, keyed "<card> / <row label>", for every row involved rather than
+    just the second one -- so that the keys do not swap the day Mistral reorders the
+    rows. Rows on the same card that do not collide stay in the plain card entry.
+    """
+    rows_table: JSONDict = mapping["rows"]
+    products = set(mapping.get("products", []))
+
     models: dict[str, JSONDict] = {}
+    notes: list[str] = []
 
-    for model_id, spec in mapping["models"].items():
-        page_name = spec["page_name"]
+    for card_name, rows in cards.items():
+        if not rows:
+            # Three cards state no price at all -- an agent product, a moderation model
+            # and a research preview. They are absent from the file rather than
+            # published at 0, and they are not worth a weekly note: "still not priced"
+            # is not news, and an alert channel that repeats itself gets ignored.
+            continue
 
-        if page_name not in cards:
-            raise ScrapeError(
-                f"{model_id}: the page has no model card named {page_name!r}. Either the "
-                f"page renamed it, or the model is gone. Update {DEFAULT_MAPPING} by "
-                f"hand after checking {mapping['source']} -- do not let this be guessed."
-            )
+        # (field, value, label, spec) for every row this file knows how to read.
+        read: list[tuple[str, float, str, JSONDict]] = []
 
-        rows = cards[page_name]
-        entry: JSONDict = {}
-
-        for field, field_spec in spec["fields"].items():
-            label = field_spec["label"]
-            matches = [prices for row_label, prices in rows if row_label == label]
-
-            if not matches:
-                raise ScrapeError(
-                    f"{model_id}: card {page_name!r} has no row labelled {label!r}. "
-                    f"Rows found: {sorted({row_label for row_label, _ in rows})}"
+        for label, prices in rows:
+            resolved = resolve_field(label, rows_table)
+            if resolved is None:
+                notes.append(
+                    f"{card_name}: row {label!r} is priced at "
+                    f"{prices.get('priceUsd')!r} USD, and {DEFAULT_MAPPING.name} has no "
+                    f"field for that label. The price is not published. Add the label to "
+                    f"the mapping's 'rows' table to publish it."
                 )
-            if len(matches) > 1:
-                raise ScrapeError(
-                    f"{model_id}: card {page_name!r} has {len(matches)} rows labelled "
-                    f"{label!r}. Refusing to guess which one is the price."
+                continue
+
+            matched_label, spec = resolved
+            value = read_price(prices, spec)
+            if value is None:
+                notes.append(
+                    f"{card_name}: row {label!r} (read as {spec['field']} via "
+                    f"{matched_label!r}) could not be read as stated -- the page now says "
+                    f"suffix {prices.get('suffix')!r} and price {prices.get('priceUsd')!r}. "
+                    f"The price is not published, because the field name would no longer "
+                    f"say what the figure means."
                 )
+                continue
 
-            prices = matches[0]
+            read.append((spec["field"], value, label, spec))
 
-            # The unit lives in the field name, so a change of unit on the page must
-            # never be absorbed silently: a suffix that used to read "/ 1000 pages"
-            # and now reads something else invalidates per_1k_pages entirely.
-            expected_suffix = field_spec.get("expect_suffix")
-            if expected_suffix is not None:
-                actual_suffix = (prices.get("suffix") or "").strip()
-                if actual_suffix != expected_suffix.strip():
-                    raise ScrapeError(
-                        f"{model_id}.{field}: the page now labels this price "
-                        f"{actual_suffix!r} instead of {expected_suffix!r}. The unit may "
-                        f"have changed; {field} would no longer mean what it says."
-                    )
+        if not read:
+            notes.append(f"{card_name}: no price on this card could be published at all.")
+            continue
 
-            if "priceUsd" not in prices:
-                raise ScrapeError(
-                    f"{model_id}.{field}: no priceUsd in {sorted(prices)}. This file "
-                    f"publishes USD and performs no conversion."
-                )
+        # A field claimed by more than one row on the same card cannot share an entry.
+        collided = {f for f in {r[0] for r in read} if sum(1 for r in read if r[0] == f) > 1}
 
-            entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, prices["priceUsd"])
+        for field, value, label, spec in read:
+            if field in collided:
+                key = _entry_key(card_name, label)
+                kind = spec.get("kind")
+            else:
+                key = card_name
+                kind = "product" if card_name in products else None
 
-        entry["display_name"] = spec["display_name"]
-        # Only written when the mapping says so. The page prices web search, image
-        # generation and code execution alongside the models, and those have no API
-        # model id to be called by; "model" is the default and stays unwritten.
-        if "kind" in spec:
-            entry["kind"] = spec["kind"]
-        models[model_id] = entry
+            entry = models.setdefault(key, {"display_name": key})
+            if kind is not None:
+                entry["kind"] = kind
+            entry[field] = check_price(f"{PROVIDER_ID}/{key}", field, value)
 
-    return models
+    if not models:
+        raise ScrapeError(
+            "not a single card on the page could be published. Either Mistral "
+            "restructured it, or the page is not what it looks like. Refusing to publish "
+            "an empty block."
+        )
+
+    return models, notes
 
 
-def extract_new_models(html_text: str, mapping: JSONDict) -> dict[str, JSONDict]:
+def extract_new_models(html_text: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     """The one callback provider_runner needs: page text + mapping -> a models dict."""
     return extract_models(parse_page(html_text), mapping)
 

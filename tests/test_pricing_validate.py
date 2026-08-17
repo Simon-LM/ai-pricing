@@ -218,6 +218,56 @@ class TestEntryKind(unittest.TestCase):
         self.assertNotIn("kind", doc["providers"]["acme"]["models"]["some-model"])
 
 
+class TestAbsentSince(unittest.TestCase):
+    """The marker that says: these prices are the last ones observed, not today's."""
+
+    def entry(self, **overrides: object) -> JSONDict:
+        entry: JSONDict = {"in_per_mtok": 1.0, "display_name": "Some Model"}
+        entry.update(overrides)
+        return entry
+
+    def document(self, **overrides: object) -> JSONDict:
+        return minimal_document(
+            acme=minimal_provider_block(models={"some-model": self.entry(**overrides)})
+        )
+
+    def test_a_plain_day_is_accepted(self) -> None:
+        validate.validate_document(self.document(absent_since="2026-08-17"))
+
+    def test_absence_is_not_a_reason_to_drop_the_prices(self) -> None:
+        """The whole point of the field: the entry stays priced. A consumer that reads
+        the price without reading the date gets a stale figure, which is recoverable;
+        one that finds nothing at all does not."""
+        doc = self.document(absent_since="2026-08-17")
+        validate.validate_document(doc)
+        self.assertEqual(doc["providers"]["acme"]["models"]["some-model"]["in_per_mtok"], 1.0)
+
+    def test_anything_that_is_not_a_day_is_refused(self) -> None:
+        for bad in ("2026-08-17T04:00:00Z", "17/08/2026", "2026-8-17", "", True, 20260817, None):
+            with self.subTest(value=bad), self.assertRaises(validate.ValidationError):
+                validate.validate_document(self.document(absent_since=bad))
+
+    def test_it_is_absent_by_default(self) -> None:
+        """Most entries are on sale, and the common case stays unannotated -- the same
+        rule `kind` follows."""
+        doc = self.document()
+        validate.validate_document(doc)
+        self.assertNotIn("absent_since", doc["providers"]["acme"]["models"]["some-model"])
+
+    def test_a_free_model_may_also_go_absent(self) -> None:
+        doc = minimal_document(
+            acme=minimal_provider_block(
+                models={"gift": {"free": True, "display_name": "Gift", "absent_since": "2026-08-17"}}
+            )
+        )
+        validate.validate_document(doc)
+
+    def test_the_retention_window_is_a_year(self) -> None:
+        """Stated here rather than only in the runner, because it is the promise the
+        published file makes to whoever reads it."""
+        self.assertEqual(validate.ABSENT_RETENTION_DAYS, 365)
+
+
 class TestMultiProviderIsolation(unittest.TestCase):
     """The reason pricing.json nests under providers.<name> at all: two providers
     can diverge in currency and schedule, and a break in one must not hide in --

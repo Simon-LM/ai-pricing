@@ -15,17 +15,22 @@ paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Ede
 `Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
 those numbers is in this file.
 
-| provider | entries | currency | what it is |
-| --- | --- | --- | --- |
-| `mistral` | 30 | USD | called directly |
-| `ovh` | 19 | EUR | called directly |
-| `edenai` | 103 | USD | resold, 5 upstreams |
-| `huggingface` | 15 | USD | routed, 2 partners |
+| provider | entries | on sale | currency | what it is |
+| --- | --- | --- | --- | --- |
+| `mistral` | 31 | 23 | USD | called directly |
+| `ovh` | 19 | 19 | EUR | called directly |
+| `edenai` | 105 | 104 | USD | resold, 5 upstreams |
+| `huggingface` | 15 | 15 | USD | routed, 2 partners |
 
-`huggingface` is keyed by `<model>:<partner>` rather than by model, because the
-router serves one model through several partners at several prices — `gpt-oss-120b`
-through eleven of them. The others are covered in full; `huggingface` covers the two
-partners asked for.
+The difference between the two counts is entries carrying `absent_since`: models the
+source has stopped offering, kept for a year with the last prices actually observed.
+See [Models that go away](#models-that-go-away).
+
+`huggingface` is keyed by `<model>:<partner>` rather than by model, because the router
+serves the same model through both covered partners at different prices —
+`gpt-oss-120b` is $0.09 per million input tokens via OVHcloud and $0.171 via Scaleway.
+`huggingface` covers those two partners; the other three providers are covered in
+full.
 
 ## Read this before you trust a number in it
 
@@ -49,10 +54,11 @@ so they differ from the same model's price under `providers.mistral` or
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
 
-**Price changes publish automatically.** The weekly job for each provider commits
-whatever it read, straight to `main` -- a moved price included. There is no review
-gate, because a price moving is not a decision anyone makes: the provider already
-changed it, and holding the new figure back only means shipping one known to be
+**Everything publishes automatically.** The weekly job for each provider commits
+whatever it read, straight to `main`: a moved price, a model the source has added, a
+model it has withdrawn. There is no review gate and no hand-written list of models to
+reconcile first, because none of that is a decision anyone makes -- the provider
+already changed it, and holding the new file back only means shipping one known to be
 stale.
 
 What a reviewer would actually have caught is caught earlier and harder, before
@@ -81,16 +87,22 @@ show it to whoever is reading your number. Display it:
       "source": "https://mistral.ai/pricing/api",
       "currency": "USD",
       "models": {
-        "mistral-medium-latest": {
+        "mistral medium 3.5": {
           "in_per_mtok": 1.5,
           "out_per_mtok": 7.5,
-          "display_name": "Mistral Medium 3.5"
+          "display_name": "mistral medium 3.5"
         },
-        "voxtral-small-latest": {
+        "voxtral small": {
           "in_per_mtok": 0.1,
           "out_per_mtok": 0.4,
           "per_audio_minute": 0.004,
-          "display_name": "Voxtral Small"
+          "display_name": "voxtral small"
+        },
+        "mixtral 8x7b": {
+          "in_per_mtok": 0.7,
+          "out_per_mtok": 0.7,
+          "display_name": "mixtral 8x7b",
+          "absent_since": "2026-08-17"
         }
       }
     }
@@ -106,10 +118,29 @@ show it to whoever is reading your number. Display it:
 | `providers.<name>.updated` | When that provider's figures last actually **changed**. |
 | `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. |
 | `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
-| `providers.<name>.models` | Keyed by **API model id**, never by marketing name. |
-| `display_name` | The marketing name, kept only so that a diff is readable by a human. Never use it for matching. |
+| `providers.<name>.models` | Keyed by **whatever identifies the entry at that source**, which is not the same thing at every provider -- see below. |
+| `display_name` | A human-readable label, kept only so that a diff is readable. Never use it for matching. |
 | `free` | Present, and always `true`, when the provider gives the model away. The entry then carries **no price field at all** -- see below. |
-| `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model and has no API model id: Mistral's web search, code execution and image generation are priced on the same page as its models. Filter on it if you are listing models to call. |
+| `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model: Mistral's web search, code execution and image generation are priced on the same page as its models. Filter on it if you are listing models to call. |
+| `absent_since` | Absent on a model still on sale, which is the normal case. When present, the source has stopped offering this entry as of that day, and **every price beside it is the last one observed, not a current one**. See below. |
+
+**The key is whatever the source itself states, per provider.** There is no single
+convention because there is no single source:
+
+| provider | key | example |
+| --- | --- | --- |
+| `ovh` | the callable API model id, from the catalog's own `name` | `Qwen3.6-27B` |
+| `edenai` | Eden's model id, upstream prefix included | `mistral/codestral-latest` |
+| `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
+| `mistral` | **the pricing page's card name** | `mistral medium 3.5` |
+
+Mistral is the odd one. Its pricing page states no API model id anywhere, and nothing
+else on the page implies one, so a key like `mistral-medium-latest` could only ever be
+a human's translation of `mistral medium 3.5` -- re-checked by hand every time Mistral
+renames a card, which it does. That translation is not this repository's to make: if
+you call Mistral's API, resolve the id yourself from
+`docs.mistral.ai/models/model-cards/`, and treat this block as what it is, a price
+list keyed the way its source keys it.
 
 The unit is part of the key name, so that a consumer cannot silently apply a
 per-token price to a per-page model. There is deliberately no generic `price` field.
@@ -129,6 +160,8 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `per_call` | per API call |
 | `per_1k_calls` | per thousand API calls |
 | `per_1k_images` | per thousand images |
+| `per_image` | per image |
+| `per_mchars` | per million input characters |
 | `per_model_month` | per month, per stored model |
 
 **A free model is `"free": true`, never a price of `0`.** Zero is also exactly what a
@@ -137,10 +170,37 @@ figure of 0 for that reason. Publishing free models as a marker rather than a nu
 is what lets that check stay strict. A consumer must treat an entry with `free` as
 costing nothing, not as missing data.
 
-**A model may carry several of them at once.** `voxtral-small-latest` above is billed
-both per minute of audio and per million tokens of text, and reading only one of the
-two undercounts a bill without ever looking wrong. Do not assume one unit per model:
+**A model may carry several of them at once.** `voxtral small` above is billed both
+per minute of audio and per million tokens of text, and reading only one of the two
+undercounts a bill without ever looking wrong. Do not assume one unit per model:
 iterate the keys you find.
+
+## Models that go away
+
+Sources retire models constantly. When one disappears, its entry is **not** deleted:
+it keeps the last prices that were actually observed, unchanged, and gains
+
+```json
+"absent_since": "2026-08-17"
+```
+
+the day the source was first seen without it. The entry is dropped a year later. If
+the source starts offering it again, the field disappears and the prices are refreshed
+like any other.
+
+Deleting on sight would be the obvious automatic behaviour and it is the wrong one: a
+consumer still naming that model would lose its price with no warning and no way to
+look up what it used to be, and a price history would develop a hole exactly where a
+comparison is most interesting. A year rather than a few weeks because not every
+project reading this file is actively maintained.
+
+**A price under `absent_since` is a last known price, not a current one.** That is the
+entire point of the field, and a consumer that ignores it will quote a figure nobody
+sells any more. Two things worth doing with it: exclude those entries when listing
+models a user can pick, and show the date when displaying a price you found under one.
+
+A disappearance also sends one email, on the run that first observes it — see
+[How the weekly job behaves](#how-the-weekly-job-behaves).
 
 **Within a `schema_version`, no field is ever removed.** An old client may fetch this
 file at any time. Fields get added -- `per_audio_minute` and later `per_audio_second`
@@ -161,18 +221,23 @@ lookup, on purpose.
 
 ## The trap worth knowing about
 
-`mistral-medium-latest` is an **alias**. Today it resolves to Mistral Medium 3.5;
-tomorrow it will resolve to something else, at a different price, with no change
-anywhere in this file.
+**An id can keep its name and change its price.** `mistral-medium-latest` at Mistral,
+`grok-latest` at Eden AI and every other `-latest` id is an **alias**: today it
+resolves to one model, tomorrow to a different one at a different price. Eden AI's
+`xai/grok-latest` moved from Grok 4.5 to Grok 4.6 in a single week, and in this file
+that shows up as a price change on an unchanged key -- which is exactly what it is.
+Nothing here can warn you that the model behind an alias is not the one you tested.
 
-Each provider's scraper matches marketing names to API ids through an explicit,
-hand-maintained mapping -- Mistral's lives at
-[`scripts/providers/mistral/mapping.json`](scripts/providers/mistral/mapping.json) --
-never by fuzzy matching, never by lowercasing and hoping. A name the mapping does not
-recognise is reported as a failure, not guessed at.
+Each provider's `mapping.json` still holds one hand-written thing, and it is worth
+knowing which: **not a list of models** -- those are read from the source every week --
+but a translation table for the things the source states in prose rather than in data.
+OVH's maps `million_input_tokens` to `in_per_mtok`; Mistral's maps the row label
+`Input (/M tokens)` to the same field. A unit or a label the table does not recognise
+is reported and its figure left unpublished, never guessed at, because the unit is
+part of the field name and there is no honest field to put an unrecognised figure in.
 
-That mapping is an assumption a human wrote down, and it is the thing most likely to
-be quietly wrong. It is written down explicitly so that it *can* be checked.
+Those tables are assumptions a human wrote down, and they are the thing most likely to
+be quietly wrong. They are written down explicitly so that they *can* be checked.
 
 ## Multiple providers, one file
 
@@ -187,7 +252,7 @@ Each provider is fully independent in practice, even though they share one file:
   source and writing only `providers.<name>`;
 - its own explicit mapping, reviewed by a human;
 - its own weekly workflow, `.github/workflows/refresh-<name>.yml`, with the same
-  three outcomes as Mistral's (unchanged, changed -> PR, failure -> issue);
+  three outcomes as Mistral's (unchanged -> stamp, changed -> commit, failure -> issue);
 - its own `checked_utc`, `updated`, `source` and `currency`.
 
 A scraper only ever reads and rewrites its own block. Every other provider's block is
@@ -228,28 +293,57 @@ provider's workflow has three outcomes and never a fourth:
 | outcome | what happens |
 | --- | --- |
 | figures unchanged | that provider's `checked_utc` stamp is committed straight to `main` |
-| a figure changed | the new figures are committed straight to `main`, with a `::notice::` on the run |
+| anything changed | the new file is committed straight to `main`, with a `::notice::` on the run |
 | fetch or parse failed | an issue is opened **and assigned to the repository owner**, the job fails, and `pricing.json` is left **untouched** |
 
-A stale price whose date you can see is far better than a wrong one you cannot. So
-each job refuses rather than guesses whenever:
+"Anything changed" is deliberately wider than "a price moved": a model added, a model
+withdrawn and a model renamed all land in the same outcome and all publish. The one
+thing that stops a run is not knowing whether the figures can be trusted, so each job
+refuses rather than guesses whenever:
 
 - the page cannot be fetched, or no longer parses;
-- a model in its mapping is absent from the page, or has been renamed;
 - a figure lands outside the plausible range for its unit, or moves by more than a
   factor of 5;
-- the unit shown next to a price changes;
+- the same identifier appears twice, so which figure is the real one is ambiguous;
 - the page stops publishing a figure in the currency that provider's block declares.
 
-All providers' workflows share one `concurrency` group, `pricing-json-writes`, since
-they all commit to the same file: a second provider's run queues behind the first
-rather than racing it.
+Note what is **not** on that list: the set of models. A model appearing or vanishing
+says nothing about whether the other prices were read correctly, so it never withholds
+them. It is published, and it sends an email.
 
-**Refusing to publish a wrong number is only half the job.** A scraper fails loudly
-when a model it maps disappears from a page, and is completely silent about a model
-the provider sells that its page never mentions -- an absent row looks exactly like a
-model that does not exist. OVH's catalog page dropped five models it was still
-serving on 2026-08-04, and nothing in the scrape could have noticed. So OVH's
+### The three emails
+
+All of them arrive by the same mechanism -- an issue assigned to the repository owner,
+which notifies through a channel that is on by default and does not depend on watching
+the repository.
+
+| when | what |
+| --- | --- |
+| a scrape fails | an issue per outage, per provider, commented on rather than duplicated on repeated failure. `pricing.json` untouched. |
+| a source's inventory changes | an issue naming what appeared, disappeared or was dropped after a year. Raised **once**, by the run that observes it, never repeated while the entry sits there marked. Nothing is broken and nothing needs fixing; it is a notification. |
+| every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers refreshed and which did not. Closed automatically when all four did. |
+
+The weekly report exists because the other two report by exception, and no exception
+can be raised by a workflow that never ran -- disabled by GitHub after 60 idle days,
+broken by a bad edit to its own YAML, or silently skipped. `pricing.json` would just
+stop moving while looking exactly as it always did. A receipt that arrives every Monday
+is worth more than silence, because a receipt that *doesn't* arrive is itself the
+alarm, and that is the one alarm no code in this repository could raise.
+[`scripts/weekly_report.py`](scripts/weekly_report.py) reads the four `checked_utc`
+stamps and nothing else; it writes no file and has no permission to.
+
+All four providers' workflows share one `concurrency` group, `pricing-json-writes`,
+since they all commit to the same file: a second provider's run queues behind the first
+rather than racing it. The weekly report is deliberately not in that group -- it writes
+nothing, so it has no reason to queue behind a scrape and every reason to still run if
+one is stuck.
+
+**Refusing to publish a wrong number is only half the job.** A scraper notices when a
+model it used to publish disappears from a page, and is completely silent about a model
+the provider sells that its page never mentions -- to a scraper reading one source, an
+absent row looks exactly like a model that does not exist. OVH's catalog page dropped
+five models it was still serving on 2026-08-04, and nothing in the scrape could have
+noticed. So OVH's
 workflow also runs
 [`scripts/providers/ovh/check_coverage.py`](scripts/providers/ovh/check_coverage.py),
 which compares the catalog page against OVH's own public model list and reports what
@@ -257,13 +351,6 @@ each one has that the other does not. It reads no price, never touches
 `pricing.json`, and a gap is a warning rather than a failed job: refusing to publish
 nineteen correct prices because a twentieth is missing would also suppress the
 `checked_utc` stamp that keeps the schedule alive.
-
-Being assigned is what actually delivers the alert: it notifies through a different
-channel than watching the repository, one that is on by default, and it subscribes
-the owner to the issue so that the follow-up comment on each repeated failure lands
-too. Note the one case neither covers -- if the workflow is *disabled* rather than
-failing, nothing runs, no issue is opened and no mail is sent. The only detector for
-that is a consumer watching `checked_utc` go stale.
 
 The stamp commit on every run is not only informative. GitHub disables a scheduled
 workflow after 60 days without repository activity, and **only new commits reset that
@@ -278,7 +365,7 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 164 tests
+python3 -m unittest discover -s tests -v                          # 205 tests
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live page
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
 
@@ -295,40 +382,34 @@ right.
 
 ## Adding a model
 
-1. Look the **API model id** up at the provider, not on the pricing page. The page's
-   card name is marketing copy and is regularly not the id: Mistral's `voxtral tts`
-   card is `voxtral-mini-tts-latest`, its `ministral 3 - 3b` card is
-   `ministral-3b-latest`, and OVH's catalog entry with `id: "qwen-3-6-27b"` is called
-   as `Qwen3.6-27B`. Mistral publishes ids on each model's card at
-   `docs.mistral.ai/models/model-cards/<slug>`; OVH puts the id in the catalog's own
-   `name` field, cross-checkable against its public model list at
-   `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`. Guessing here publishes
-   a key that resolves against nothing while looking perfectly reasonable.
-2. Add an entry to that provider's `mapping.json` -- Mistral's keys a card by
-   `page_name` and a price row by `label`, copied byte-for-byte from the page;
-   OVH's keys a catalog entry by `catalog_id` **and** `catalog_name`, and a price by
-   `price_unit`, copied byte-for-byte from its embedded data. Whatever the provider's
-   own convention, list every unit the model is billed in, not just the obvious one.
-   A model the provider gives away gets `"free": true` instead of price fields, and a
-   billable thing that is not a model at all gets `"kind": "product"`.
-3. Add the same model to `pricing.json`, under that provider's block, with the
-   figures you read on the page. The job refuses to run against a `pricing.json` that
-   publishes a key the mapping does not know, so removing or renaming a key is
-   deliberately a hand edit, never something a scheduled run can do by itself.
-4. If the model introduces a **new unit**, add it to `KNOWN_PRICE_FIELDS` in
+**You don't.** A model a source has started offering is published by that source's next
+weekly run, without anyone doing anything. That is the whole design: a hand-written
+model list is what used to make a single retired model block every other price in its
+block, and there is no longer one to add to.
+
+What still needs a human is a source stating something the file has no way to express:
+
+1. **A new unit.** If the source prices something per week, or per gigabyte, the run
+   reports it and publishes nothing for that one figure. Add the unit to
+   `KNOWN_PRICE_FIELDS` in
    [`scripts/pricing_validate.py`](scripts/pricing_validate.py) -- shared by every
-   provider -- and check whether the default floor of 0.001 still makes sense for
-   it. A unit whose prices are naturally small needs its own entry in
-   `PRICE_BOUNDS`, or an ordinary price cut will be refused as a parsing accident.
-   A test enforces that every published figure keeps a factor of 5 of room above its
-   floor, so you will be told rather than left to find out on a Monday morning.
-5. Re-capture that provider's fixture (Mistral's is `tests/fixtures/mistral/page_ok.html`,
-   OVH's is `tests/fixtures/ovh/catalog_ok.html`) so it contains the new entry, and
-   regenerate its `baseline.json` from it.
-6. Run the tests. `tests/test_pricing_validate.py` checks the shared schema; each
-   provider's `tests/scraper_tests/test_<name>.py` has its own
-   `TestPublishedFileMatches<Name>` and `TestMapping` classes that check that
-   provider's own files agree with each other.
+   provider -- and check whether the default floor of 0.001 still makes sense for it.
+   A unit whose prices are naturally small needs its own entry in `PRICE_BOUNDS`, or an
+   ordinary price cut will be refused as a parsing accident. A test enforces that every
+   published figure keeps a factor of 5 of room above its floor, so you will be told
+   rather than left to find out on a Monday morning.
+2. **A new way of naming that unit at one source.** Add it to that provider's
+   `mapping.json`: OVH's `units` maps a catalog `price_unit` to a field, Mistral's
+   `rows` maps a page row label to one, Eden AI's and Hugging Face's `fields` map an
+   API field name. Copy the string byte-for-byte from the source.
+3. Re-capture that provider's fixture (Mistral's is
+   `tests/fixtures/mistral/page_ok.html`, OVH's is `tests/fixtures/ovh/catalog_ok.html`)
+   so it contains the new shape, and regenerate its `baseline.json` from it.
+4. Run the tests. `tests/test_pricing_validate.py` checks the shared schema,
+   `tests/test_provider_runner.py` the reconciliation every provider shares, and each
+   provider's `tests/scraper_tests/test_<name>.py` has `TestPublishedFileMatches<Name>`
+   and `TestMapping` classes that check that provider's own files agree with each
+   other -- including that its mapping still contains no model list.
 
 Do not add currency conversion, token estimation, or anything that reads a user's
 account. This repository knows prices. It does not know volumes, and it never
@@ -345,10 +426,13 @@ Then mirror whichever of the two existing providers reads more like your new
 one -- [`scripts/providers/mistral/scrape.py`](scripts/providers/mistral/scrape.py)
 or [`scripts/providers/ovh/scrape.py`](scripts/providers/ovh/scrape.py) -- for the
 page-reading half, and use [`scripts/provider_runner.py`](scripts/provider_runner.py)
-for everything else: it already handles reading, merging, writing, and the three
-outcomes, and only needs an `extract_new_models(html_text, mapping)` callback and a
-provider id. Write an explicit mapping, and give the new provider its own
-`refresh-<name>.yml` sharing the `pricing-json-writes` concurrency group.
+for everything else: it already handles reading, merging, writing, the three outcomes,
+and keeping withdrawn entries for a year. It only needs a provider id and an
+`extract_new_models(source_text, mapping)` callback returning `(models, notes)` --
+`models` being everything the source offers *today*, with no reference to what is
+already published. Write a mapping that names units and labels, never models, and give
+the new provider its own `refresh-<name>.yml` sharing the `pricing-json-writes`
+concurrency group.
 
 One naming trap worth knowing before you start: give the new provider's test file
 a distinct import path (`from providers.<name> import scrape`, not a bare
@@ -363,8 +447,10 @@ imports the wrong provider's module the moment both run in the same process, whi
 Somebody has to read a web page. The design question is *where*, and the answer is:
 not on the user's machine. A consumer that scraped the page itself would not crash
 when the page was redesigned -- it would read the **wrong number** and cheerfully
-announce €0.80 for a run that costs €8, in every installation at once. Here, a human
-sees the diff before anything reaches anyone.
+announce €0.80 for a run that costs €8, in every installation at once. Here, the page
+is read in one place, checked against bounds that stop a misparse from ever being
+committed, and every change is a dated line in `git log` that a human can go back and
+read.
 
 It also means the price of `mistral-medium-latest` is not one project's private fact,
 `git log` on a single JSON file becomes a price history nobody else publishes -- across

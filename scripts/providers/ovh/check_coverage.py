@@ -8,10 +8,10 @@ This is NOT part of the price scrape and shares none of its authority. It reads 
 price, writes no candidate, and can never change a figure in pricing.json. It exists
 because scrape.py has a blind spot it cannot close on its own:
 
-  scrape.py fails loudly when a model the mapping KNOWS about vanishes from the
-  catalog page. It says nothing at all about a model OVH sells that the page has
-  never mentioned, or has quietly stopped mentioning -- an absent row is
-  indistinguishable from a model that does not exist.
+  scrape.py publishes every model the catalog page prices, and notices when one it
+  used to publish disappears from that page. It says nothing at all about a model OVH
+  SELLS that the page has never mentioned -- to scrape.py, a model absent from the
+  only source it reads is indistinguishable from a model that does not exist.
 
 That gap is not theoretical. Between 2026-08-03 and 2026-08-04 the catalog page went
 from 24 entries to 19, dropping five models OVH was still serving at live prices, and
@@ -52,6 +52,7 @@ from providers.ovh import scrape  # noqa: E402
 HERE = Path(__file__).resolve().parent
 DEFAULT_MAPPING = HERE / "mapping.json"
 DEFAULT_COVERAGE = HERE / "coverage.json"
+DEFAULT_CURRENT = _SCRIPTS_DIR.parent / "pricing.json"
 
 CLI_SUMMARY = "Check OVH's catalog page against OVH's own list of the models it serves."
 
@@ -111,9 +112,11 @@ def compare(catalog: set[str], api: set[str], mapped: set[str], ignore: dict[str
     listed_but_unpublished = sorted(catalog - mapped - set(ignore))
     if listed_but_unpublished:
         findings.append(
-            "ON THE CATALOG PAGE BUT NOT PUBLISHED -- the page prices these and "
-            "mapping.json does not mention them, so pricing.json is missing coverage "
-            "it could have:\n  " + "\n  ".join(listed_but_unpublished)
+            "ON THE CATALOG PAGE BUT NOT PUBLISHED -- the page lists these and "
+            "pricing.json has no entry for them. Since the scraper publishes every model "
+            "the page prices, this normally means the page states no price for them, or "
+            "states one in a unit the mapping has no field for:\n  "
+            + "\n  ".join(listed_but_unpublished)
         )
 
     listed_but_not_sold = sorted(catalog - api - set(ignore))
@@ -131,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=CLI_SUMMARY)
     parser.add_argument("--mapping", default=str(DEFAULT_MAPPING))
     parser.add_argument("--coverage", default=str(DEFAULT_COVERAGE))
+    parser.add_argument("--current", default=str(DEFAULT_CURRENT), help="the published pricing.json")
     parser.add_argument("--html", help="read the catalog from a file instead of the network")
     parser.add_argument("--models-json", help="read the model list from a file instead of the network")
     args = parser.parse_args(argv)
@@ -138,6 +142,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         mapping = json.loads(Path(args.mapping).read_text(encoding="utf-8"))
         coverage = json.loads(Path(args.coverage).read_text(encoding="utf-8"))
+        # What is actually published, read from the file itself. There is no longer a
+        # hand-written list to compare against, and pricing.json is the better answer
+        # anyway: it is what consumers get, rather than what a mapping intended.
+        published = json.loads(Path(args.current).read_text(encoding="utf-8"))
+        mapped = set(published["providers"]["ovh"]["models"])
 
         html_text = (
             Path(args.html).read_text(encoding="utf-8", errors="replace")
@@ -162,9 +171,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"the coverage check could not read the catalog: {exc}", file=sys.stderr)
         return EXIT_CHECK_FAILED
 
-    findings = compare(catalog, api, set(mapping["models"]), coverage["ignore"])
+    findings = compare(catalog, api, mapped, coverage["ignore"])
 
-    print(f"catalog page: {len(catalog)} models | API list: {len(api)} models | published: {len(mapping['models'])}")
+    print(f"catalog page: {len(catalog)} models | API list: {len(api)} models | published: {len(mapped)}")
     if not findings:
         print("No gap. Every model OVH serves is on the catalog page, and every model on")
         print("the catalog page is published, allowing for the exceptions in coverage.json.")

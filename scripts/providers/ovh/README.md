@@ -52,10 +52,18 @@ no way to detect. If that ever needs revisiting, it starts here.
 
 ## What is published, and what is deliberately not
 
-Read `scripts/providers/ovh/mapping.json`'s own `_comment` for the authoritative,
-dated account. Summary:
+`mapping.json` names **pricing units**, not models: it says that a catalog price
+tagged `million_input_tokens` is published as `in_per_mtok`, and so on. A unit
+missing from that table is reported and its figure left unpublished, never guessed
+at -- the unit is part of the field name, and there is no honest field to put an
+unrecognised figure in. Read its own `_comment` for the authoritative account.
+Summary:
 
-**Published: all 19 catalog entries**, twelve with prices and seven marked free.
+**Published: every catalog entry, whatever the catalog happens to list.** There is
+no hand-written model list here and there must not be one: the catalog states the
+callable model id itself, so a model OVH adds is published on the next run and one
+it withdraws keeps its last observed prices under an `absent_since` stamp. That is
+19 entries today, twelve priced and seven free.
 Priced: gpt-oss-120b, gpt-oss-20b, Meta-Llama-3_3-70B-Instruct,
 Qwen2.5-VL-72B-Instruct, Qwen3.5-397B-A17B, Qwen3.5-9B, Qwen3.6-27B,
 Qwen3-Embedding-8B, bge-m3, bge-multilingual-gemma2, whisper-large-v3,
@@ -70,10 +78,12 @@ Each catalog entry carries both an `id` and a `name`, and they are different
 things. `id` is a CMS slug used in the catalog's own URLs; `name` is what OVH's
 API actually answers to. The entry with `id: "qwen-3-6-27b"` is called as
 `Qwen3.6-27B`, and `llama-3-3-70b-instruct` is called as
-`Meta-Llama-3_3-70B-Instruct`. `pricing.json` is keyed by `name` for that
-reason, and `scrape.py` checks **both** byte-for-byte against `mapping.json`, so
-a rename of either stops the run rather than publishing a model id that resolves
-against nothing while still carrying a plausible-looking price.
+`Meta-Llama-3_3-70B-Instruct`. `pricing.json` is keyed by `name` for that reason,
+and nothing is keyed off `id` at all -- so OVH reorganising its own catalog URLs
+does not show up in this file, while a rename of `name` does: it publishes the new
+id with today's price and keeps the old one, frozen and dated, so a consumer still
+calling it finds out rather than getting a plausible price for a model that no
+longer answers.
 
 Fifteen of the nineteen names were cross-checked against OVH's public,
 keyless OpenAI-compatible model list at
@@ -104,28 +114,33 @@ sanity floor (`pricing_validate.MIN_PLAUSIBLE = 0.001`) exists to catch a parser
 that misreads a real price as `0`, and publishing genuine free tiers as numbers
 would force that floor open for everything.
 
-The marker is not taken on trust. Each free entry lists the `price_unit` values
-it expects the catalog to state, in `expect_zero_units`, and the run fails if the
-catalog prices the model in any other unit or at anything other than `0`. The day
-OVH starts charging for one of these, a human decides what to publish -- the job
-does not keep announcing "free" for something that now bills.
+The marker is not remembered anywhere: it is read off the catalog on every run,
+and it means "every unit this model is priced in is stated at 0". The day OVH
+starts charging for one of these, the price simply appears in the file and the
+marker simply goes -- nothing keeps announcing "free" for something that now bills.
+
+A single `0` sitting *beside* a real price is a different thing and is not
+published at all. It is either a giveaway of one side of a token price, which this
+schema has no way to state, or a misparse; the run reports it and publishes the
+prices it could read.
 
 ## The coverage check
 
 `check_coverage.py` closes a blind spot the scraper cannot close on its own.
-`scrape.py` fails loudly when a model it **maps** disappears from the page; it
-is silent about a model OVH sells that the page never mentions, because an
-absent row is indistinguishable from a model that does not exist. That is
-exactly how the five withdrawn models above went unnoticed until a human
-compared a stale browser tab against a fresh one.
+`scrape.py` notices when a model it used to publish disappears from the page; it
+is silent about a model OVH **sells** that the page never mentions, because to a
+scraper reading one source, an absent row is indistinguishable from a model that
+does not exist. That is exactly how the five withdrawn models above went unnoticed
+until a human compared a stale browser tab against a fresh one.
 
 So once a week, right after the price check, the catalog page is compared
 against OVH's own public model list. Three things get reported:
 
 - **sold but not on the catalog page** — OVH serves it, the page does not price
   it, so nothing here can publish it;
-- **on the catalog page but not published** — OVH added a model and
-  `mapping.json` has not caught up;
+- **on the catalog page but not published** — the scraper publishes every model
+  the page prices, so this normally means the page states no price for it, or
+  states one in a unit `mapping.json` has no field for;
 - **on the catalog page but not in the API list** — either the page advertises
   something not yet servable, or a published key is not the callable model id.
 

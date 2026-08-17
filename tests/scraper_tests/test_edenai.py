@@ -9,10 +9,9 @@ wrong one they cannot.
 
 Eden AI's source is a JSON API rather than a marketing page, so the failure modes
 worth testing are different from Mistral's and OVH's. There is no label to rename
-and no card to lose; what can go wrong is the payload changing shape, the set of
-offered models drifting away from what a human pinned, an unauthenticated read
-being quoted a discounted price, and per-token figures being scaled to per-million
-carelessly enough to publish floating-point noise.
+and no card to lose; what can go wrong is the payload changing shape, an
+unauthenticated read being quoted a discounted price, and per-token figures being
+scaled to per-million carelessly enough to publish floating-point noise.
 
 Cross-file consistency checks -- does providers.edenai in the committed pricing.json
 actually match scripts/providers/edenai/mapping.json -- live here too: they are
@@ -116,6 +115,9 @@ class ScrapeTestCase(unittest.TestCase):
 
     def candidate_block(self, name: str) -> JSONDict:
         return self.candidate(name)["providers"]["edenai"]
+
+    def notes(self) -> str:
+        return (self.out_dir / "notes.txt").read_text(encoding="utf-8")
 
     @property
     def models_ok(self) -> str:
@@ -232,22 +234,40 @@ class TestPayloadFailures(ScrapeTestCase):
 
 
 class TestModelSetDrift(ScrapeTestCase):
-    def test_a_mapped_model_that_disappears_is_refused(self) -> None:
-        body = mutate(self.models_ok, '"id": "xai/grok-4.5"', '"id": "xai/grok-4.5-renamed"')
-        code, _, stderr = self.run_scrape(body)
-        self.assert_failed(code, stderr, "no longer in Eden AI's list", "xai/grok-4.5")
+    """Eden's catalogue moves every week. The mapping names upstreams, never models, so
+    this is the ordinary case rather than the exceptional one."""
 
-    def test_a_new_model_from_a_mapped_upstream_is_refused(self) -> None:
-        """Not an error in Eden's data -- a price no human has read. It must reach a
-        person through the mapping before it can reach consumers."""
+    def test_a_model_that_disappears_is_kept_with_its_last_prices_and_a_date(self) -> None:
+        body = mutate(self.models_ok, '"id": "xai/grok-4.5"', '"id": "xai/grok-4.5-renamed"')
+        code, _, _ = self.run_scrape(body)
+        self.assertEqual(code, 0)
+
+        models = self.candidate_block("updated.json")["models"]
+        published = json.loads(self.current_bytes)["providers"]["edenai"]["models"]["xai/grok-4.5"]
+
+        self.assertEqual(models["xai/grok-4.5"]["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(models["xai/grok-4.5"]["in_per_mtok"], published["in_per_mtok"])
+        self.assertNotIn("absent_since", models["xai/grok-4.5-renamed"])
+        self.assertIn("no longer offered", self.notes())
+        self.assert_current_untouched()
+
+    def test_a_new_model_from_a_mapped_upstream_is_published(self) -> None:
+        """Eden states the id and the price itself, so there is nothing for a human to
+        translate and nothing to wait for. The figure still has to pass the bounds and
+        the change-factor limit, which is what a reviewer would actually have caught."""
         payload = json.loads(self.models_ok)
         newcomer = dict(payload["data"][0])
         newcomer["id"] = "mistral/mistral-brand-new"
         newcomer["model_name"] = "mistral-brand-new"
         newcomer["owned_by"] = "mistral"
         payload["data"].append(newcomer)
-        code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "does not list", "mistral/mistral-brand-new")
+        code, stdout, _ = self.run_scrape(json.dumps(payload))
+
+        self.assertEqual(code, 0)
+        self.assertIn("+ mistral/mistral-brand-new: added", stdout)
+        self.assertIn("mistral/mistral-brand-new", self.candidate_block("updated.json")["models"])
+        self.assertEqual(self.notes(), "", "a model being added is not something to alert about")
+        self.assert_current_untouched()
 
     def test_a_new_model_from_an_unmapped_upstream_is_ignored(self) -> None:
         """The counterpart: Eden adding a Cohere model is none of this block's
@@ -350,11 +370,19 @@ class TestPublishedFileMatchesEdenAI(unittest.TestCase):
         return json.loads(PRICING_JSON.read_text(encoding="utf-8"))["providers"]["edenai"]
 
     def test_the_committed_file_matches_the_mapping(self) -> None:
+        """There is no model list to agree with any more, so what is checked is what the
+        mapping still decides: where the figures come from and what currency they are
+        in."""
         published = self.block()
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(set(published["models"]), set(mapping["models"]))
         self.assertEqual(published["source"], mapping["source"])
         self.assertEqual(published["currency"], mapping["currency"])
+
+        producible = set(mapping["fields"])
+        for model_id, entry in published["models"].items():
+            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
+            self.assertTrue(fields, model_id)
+            self.assertLessEqual(fields, producible, model_id)
 
     def test_every_key_is_prefixed_by_a_mapped_upstream(self) -> None:
         """Eden's model id namespaces the upstream, and the key is that whole id --
@@ -382,20 +410,26 @@ class TestPublishedFileMatchesEdenAI(unittest.TestCase):
 
 
 class TestMapping(unittest.TestCase):
+    def mapping(self) -> JSONDict:
+        return json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+
     def test_the_mapping_is_shaped_as_the_scraper_expects(self) -> None:
-        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        mapping = self.mapping()
         self.assertTrue(mapping["upstreams"])
-        self.assertTrue(mapping["models"])
         for field, spec in mapping["fields"].items():
             self.assertIn(field, validate.KNOWN_PRICE_FIELDS, field)
             self.assertTrue(spec["api_field"], field)
 
-    def test_model_ids_are_unique_and_sorted(self) -> None:
-        """Sorted so that adding one produces a one-line diff in the place a reviewer
-        expects, rather than an append that hides among 103 unrelated lines."""
-        ids = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))["models"]
-        self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(ids, sorted(ids))
+    def test_there_is_no_model_list(self) -> None:
+        """Load-bearing, not pedantry. A hand-written model list is exactly what made a
+        single retired model block 102 correct prices, and re-adding one would bring
+        that back without anything else in the tests noticing."""
+        self.assertNotIn("models", self.mapping())
+
+    def test_upstreams_are_unique_and_sorted(self) -> None:
+        upstreams = self.mapping()["upstreams"]
+        self.assertEqual(len(upstreams), len(set(upstreams)))
+        self.assertEqual(upstreams, sorted(upstreams))
 
 
 if __name__ == "__main__":
