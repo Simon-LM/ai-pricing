@@ -275,6 +275,27 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
         # last known rather than current -- so the format is pinned as tightly as
         # `updated` is, and a value that is not a plain day is refused rather than
         # published as something a consumer would have to guess at.
+        # The strings a caller passes as the model, when the source states them. Most
+        # specific first, as the source orders them: the versioned id, then any shorter
+        # aliases, then usually a `-latest` one whose meaning moves without warning.
+        #
+        # This is a MODEL IDENTIFIER, not a URL. It goes in the request body; the
+        # endpoint a consumer posts to is the provider's, and this file does not
+        # publish endpoints.
+        if "api_ids" in entry:
+            api_ids = entry["api_ids"]
+            if (
+                not isinstance(api_ids, list)
+                or not api_ids
+                or not all(isinstance(i, str) and i for i in api_ids)
+            ):
+                raise ValidationError(
+                    f"{full_id}: api_ids must be a non-empty list of non-empty strings, "
+                    f"got {api_ids!r}. An entry with nothing to call omits the field."
+                )
+            if len(set(api_ids)) != len(api_ids):
+                raise ValidationError(f"{full_id}: api_ids repeats an identifier: {api_ids!r}")
+
         if "absent_since" in entry:
             absent_since = entry["absent_since"]
             if not isinstance(absent_since, str) or not _ISO_DAY.match(absent_since):
@@ -288,7 +309,7 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
             k
             for k in entry
             if k not in KNOWN_PRICE_FIELDS
-            and k not in ("display_name", "free", "kind", "absent_since")
+            and k not in ("display_name", "free", "kind", "absent_since", "api_ids")
         ]
         if unknown:
             raise ValidationError(f"{full_id}: unknown field(s) {unknown}")

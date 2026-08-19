@@ -261,17 +261,22 @@ def parse_index(html_text: str) -> dict[str, str]:
     return found
 
 
-def parse_model_page(html_text: str, path: str) -> tuple[str | None, bool, JSONDict | None]:
-    """Return (name, retired, pricing object) for one docs model page.
+def parse_model_page(html_text: str, path: str) -> tuple[str, bool, JSONDict | None, list[str]]:
+    """Return (name, retired, pricing object, api ids) for one docs model page.
 
-    Every value is optional because the pages are not uniform: a model with no
+    Several values are optional because the pages are not uniform: a model with no
     published price carries no pricing object at all, and the pages of some models
     carry no `isRetired` flag. Deciding what to do with each combination is the
     caller's job; this function only reports what the page says.
+
+    The api ids are the strings a caller passes as the model, which the page renders as
+    copyable badges and streams as a `names` array -- most specific first, ending in a
+    `-latest` alias where the model has one.
     """
     name = nextjs_flight.find_value(html_text, "currentModelName")
     retired = nextjs_flight.find_value(html_text, "isRetired")
     pricing = nextjs_flight.find_value(html_text, "pricing")
+    names = nextjs_flight.find_value(html_text, "names")
 
     if not isinstance(name, str) or not name.strip():
         raise ScrapeError(
@@ -281,7 +286,20 @@ def parse_model_page(html_text: str, path: str) -> tuple[str | None, bool, JSOND
     if pricing is not None and not isinstance(pricing, dict):
         raise ScrapeError(f"{path}: the pricing value is not an object. The data shape has changed.")
 
-    return name.strip(), retired is True, cast("JSONDict | None", pricing)
+    api_ids: list[str] = []
+    if names is not None:
+        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            raise ScrapeError(
+                f"{path}: the names value is not a list of strings. The data shape has "
+                f"changed, and publishing a malformed identifier is worse than publishing "
+                f"none."
+            )
+        # Order is meaning here, so it is preserved rather than sorted: the versioned id
+        # comes first and the moving alias last. Duplicates would fail validation, and
+        # the page has been seen to repeat its payload.
+        api_ids = list(dict.fromkeys(n.strip() for n in cast("list[str]", names) if n.strip()))
+
+    return name.strip(), retired is True, cast("JSONDict | None", pricing), api_ids
 
 
 def docs_entry(model_id: str, pricing: JSONDict, mapping: JSONDict) -> tuple[JSONDict, list[str]]:
@@ -357,7 +375,7 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
     notes: list[str] = []
 
     for path in sorted(index):
-        name, retired, pricing = parse_model_page(fetch(base + path), path)
+        name, retired, pricing, api_ids = parse_model_page(fetch(base + path), path)
         model_id = name.lower()
 
         # Listed but marked retired: treated as not offered, exactly like one that has
@@ -377,6 +395,13 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
             notes.append(f"{model_id}: no price on this page could be published at all.")
             continue
         entry["display_name"] = model_id
+        if api_ids:
+            entry["api_ids"] = api_ids
+        else:
+            notes.append(
+                f"{model_id}: the page states no callable identifier. Its price is "
+                f"published, but a consumer has nothing to pass as the model."
+            )
         models[model_id] = entry
 
     if not models:

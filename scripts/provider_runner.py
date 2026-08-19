@@ -77,11 +77,11 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
     a diff touching every line of the block, indistinguishable at a glance from a
     hundred price changes.
 
-    The three non-price markers travel with the entry: `free` stands in place of the
-    price fields for a model a provider gives away, `kind` marks an entry that is
-    billable but is not a model at all, and `absent_since` marks one the source has
-    stopped offering, whose prices are therefore the last ones observed rather than
-    today's.
+    The non-price fields travel with the entry: `api_ids` lists the strings a caller
+    passes as the model, `free` stands in place of the price fields for a model a
+    provider gives away, `kind` marks an entry that is billable but is not a model at
+    all, and `absent_since` marks one the source has stopped offering, whose prices are
+    therefore the last ones observed rather than today's.
     """
     ordered_models: dict[str, JSONDict] = {}
     for model_id in sorted(models):
@@ -93,6 +93,8 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
         if entry.get("free") is True:
             ordered["free"] = True
         ordered["display_name"] = entry["display_name"]
+        if "api_ids" in entry:
+            ordered["api_ids"] = entry["api_ids"]
         if "kind" in entry:
             ordered["kind"] = entry["kind"]
         if "absent_since" in entry:

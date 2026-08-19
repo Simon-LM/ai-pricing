@@ -256,6 +256,38 @@ class TestUnchanged(ScrapeTestCase):
         self.assertEqual(entry["per_mchars"], 16.0)
         self.assertNotIn("free", entry)
 
+    def test_models_publish_the_identifiers_a_caller_passes(self) -> None:
+        """The reason for reading the docs site rather than only the pricing page's card
+        names: the pages state what to actually call, and the pricing page never did."""
+        self.run_scrape()
+        models = self.models("stamped.json")
+        self.assertEqual(
+            models["ocr 4.1"]["api_ids"], ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]
+        )
+        self.assertEqual(models["mistral medium 3.5"]["api_ids"][0], "mistral-medium-3-5")
+
+    def test_the_identifier_order_the_source_gives_is_kept(self) -> None:
+        """Most specific first, moving alias last. Sorting them would destroy the only
+        thing telling a consumer which one is safe to pin a price to."""
+        self.run_scrape()
+        ids = self.models("stamped.json")["mistral medium 3.5"]["api_ids"]
+        self.assertEqual(ids, ["mistral-medium-3-5", "mistral-medium-3", "mistral-medium-latest"])
+
+    def test_products_carry_no_identifier_because_there_is_nothing_to_call(self) -> None:
+        self.run_scrape()
+        self.assertNotIn("api_ids", self.models("stamped.json")["web search"])
+
+    def test_a_model_whose_page_states_no_identifier_is_still_priced_and_reported(self) -> None:
+        """A missing identifier is not a reason to withhold a correct price -- but a
+        consumer has nothing to call, so it is worth a human's attention."""
+        self.edit(self.docs_url("ocr-4-1"), '\\"names\\":', '\\"labels\\":', expected_count=None)
+        code, _, _ = self.run_scrape()
+        self.assertEqual(code, 0)
+        entry = self.models()["ocr 4.1"]
+        self.assertEqual(entry["per_1k_pages"], 4.0)
+        self.assertNotIn("api_ids", entry)
+        self.assertIn("no callable identifier", self.notes())
+
     def test_products_come_from_the_pricing_page(self) -> None:
         self.run_scrape()
         models = self.models("stamped.json")
@@ -813,7 +845,7 @@ class TestMapping(unittest.TestCase):
         for url, rel in manifest.items():
             if not url.startswith("https://docs.mistral.ai/models/"):
                 continue
-            _, _, pricing = scrape.parse_model_page(
+            _, _, pricing, _ = scrape.parse_model_page(
                 (FIXTURES / rel).read_text(encoding="utf-8", errors="replace"), url
             )
             if not pricing:
