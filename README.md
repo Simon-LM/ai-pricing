@@ -231,6 +231,14 @@ entire point of the field, and a consumer that ignores it will quote a figure no
 sells any more. Two things worth doing with it: exclude those entries when listing
 models a user can pick, and show the date when displaying a price you found under one.
 
+**Absent at one provider says nothing about another.** Every block follows its own
+source's inventory and only that, so a model dated under `providers.mistral` may still
+be listed -- and genuinely callable -- under `providers.edenai`. The two are not
+disagreeing. A reseller notices a retirement whenever its own catalogue gets round to
+it, and can hold a contract that keeps a model available through it for months after
+the original stopped selling it. Read the block for the provider you are actually
+calling. Nothing here reconciles one provider against another, and nothing should.
+
 A disappearance also sends one email, on the run that first observes it — see
 [How the weekly job behaves](#how-the-weekly-job-behaves).
 

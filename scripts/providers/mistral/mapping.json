@@ -21,9 +21,15 @@
     "list and there must not be one.",
     "",
     "KEYS ARE THE NAMES EACH SOURCE STATES, lowercased: 'ocr 4.0', 'mistral medium 3.5',",
-    "'web search'. Not API model ids. The docs pages do carry the ids, in a 'names'",
-    "array alongside their aliases; publishing those is a separate decision that has not",
-    "been taken, and a consumer that needs to call a model resolves it there."
+    "'web search'. Not API model ids. Those are published beside them in 'api_ids',",
+    "read from the 'names' array the same docs pages stream, most specific first and",
+    "in the order given.",
+    "",
+    "BOTH THE INVENTORY AND THE IDS COME FROM MISTRAL'S OWN PAGES, and from nothing",
+    "else. No other provider's data feeds this block, and it must never be made to: an",
+    "aggregator can confirm that a string is a real Mistral id, but not that Mistral",
+    "still sells it. Resellers lag retirements, and can hold contracts that keep a model",
+    "callable through them for months after it leaves Mistral's public API."
   ],
 
   "_comment_denominators": [
