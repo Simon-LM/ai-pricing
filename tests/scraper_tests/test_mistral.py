@@ -7,14 +7,17 @@ pricing.json is byte-for-byte what it was. That is the property the whole design
 exists to protect -- a stale price whose date the user can see is far better than a
 wrong one they cannot.
 
-The failure scenarios are derived from tests/fixtures/mistral/page_ok.html, which is
-real captured markup, by explicit mutation. `mutate` refuses to run when there was
-nothing to replace, so a fixture that drifts away from the page fails the tests
-loudly instead of quietly testing nothing.
+This provider reads TWO sources, and the split is the thing most worth testing.
+Models come from docs.mistral.ai, which states a machine-readable price object and an
+isRetired flag per model; the billable non-models come from mistral.ai/pricing/api,
+which is the only place they are priced. Reading only the second, as an earlier
+version did, silently missed four priced models -- including one the pricing page had
+dropped while Mistral was still selling it.
 
-Cross-file consistency checks -- does providers.mistral in the committed pricing.json
-actually match scripts/providers/mistral/mapping.json -- live here too: they are
-statements about Mistral specifically, not about the shared schema.
+Every scenario runs against committed fixtures through `--offline`, which serves each
+URL from disk and refuses any URL the manifest does not name. A test that forgets a
+fixture therefore fails loudly instead of quietly reaching the network and passing for
+the wrong reason.
 """
 
 from __future__ import annotations
@@ -40,20 +43,21 @@ import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "mistral"
-PAGE_OK = FIXTURES / "page_ok.html"
 
-# The scrape scenarios compare the fixture page against a baseline pinned to that
-# same page, never against the live pricing.json. Otherwise every genuine price
-# change would fail the test suite until somebody re-captured the fixture, which
-# would put friction on exactly the path that must stay quick: a price correction
-# reaching consumers. The two only move together when the fixture is
-# deliberately re-captured.
+# The scrape scenarios compare the fixtures against a baseline pinned to that same
+# capture, never against the live pricing.json. Otherwise every genuine price change
+# would fail the test suite until somebody re-captured the fixtures, which would put
+# friction on exactly the path that must stay quick: a price correction reaching
+# consumers. The two only move together when the fixtures are deliberately re-captured.
 BASELINE_JSON = FIXTURES / "baseline.json"
 
 PRICING_JSON = REPO_ROOT / "pricing.json"
 MAPPING_JSON = REPO_ROOT / "scripts" / "providers" / "mistral" / "mapping.json"
 
-FIXED_NOW = "2026-08-03T04:00:00Z"
+FIXED_NOW = "2026-08-18T04:00:00Z"
+
+DOCS_INDEX = "https://docs.mistral.ai/models"
+PRICING_PAGE = "https://mistral.ai/pricing/api"
 
 
 def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> str:
@@ -61,56 +65,21 @@ def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> s
 
     `expected_count` is an exact number where uniqueness is the point of the test --
     a price mutation that silently hit two rows would prove nothing. Pass None for
-    structural mutations that sweep the whole page, where the count is incidental and
-    changes every time a card is added to the fixture; those still refuse to run
-    against zero matches, which is the failure that would leave a test testing nothing.
+    structural mutations that sweep a whole page, where the count is incidental; those
+    still refuse to run against zero matches, which is the failure that would leave a
+    test testing nothing.
     """
     found = source.count(old)
     if found == 0 or (expected_count is not None and found != expected_count):
         raise AssertionError(
             f"fixture drift: expected {expected_count or 'at least one'} occurrence(s) of "
-            f"{old!r}, found {found}. Re-capture tests/fixtures/mistral/page_ok.html from the live page."
+            f"{old!r}, found {found}. Re-capture the fixtures under tests/fixtures/mistral/."
         )
     return source.replace(old, new)
 
 
-def card_span(source: str, data_name: str) -> tuple[int, int]:
-    """The exact character range one model card occupies in the page."""
-    anchor = source.index(f'data-name="{data_name}"')
-    start = source.rindex('<div class="model-item', 0, anchor)
-    end = source.index("</mistral-block-card-model>", start) + len("</mistral-block-card-model>")
-    end = source.index("</div>", end) + len("</div>")
-    return start, end
-
-
-def drop_card(source: str, data_name: str) -> str:
-    """Remove one whole model card from the page, as if the model had been withdrawn."""
-    start, end = card_span(source, data_name)
-    return source[:start] + source[end:]
-
-
-def mutate_in_card(source: str, data_name: str, old: str, new: str, expected_count: int | None = 1) -> str:
-    """Replace `old` with `new` inside ONE named card, not across the whole page.
-
-    The fixture holds all 25 cards of the real page, so an ordinary figure like 1.5
-    is on several of them at once. A test that means "move Mistral Medium's input
-    price" has to say which card, or it quietly rewrites three unrelated models and
-    stops testing the thing its name claims.
-    """
-    start, end = card_span(source, data_name)
-    card = source[start:end]
-    found = card.count(old)
-    if found == 0 or (expected_count is not None and found != expected_count):
-        raise AssertionError(
-            f"fixture drift: expected {expected_count or 'at least one'} occurrence(s) of "
-            f"{old!r} inside the {data_name!r} card, found {found}. Re-capture "
-            f"tests/fixtures/mistral/page_ok.html from the live page."
-        )
-    return source[:start] + card.replace(old, new) + source[end:]
-
-
 class ScrapeTestCase(unittest.TestCase):
-    """Base class: gives each test a private copy of pricing.json and an output dir."""
+    """Base class: each test gets its own copy of every fixture, free to mutate."""
 
     maxDiff = None
 
@@ -121,29 +90,55 @@ class ScrapeTestCase(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
+        self.sources = self.tmp / "sources"
+        shutil.copytree(FIXTURES, self.sources)
+        self.manifest = json.loads((self.sources / "offline.json").read_text(encoding="utf-8"))
+
         self.out_dir = self.tmp / "out"
         self.current = self.tmp / "pricing.json"
         shutil.copy2(BASELINE_JSON, self.current)
         self.current_bytes = self.current.read_bytes()
 
-        self.page = self.tmp / "page.html"
+    # -- fixture helpers -----------------------------------------------------------
 
-    # -- helpers ------------------------------------------------------------------
+    def path_for(self, url: str) -> Path:
+        return self.sources / self.manifest[url]
 
-    def run_scrape(self, html: str, now: str = FIXED_NOW) -> tuple[int, str, str]:
-        """Run the script end to end on `html`. Returns (exit_code, stdout, stderr)."""
-        self.page.write_text(html, encoding="utf-8")
+    def edit(self, url: str, old: str, new: str, expected_count: int | None = 1) -> None:
+        """Rewrite one served fixture in place."""
+        path = self.path_for(url)
+        path.write_text(
+            mutate(path.read_text(encoding="utf-8"), old, new, expected_count), encoding="utf-8"
+        )
+
+    def docs_url(self, slug: str) -> str:
+        return f"https://docs.mistral.ai/models/{slug}"
+
+    def withdraw_from_index(self, slug: str) -> None:
+        """Remove one model's card from the docs index, as if Mistral had retired it."""
+        index = self.path_for(DOCS_INDEX)
+        text = index.read_text(encoding="utf-8")
+        kept = [line for line in text.splitlines() if f'href="/models/{slug}"' not in line]
+        self.assertEqual(len(kept), len(text.splitlines()) - 1, f"{slug} is not one line of the index")
+        index.write_text("\n".join(kept) + "\n", encoding="utf-8")
+
+    # -- running -------------------------------------------------------------------
+
+    def run_scrape(self, now: str = FIXED_NOW) -> tuple[int, str, str]:
+        """Run the script end to end against the (possibly mutated) fixtures."""
         argv = [
             "--out-dir", str(self.out_dir),
             "--current", str(self.current),
             "--mapping", str(MAPPING_JSON),
-            "--html", str(self.page),
+            "--offline", str(self.sources / "offline.json"),
             "--now", now,
         ]
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = scrape.main(argv)
         return code, out.getvalue(), err.getvalue()
+
+    # -- assertions ----------------------------------------------------------------
 
     def assert_current_untouched(self) -> None:
         self.assertEqual(
@@ -161,18 +156,17 @@ class ScrapeTestCase(unittest.TestCase):
             self.assertIn(fragment, stderr)
         self.assert_current_untouched()
 
-    def notes(self) -> str:
-        return (self.out_dir / "notes.txt").read_text(encoding="utf-8")
-
     def candidate(self, name: str) -> JSONDict:
         return json.loads((self.out_dir / name).read_text(encoding="utf-8"))
 
     def candidate_block(self, name: str) -> JSONDict:
         return self.candidate(name)["providers"]["mistral"]
 
-    @property
-    def page_ok(self) -> str:
-        return PAGE_OK.read_text(encoding="utf-8")
+    def models(self, name: str = "updated.json") -> JSONDict:
+        return self.candidate_block(name)["models"]
+
+    def notes(self) -> str:
+        return (self.out_dir / "notes.txt").read_text(encoding="utf-8")
 
 
 # ======================================================================================
@@ -181,8 +175,8 @@ class ScrapeTestCase(unittest.TestCase):
 
 
 class TestUnchanged(ScrapeTestCase):
-    def test_unchanged_page_stamps_and_publishes_nothing_new(self) -> None:
-        code, stdout, _ = self.run_scrape(self.page_ok)
+    def test_unchanged_sources_stamp_and_publish_nothing_new(self) -> None:
+        code, stdout, _ = self.run_scrape()
 
         self.assertEqual(code, 0)
         self.assertIn("unchanged", stdout)
@@ -192,73 +186,121 @@ class TestUnchanged(ScrapeTestCase):
         published = json.loads(self.current_bytes)["providers"]["mistral"]
 
         self.assertEqual(stamped["checked_utc"], FIXED_NOW, "checked_utc was not refreshed")
-        self.assertEqual(
-            stamped["updated"],
-            published["updated"],
-            "updated must not move when no figure moved",
-        )
+        self.assertEqual(stamped["updated"], published["updated"], "updated moved with no figure")
         self.assertEqual(stamped["models"], published["models"])
         self.assert_current_untouched()
 
-    def test_baseline_matches_the_fixture_page(self) -> None:
-        """The fixture and its baseline are two views of the same capture; keep them so."""
-        code, stdout, _ = self.run_scrape(self.page_ok)
-        self.assertEqual(code, 0)
-        self.assertIn("unchanged", stdout)
+    def test_the_source_field_names_the_docs_site(self) -> None:
+        """Consumers follow `source` to check a figure by hand, so it has to point at
+        where the models actually come from -- not at the page the products come from."""
+        self.run_scrape()
+        self.assertEqual(self.candidate_block("stamped.json")["source"], DOCS_INDEX)
 
-    def test_ocr_price_is_not_read_from_the_libraries_card(self) -> None:
-        """The decoy: 'libraries' also has an OCR row, at $3 per 1K pages."""
-        self.run_scrape(self.page_ok)
-        models = self.candidate_block("stamped.json")["models"]
-        self.assertEqual(models["ocr 4.1 / ocr"]["per_1k_pages"], 4.0)
-        self.assertEqual(models["libraries"]["per_1k_pages"], 3.0)
+    def test_models_come_from_the_docs_site(self) -> None:
+        self.run_scrape()
+        models = self.models("stamped.json")
+        self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
+        self.assertEqual(models["mistral medium 3.5"]["out_per_mtok"], 7.5)
+        self.assertNotIn("kind", models["mistral medium 3.5"], "a model is not a product")
 
-    def test_two_rows_of_one_card_in_the_same_unit_become_two_entries(self) -> None:
-        """The 'ocr 4.1' card prices OCR at $4 and Document AI at $5, both per 1000
-        pages. One entry has exactly one per_1k_pages field, so they cannot share one --
-        and both are keyed by their row label rather than the first one keeping the
-        plain card name, so the two cannot swap the day Mistral reorders the rows."""
-        self.run_scrape(self.page_ok)
-        models = self.candidate_block("stamped.json")["models"]
+    def test_the_models_the_pricing_page_omits_are_published(self) -> None:
+        """The reason this provider reads two sources at all. The pricing page shows no
+        card for any of these three, and Mistral sells all of them."""
+        models = self.models("stamped.json") if not self.run_scrape()[0] else {}
+        self.assertEqual(models["ocr 4.0"]["per_1k_pages"], 4.0)
+        self.assertEqual(models["ocr 3"]["per_1k_pages"], 2.0)
+        self.assertIs(models["leanstral 1.5"]["free"], True)
 
-        self.assertEqual(models["ocr 4.1 / ocr"]["per_1k_pages"], 4.0)
-        self.assertEqual(models["ocr 4.1 / document ai"]["per_1k_pages"], 5.0)
-        self.assertNotIn("ocr 4.1", models, "the plain card key would be ambiguous here")
-        self.assertEqual(models["ocr 4.1 / document ai"]["kind"], "product")
-        self.assertNotIn("kind", models["ocr 4.1 / ocr"])
-
-    def test_a_model_billed_in_two_units_keeps_both(self) -> None:
-        """'voxtral small' is billed per minute of audio AND per million tokens. Code
-        that assumes one unit per model truncates it, and the truncation is silent."""
-        self.run_scrape(self.page_ok)
-        entry = self.candidate_block("stamped.json")["models"]["voxtral small"]
-
-        self.assertEqual(entry["per_audio_minute"], 0.004)
-        self.assertEqual(entry["in_per_mtok"], 0.1)
-        self.assertEqual(entry["out_per_mtok"], 0.4)
+    def test_one_model_priced_twice_in_the_same_unit_keeps_both_figures(self) -> None:
+        """OCR bills annotated pages at a higher rate than plain ones. Two per-1000-page
+        prices on one model, which is why annotated pages have a field of their own --
+        an entry has one of each field, and dropping either would understate a bill."""
+        self.run_scrape()
+        entry = self.models("stamped.json")["ocr 4.1"]
+        self.assertEqual(entry["per_1k_pages"], 4.0)
+        self.assertEqual(entry["per_1k_annotated_pages"], 5.0)
 
     def test_a_cached_input_price_is_published_under_its_own_field(self) -> None:
-        """'glm 5.2' states three prices, not two. Folding a cached-read rate into
-        in_per_mtok would understate every ordinary input token by a factor of ten."""
-        self.run_scrape(self.page_ok)
-        entry = self.candidate_block("stamped.json")["models"]["glm 5.2"]
+        """GLM 5.2 states two figures denominated '/M Tokens' on the input side, and only
+        their labels tell them apart. Folding the cached rate into in_per_mtok would
+        understate every ordinary input token by a factor of ten."""
+        self.run_scrape()
+        entry = self.models("stamped.json")["z.ai glm 5.2"]
         self.assertEqual(entry["in_per_mtok"], 1.4)
         self.assertEqual(entry["cache_read_per_mtok"], 0.14)
         self.assertEqual(entry["out_per_mtok"], 4.4)
 
-    def test_every_priced_card_reaches_the_output(self) -> None:
-        """There is no list to reconcile: every card the page states a price for is
-        published, keyed by the card name the page states. A card quietly dropping out
-        between the page and the file is the one failure mode this repository must not
-        have."""
-        self.run_scrape(self.page_ok)
-        cards = scrape.parse_page(self.page_ok)
-        priced = {name for name, rows in cards.items() if rows}
-        published = set(self.candidate_block("stamped.json")["models"])
+    def test_a_model_billed_in_two_units_keeps_both(self) -> None:
+        """Voxtral Small is billed per minute of audio AND per million tokens of text.
+        Code that assumes one unit per model truncates it, and the truncation is silent."""
+        self.run_scrape()
+        entry = self.models("stamped.json")["voxtral small"]
+        self.assertEqual(entry["per_audio_minute"], 0.004)
+        self.assertEqual(entry["in_per_mtok"], 0.1)
+        self.assertEqual(entry["out_per_mtok"], 0.4)
 
-        # 'ocr 4.1' is the one card that becomes two entries; every other priced card
-        # is one entry under its own name.
-        self.assertEqual(published - {"ocr 4.1 / ocr", "ocr 4.1 / document ai"}, priced - {"ocr 4.1"})
+    def test_a_free_model_is_published_free_and_never_as_zero(self) -> None:
+        """This source says `free` in the data, so it is taken as said rather than
+        inferred from a figure of 0 -- which is also what a broken parser reads."""
+        self.run_scrape()
+        entry = self.models("stamped.json")["leanstral 1.5"]
+        self.assertIs(entry["free"], True)
+        self.assertEqual([k for k in entry if k in validate.KNOWN_PRICE_FIELDS], [])
+
+    def test_an_unbilled_side_is_simply_absent(self) -> None:
+        """Voxtral TTS charges for the audio it generates and nothing for the text it is
+        given. The zero on the input side is not published -- there is no price -- and
+        the model is not free either."""
+        self.run_scrape()
+        entry = self.models("stamped.json")["voxtral tts"]
+        self.assertEqual(entry["per_mchars"], 16.0)
+        self.assertNotIn("free", entry)
+
+    def test_products_come_from_the_pricing_page(self) -> None:
+        self.run_scrape()
+        models = self.models("stamped.json")
+        self.assertEqual(models["web search"]["per_1k_calls"], 30.0)
+        self.assertEqual(models["web search"]["kind"], "product")
+
+    def test_the_pricing_pages_own_model_cards_are_ignored(self) -> None:
+        """That page still carries a card for every model, at prices of its own. Reading
+        them too would give each model two sources of truth, and one of them would
+        silently win -- which is how a model the pricing page had dropped came to be
+        published as withdrawn while Mistral was still selling it.
+
+        Moving the figure on the pricing page's own 'codestral' card must therefore
+        change nothing: that model's price comes from the docs site."""
+        page = self.path_for(PRICING_PAGE)
+        text = page.read_text(encoding="utf-8")
+        start, end = scrape_card_span(text, "codestral")
+        card = text[start:end].replace("&quot;priceUsd&quot;:0.3", "&quot;priceUsd&quot;:9.9")
+        self.assertNotEqual(card, text[start:end], "fixture drift: the codestral card no longer reads 0.3")
+        page.write_text(text[:start] + card + text[end:], encoding="utf-8")
+
+        code, stdout, _ = self.run_scrape()
+        self.assertEqual(code, 0)
+        self.assertIn("unchanged", stdout)
+        self.assertEqual(self.models("stamped.json")["codestral"]["in_per_mtok"], 0.3)
+
+    def test_the_libraries_ocr_row_is_not_the_ocr_models_price(self) -> None:
+        """The decoy: 'libraries' carries a row labelled 'OCR (per 1K pages)' at $3,
+        which is not the OCR model's own $4. They are now not even read from the same
+        source, and they must still not be confused."""
+        self.run_scrape()
+        models = self.models("stamped.json")
+        self.assertEqual(models["libraries"]["per_1k_pages"], 3.0)
+        self.assertEqual(models["ocr 4.1"]["per_1k_pages"], 4.0)
+
+    def test_every_current_model_on_the_index_reaches_the_output(self) -> None:
+        """There is no list to reconcile: every model the index lists and prices is
+        published. One dropping out between the source and the file is the failure mode
+        this repository must not have."""
+        self.run_scrape()
+        published = set(self.models("stamped.json"))
+        index = scrape.parse_index(self.path_for(DOCS_INDEX).read_text(encoding="utf-8"))
+        # Shieldstral is on the index and states no price at all, so there is nothing
+        # to publish for it; every other listed model is here.
+        self.assertEqual({n.lower() for n in index.values()} - published, {"shieldstral 1.0"})
 
     def test_other_providers_blocks_are_never_touched(self) -> None:
         """The entire reason pricing.json nests under providers.<name>: a run that
@@ -275,21 +317,15 @@ class TestUnchanged(ScrapeTestCase):
         self.current.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
         self.current_bytes = self.current.read_bytes()
 
-        self.run_scrape(self.page_ok)
+        self.run_scrape()
 
-        candidate_providers = self.candidate("stamped.json")["providers"]
-        self.assertEqual(candidate_providers["acme"], doc["providers"]["acme"])
-
-        # Order matters too, not just value equality: a merge that rebuilt the
-        # providers dict as "everyone else, then mistral" would leave every value
-        # equal while still turning ["mistral", "acme"] into ["acme", "mistral"],
-        # which shows up as the whole acme block being removed-and-re-added in the
-        # diff a human reviews. Dict == ignores order; this assertion does not.
-        self.assertEqual(
-            list(candidate_providers),
-            list(doc["providers"]),
-            "providers were reordered even though only mistral changed",
-        )
+        providers = self.candidate("stamped.json")["providers"]
+        self.assertEqual(providers["acme"], doc["providers"]["acme"])
+        # Order matters too, not just value equality: a merge that rebuilt the providers
+        # dict as "everyone else, then mistral" would leave every value equal while
+        # turning ["mistral", "acme"] into ["acme", "mistral"], which shows up as the
+        # whole acme block being removed-and-re-added in the diff a human reviews.
+        self.assertEqual(list(providers), list(doc["providers"]))
 
 
 # ======================================================================================
@@ -298,60 +334,162 @@ class TestUnchanged(ScrapeTestCase):
 
 
 class TestPriceChange(ScrapeTestCase):
-    def test_normal_price_change_produces_a_candidate_not_a_publication(self) -> None:
-        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:2.25")
+    def test_a_model_price_change_produces_a_candidate_not_a_publication(self) -> None:
+        self.edit(self.docs_url("mistral-medium-3-5-26-04"),
+                  '\\"price\\":1.5', '\\"price\\":2.25')
 
-        code, stdout, _ = self.run_scrape(html)
+        code, stdout, _ = self.run_scrape()
 
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
         self.assertIn("mistral medium 3.5.in_per_mtok", stdout)
-        self.assertIn("1.5", stdout)
-        self.assertIn("2.25", stdout)
 
         updated = self.candidate_block("updated.json")
         self.assertEqual(updated["models"]["mistral medium 3.5"]["in_per_mtok"], 2.25)
         self.assertEqual(updated["checked_utc"], FIXED_NOW)
         self.assertEqual(updated["updated"], FIXED_NOW[:10], "updated must move with the figure")
         self.assertEqual(
-            updated["models"]["mistral medium 3.5"]["out_per_mtok"],
-            7.5,
+            updated["models"]["mistral medium 3.5"]["out_per_mtok"], 7.5,
             "an unrelated figure was disturbed",
         )
 
         # The stamp is still produced: the keepalive commit happens on every run.
         stamped = self.candidate_block("stamped.json")
         self.assertEqual(stamped["models"], json.loads(self.current_bytes)["providers"]["mistral"]["models"])
+        self.assert_current_untouched()
 
+    def test_a_product_price_change_is_picked_up_too(self) -> None:
+        """Both sources are live inputs; neither is a fallback for the other."""
+        page = self.path_for(PRICING_PAGE).read_text(encoding="utf-8")
+        start, end = scrape_card_span(page, "web search")
+        card = page[start:end].replace("&quot;priceUsd&quot;:30", "&quot;priceUsd&quot;:45")
+        self.path_for(PRICING_PAGE).write_text(page[:start] + card + page[end:], encoding="utf-8")
+
+        code, stdout, _ = self.run_scrape()
+        self.assertEqual(code, 0)
+        self.assertIn("web search.per_1k_calls", stdout)
+        self.assertEqual(self.models()["web search"]["per_1k_calls"], 45.0)
         self.assert_current_untouched()
 
     def test_a_price_going_down_is_also_a_change(self) -> None:
-        html = mutate_in_card(self.page_ok, "ocr 4.1", "&quot;priceUsd&quot;:4,", "&quot;priceUsd&quot;:2,")
-        code, stdout, _ = self.run_scrape(html)
+        self.edit(self.docs_url("ocr-4-1"), '\\"price\\":4,', '\\"price\\":2,')
+        code, stdout, _ = self.run_scrape()
         self.assertEqual(code, 0)
-        self.assertIn("ocr 4.1 / ocr.per_1k_pages", stdout)
-        self.assertEqual(self.candidate_block("updated.json")["models"]["ocr 4.1 / ocr"]["per_1k_pages"], 2.0)
+        self.assertIn("ocr 4.1.per_1k_pages", stdout)
+        self.assertEqual(self.models()["ocr 4.1"]["per_1k_pages"], 2.0)
         self.assert_current_untouched()
 
-    def test_a_renamed_card_publishes_the_new_name_and_keeps_the_old(self) -> None:
-        """The key IS the card name, so a rename is two facts at once: an entry exists
-        under a new name, and the old name is not on the page any more. Both are
-        published -- the new key with today's price, the old one frozen and dated.
+    def test_a_renamed_model_publishes_the_new_name_and_keeps_the_old(self) -> None:
+        """The key is the name the source states, so a rename is two facts at once: a
+        model exists under a new name, and nothing answers to the old one. Both are
+        published -- the new key with today's price, the old one frozen and dated."""
+        self.edit(self.docs_url("ocr-4-1"), 'OCR 4.1', 'OCR 4.2', expected_count=None)
 
-        This is the case that failed the real job: Mistral renamed six cards in one
-        week, and refusing to publish until a human reconciled a list held back
-        twenty-two prices that had nothing to do with the renames."""
-        html = mutate(self.page_ok, 'data-name="mistral medium 3.5"', 'data-name="mistral medium 4"')
-        code, _, _ = self.run_scrape(html)
+        code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
 
-        models = self.candidate_block("updated.json")["models"]
-        self.assertEqual(models["mistral medium 4"]["in_per_mtok"], 1.5)
-        self.assertNotIn("absent_since", models["mistral medium 4"])
-        self.assertEqual(models["mistral medium 3.5"]["absent_since"], FIXED_NOW[:10])
-        self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
+        models = self.models()
+        self.assertEqual(models["ocr 4.2"]["per_1k_pages"], 4.0)
+        self.assertNotIn("absent_since", models["ocr 4.2"])
+        self.assertEqual(models["ocr 4.1"]["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(models["ocr 4.1"]["per_1k_pages"], 4.0)
         self.assertIn("no longer offered", self.notes())
         self.assert_current_untouched()
+
+
+# ======================================================================================
+# A model that goes away
+# ======================================================================================
+
+
+class TestWithdrawnModel(ScrapeTestCase):
+    """This is the case that used to fail the whole job, blocking correct prices for
+    everything else until a human edited a list."""
+
+    SLUG = "codestral-25-08"
+
+    def test_it_is_kept_with_its_last_prices_and_a_date(self) -> None:
+        self.withdraw_from_index(self.SLUG)
+        code, _, _ = self.run_scrape()
+        self.assertEqual(code, 0)
+
+        entry = self.models()["codestral"]
+        published = json.loads(self.current_bytes)["providers"]["mistral"]["models"]["codestral"]
+        self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
+        self.assertEqual(entry["in_per_mtok"], published["in_per_mtok"])
+        self.assertEqual(entry["out_per_mtok"], published["out_per_mtok"])
+
+    def test_a_model_marked_retired_is_treated_the_same_way(self) -> None:
+        """Still linked from the index, but the page itself says it is retired. A price
+        for something Mistral has withdrawn is not a current price."""
+        self.edit(self.docs_url(self.SLUG), '\\"isRetired\\":false', '\\"isRetired\\":true',
+                  expected_count=None)
+        code, _, _ = self.run_scrape()
+        self.assertEqual(code, 0)
+        self.assertEqual(self.models()["codestral"]["absent_since"], FIXED_NOW[:10])
+
+    def test_every_other_model_is_still_published(self) -> None:
+        """The point of the whole design: one model going away is not a reason to
+        withhold every other price."""
+        self.withdraw_from_index(self.SLUG)
+        self.run_scrape()
+        models = self.models()
+        still_offered = [m for m in models if "absent_since" not in models[m]]
+        self.assertEqual(len(still_offered), 26)
+        self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
+
+    def test_it_is_reported_once_and_not_again(self) -> None:
+        """The run that first sees it gone says so. A run a week later, with the stamp
+        already in place, says nothing: a channel that repeats itself gets muted, and
+        this one has to still work the day something real happens."""
+        self.withdraw_from_index(self.SLUG)
+        self.run_scrape()
+        self.assertIn("codestral", self.notes())
+        self.assertIn("365 days", self.notes())
+
+        self.current.write_text(
+            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.current_bytes = self.current.read_bytes()
+        code, stdout, _ = self.run_scrape(now="2026-08-25T04:00:00Z")
+
+        self.assertEqual(code, 0)
+        self.assertIn("unchanged", stdout)
+        self.assertEqual(self.notes(), "", "the same disappearance was reported twice")
+
+    def test_it_is_dropped_after_a_year_and_not_before(self) -> None:
+        self.withdraw_from_index(self.SLUG)
+        self.run_scrape()
+        aged = json.loads((self.out_dir / "updated.json").read_text(encoding="utf-8"))
+        aged["providers"]["mistral"]["models"]["codestral"]["absent_since"] = "2025-08-18"
+        self.current.write_text(json.dumps(aged, indent=2) + "\n", encoding="utf-8")
+        self.current_bytes = self.current.read_bytes()
+
+        self.run_scrape(now="2026-08-17T04:00:00Z")
+        self.assertIn("codestral", self.models("stamped.json"))
+
+        code, _, _ = self.run_scrape(now="2026-08-19T04:00:00Z")
+        self.assertEqual(code, 0)
+        self.assertNotIn("codestral", self.models())
+        self.assertIn("Dropped from the file", self.notes())
+
+    def test_a_model_that_comes_back_loses_the_marker(self) -> None:
+        self.withdraw_from_index(self.SLUG)
+        self.run_scrape()
+        self.current.write_text(
+            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.current_bytes = self.current.read_bytes()
+
+        # Restore the index, then run again.
+        shutil.copy2(FIXTURES / "docs_index.html", self.path_for(DOCS_INDEX))
+        code, _, _ = self.run_scrape(now="2026-08-25T04:00:00Z")
+
+        self.assertEqual(code, 0)
+        entry = self.models()["codestral"]
+        self.assertNotIn("absent_since", entry)
+        self.assertEqual(entry["in_per_mtok"], 0.3)
+        self.assertIn("offered again", self.notes())
 
 
 # ======================================================================================
@@ -360,174 +498,121 @@ class TestPriceChange(ScrapeTestCase):
 
 
 class TestLayoutFailures(ScrapeTestCase):
-    def test_page_whose_layout_no_longer_parses(self) -> None:
-        html = mutate(self.page_ok, 'class="model-item', 'class="product-tile', expected_count=None)
-        code, _, stderr = self.run_scrape(html)
+    def test_docs_index_without_model_cards(self) -> None:
+        self.path_for(DOCS_INDEX).write_text("<html><body>nothing</body></html>", encoding="utf-8")
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "no model card found on the docs index")
+
+    def test_a_docs_page_without_a_model_name(self) -> None:
+        self.edit(self.docs_url("ocr-4-1"), '\\"currentModelName\\"', '\\"someOtherKey\\"')
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "states no currentModelName")
+
+    def test_a_source_the_manifest_does_not_serve_is_never_fetched(self) -> None:
+        """An offline run that silently reached the network would pass for the wrong
+        reason, and would make the tests depend on a live page."""
+        self.edit(DOCS_INDEX, 'href="/models/ocr-4-1"', 'href="/models/ocr-9-9"')
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "which no fixture serves")
+
+    def test_pricing_page_whose_layout_no_longer_parses(self) -> None:
+        self.edit(PRICING_PAGE, 'class="model-item', 'class="product-tile', expected_count=None)
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "no model card found")
 
-    def test_price_markup_replaced_by_plain_text(self) -> None:
-        html = mutate(self.page_ok, " data-prices=", " data-figures=", expected_count=None)
-        code, _, stderr = self.run_scrape(html)
+    def test_pricing_page_price_markup_replaced_by_plain_text(self) -> None:
+        self.edit(PRICING_PAGE, " data-prices=", " data-figures=", expected_count=None)
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "without data-prices")
 
-    def test_an_unrecognised_row_label_is_reported_and_never_guessed_at(self) -> None:
-        """There is no honest way to name the unit of a figure whose label this file
-        does not recognise, so that row is not published. The rows that WERE recognised
-        still are: a renamed input label says nothing about whether the output price
-        beside it was read correctly."""
-        html = mutate(self.page_ok, "Input (/M tokens)", "Prompt (/M tokens)", expected_count=None)
-        code, _, _ = self.run_scrape(html)
-        self.assertEqual(code, 0)
-
-        entry = self.candidate_block("updated.json")["models"]["mistral medium 3.5"]
-        self.assertNotIn("in_per_mtok", entry)
-        self.assertEqual(entry["out_per_mtok"], 7.5)
-        self.assertIn("Prompt (/M tokens)", self.notes())
-        self.assertIn("has no field for that label", self.notes())
-
-    def test_empty_page(self) -> None:
-        code, _, stderr = self.run_scrape("<html><body></body></html>")
-        self.assert_failed(code, stderr, "no model card found")
-
-    def test_unparseable_price_json(self) -> None:
-        html = mutate(
-            self.page_ok,
+    def test_pricing_page_unparseable_price_json(self) -> None:
+        self.edit(
+            PRICING_PAGE,
             "&quot;priceEur&quot;:1.25,&quot;priceUsd&quot;:1.5",
             "&quot;priceEur&quot;:1.25 &quot;priceUsd&quot;:1.5",
         )
-        code, _, stderr = self.run_scrape(html)
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "not JSON")
 
-    def test_missing_usd_figure_is_reported_and_not_converted(self) -> None:
-        """This file publishes USD and performs no conversion anywhere. A row that stops
-        stating a USD figure has no publishable price, whatever else it states."""
-        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceGbp&quot;:1.5")
-        code, _, _ = self.run_scrape(html)
+
+class TestUnreadableFigures(ScrapeTestCase):
+    """Things this file will not guess at. None of them stop the other prices."""
+
+    def test_an_unknown_denominator_is_reported_and_never_guessed_at(self) -> None:
+        """There is no honest field for a figure whose unit this repository cannot name,
+        so it is not published -- but a unit changing on one model says nothing about
+        whether the others were read correctly."""
+        self.edit(self.docs_url("ocr-4-1"), '/1000 Pages\\"', '/100 Pages\\"')
+        code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
 
-        entry = self.candidate_block("updated.json")["models"]["mistral medium 3.5"]
-        self.assertNotIn("in_per_mtok", entry)
-        self.assertEqual(entry["out_per_mtok"], 7.5)
-        self.assertIn("could not be read as stated", self.notes())
-
-
-class TestWithdrawnCard(ScrapeTestCase):
-    """A card the page stops showing. This is the case that used to fail the whole job,
-    blocking correct prices for everything else until a human edited a list."""
-
-    def without_codestral(self) -> str:
-        html = drop_card(self.page_ok, "codestral")
-        self.assertNotIn('data-name="codestral"', html)
-        return html
-
-    def test_it_is_kept_with_its_last_prices_and_a_date(self) -> None:
-        code, _, _ = self.run_scrape(self.without_codestral())
-        self.assertEqual(code, 0)
-
-        entry = self.candidate_block("updated.json")["models"]["codestral"]
-        published = json.loads(self.current_bytes)["providers"]["mistral"]["models"]["codestral"]
-        self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
-        self.assertEqual(entry["in_per_mtok"], published["in_per_mtok"])
-        self.assertEqual(entry["out_per_mtok"], published["out_per_mtok"])
-
-    def test_every_other_card_is_still_published(self) -> None:
-        """The point of the whole change: one model going away is not a reason to
-        withhold every other price on the page."""
-        self.run_scrape(self.without_codestral())
-        models = self.candidate_block("updated.json")["models"]
-        still_offered = [m for m in models if "absent_since" not in models[m]]
-        self.assertEqual(len(still_offered), 22)
+        models = self.models()
+        self.assertIn("/100 Pages", self.notes())
+        self.assertIn("has no field for", self.notes())
+        self.assertNotIn("per_1k_pages", models["ocr 4.1"])
+        self.assertEqual(models["ocr 4.1"]["per_1k_annotated_pages"], 5.0)
         self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
 
-    def test_it_is_reported_once_and_not_again(self) -> None:
-        self.run_scrape(self.without_codestral())
-        self.assertIn("codestral", self.notes())
-        self.assertIn("365 days", self.notes())
-
-        self.current.write_text(
-            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
-        )
-        self.current_bytes = self.current.read_bytes()
-        code, stdout, _ = self.run_scrape(self.without_codestral(), now="2026-08-10T04:00:00Z")
-
+    def test_a_model_whose_every_figure_is_unreadable_goes_absent(self) -> None:
+        self.edit(self.docs_url("ocr-4-1"), '/1000 ', '/100 ', expected_count=None)
+        code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
-        self.assertIn("unchanged", stdout)
-        self.assertEqual(self.notes(), "", "the same disappearance was reported twice")
+        self.assertIn("no price on this page could be published", self.notes())
+        self.assertEqual(self.models()["ocr 4.1"]["absent_since"], FIXED_NOW[:10])
 
-    def test_it_is_dropped_after_a_year_and_not_before(self) -> None:
-        self.run_scrape(self.without_codestral())
-        aged = json.loads((self.out_dir / "updated.json").read_text(encoding="utf-8"))
-        aged["providers"]["mistral"]["models"]["codestral"]["absent_since"] = "2025-08-03"
-        self.current.write_text(json.dumps(aged, indent=2) + "\n", encoding="utf-8")
-        self.current_bytes = self.current.read_bytes()
-
-        self.run_scrape(self.without_codestral(), now="2026-08-02T04:00:00Z")
-        self.assertIn("codestral", self.candidate_block("stamped.json")["models"])
-
-        code, _, _ = self.run_scrape(self.without_codestral(), now="2026-08-04T04:00:00Z")
+    def test_an_unrecognised_product_row_label_is_reported(self) -> None:
+        self.edit(PRICING_PAGE, "Price (per 1K calls)", "Cost (per 1K calls)", expected_count=None)
+        code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
-        self.assertNotIn("codestral", self.candidate_block("updated.json")["models"])
-        self.assertIn("Dropped from the file", self.notes())
-
-    def test_a_card_that_comes_back_loses_the_marker(self) -> None:
-        self.run_scrape(self.without_codestral())
-        self.current.write_text(
-            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
-        )
-        self.current_bytes = self.current.read_bytes()
-
-        code, _, _ = self.run_scrape(self.page_ok, now="2026-08-10T04:00:00Z")
-        self.assertEqual(code, 0)
-
-        entry = self.candidate_block("updated.json")["models"]["codestral"]
-        self.assertNotIn("absent_since", entry)
-        self.assertEqual(entry["in_per_mtok"], 0.3)
-        self.assertIn("offered again", self.notes())
+        self.assertIn("Cost (per 1K calls)", self.notes())
+        self.assertIn("has no field for that label", self.notes())
+        self.assertEqual(self.models()["web search"]["absent_since"], FIXED_NOW[:10])
 
 
 class TestSanityBounds(ScrapeTestCase):
     def test_out_of_bounds_figure_is_refused(self) -> None:
-        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:4000")
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, "outside the plausible range")
-
-    def test_figure_below_the_floor_is_refused(self) -> None:
-        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:0")
-        code, _, stderr = self.run_scrape(html)
+        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"price\\":1.5', '\\"price\\":4000')
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "outside the plausible range")
 
     def test_plausible_figure_that_moved_implausibly_is_refused(self) -> None:
         """20 is a perfectly ordinary price. Going 1.5 -> 20 in one week is not."""
-        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:20")
-        code, _, stderr = self.run_scrape(html)
+        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"price\\":1.5', '\\"price\\":20')
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "factor of", "Refusing to publish")
 
     def test_a_change_just_under_the_factor_limit_is_allowed_through(self) -> None:
-        html = mutate_in_card(self.page_ok, "mistral medium 3.5", "&quot;priceUsd&quot;:1.5", "&quot;priceUsd&quot;:6")
-        code, stdout, _ = self.run_scrape(html)
+        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"price\\":1.5', '\\"price\\":6')
+        code, stdout, _ = self.run_scrape()
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
         self.assert_current_untouched()
 
-    def test_unit_change_on_the_page_is_reported_and_never_published(self) -> None:
-        """per_1k_pages must not keep its name if the page stops meaning 1000 pages. The
-        figure is dropped rather than republished under a field name that would now be a
-        lie, and the two entries that lose their only price go absent like any other."""
-        html = mutate(
-            self.page_ok,
-            "&quot;suffix&quot;:&quot;/ 1000 pages&quot;",
-            "&quot;suffix&quot;:&quot;/ 100 pages&quot;",
-            expected_count=2,
-        )
-        code, _, _ = self.run_scrape(html)
-        self.assertEqual(code, 0)
+    def test_a_key_claimed_by_both_sources_is_refused(self) -> None:
+        """One key cannot be two things, and nothing here can tell which source is
+        right, so the run stops rather than letting one silently win.
 
-        models = self.candidate_block("updated.json")["models"]
-        self.assertIn("/ 100 pages", self.notes())
-        self.assertIn("no price on this card could be published", self.notes())
-        for key in ("ocr 4.1 / ocr", "ocr 4.1 / document ai"):
-            self.assertEqual(models[key]["absent_since"], FIXED_NOW[:10])
-        self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
+        Reaching this needs the mapping to call a card that is also a model a product,
+        which is why it is set up by hand: the committed mapping does not, and a test
+        that could not construct the collision would not be testing the guard."""
+        # Renamed to a docs model the pricing page has no card of its own for, so that
+        # the collision under test is the cross-source one and not a duplicate card.
+        self.edit(PRICING_PAGE, 'data-name="libraries"', 'data-name="ocr 4.0"')
+
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        mapping["products"] = ["ocr 4.0"]
+        patched = self.tmp / "mapping.json"
+        patched.write_text(json.dumps(mapping), encoding="utf-8")
+
+        argv = [
+            "--out-dir", str(self.out_dir), "--current", str(self.current),
+            "--mapping", str(patched), "--offline", str(self.sources / "offline.json"),
+            "--now", FIXED_NOW,
+        ]
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = scrape.main(argv)
+        self.assert_failed(code, err.getvalue(), "both as a model", "as a product")
 
 
 class TestCorruptInputs(ScrapeTestCase):
@@ -536,23 +621,23 @@ class TestCorruptInputs(ScrapeTestCase):
             json.dumps({"schema_version": validate.SCHEMA_VERSION, "providers": {}}), encoding="utf-8"
         )
         self.current_bytes = self.current.read_bytes()
-        code, _, stderr = self.run_scrape(self.page_ok)
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "committed pricing.json is invalid")
 
     def test_unparseable_committed_pricing_json_stops_everything(self) -> None:
         self.current.write_text("{ not json", encoding="utf-8")
         self.current_bytes = self.current.read_bytes()
-        code, _, stderr = self.run_scrape(self.page_ok)
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "not valid JSON")
 
     def test_a_missing_mistral_block_stops_everything(self) -> None:
-        """This job updates an existing provider's figures; it does not decide, on
-        its own, to start publishing a provider that was never seeded by a human."""
+        """This job updates an existing provider's figures; it does not decide, on its
+        own, to start publishing a provider that was never seeded by a human."""
         doc = json.loads(self.current_bytes)
         del doc["providers"]["mistral"]
         doc["providers"]["placeholder"] = {
-            "checked_utc": "2026-08-03T04:00:00Z",
-            "updated": "2026-08-03",
+            "checked_utc": "2026-08-18T04:00:00Z",
+            "updated": "2026-08-18",
             "source": "https://example.invalid",
             "currency": "USD",
             "models": {"x": {"in_per_mtok": 1.0, "display_name": "X"}},
@@ -560,12 +645,12 @@ class TestCorruptInputs(ScrapeTestCase):
         self.current.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
         self.current_bytes = self.current.read_bytes()
 
-        code, _, stderr = self.run_scrape(self.page_ok)
+        code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "no providers.mistral block")
 
-    def test_a_published_model_the_page_never_shows_is_kept_not_dropped(self) -> None:
-        """Something in the file that the page has never shown is not deleted on sight.
-        It is dated and kept for a year, like anything else that goes away."""
+    def test_a_published_model_neither_source_shows_is_kept_not_dropped(self) -> None:
+        """Something in the file that neither source has heard of is not deleted on
+        sight. It is dated and kept for a year, like anything else that goes away."""
         published = json.loads(self.current_bytes)
         published["providers"]["mistral"]["models"]["mistral retired legacy"] = {
             "in_per_mtok": 0.5,
@@ -575,13 +660,12 @@ class TestCorruptInputs(ScrapeTestCase):
         self.current.write_text(json.dumps(published, indent=2) + "\n", encoding="utf-8")
         self.current_bytes = self.current.read_bytes()
 
-        code, _, _ = self.run_scrape(self.page_ok)
+        code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
 
-        entry = self.candidate_block("updated.json")["models"]["mistral retired legacy"]
+        entry = self.models()["mistral retired legacy"]
         self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
         self.assertEqual(entry["in_per_mtok"], 0.5)
-        self.assertIn("mistral retired legacy", self.notes())
         self.assert_current_untouched()
 
 
@@ -591,6 +675,8 @@ class TestCorruptInputs(ScrapeTestCase):
 
 
 class TestPublishedFileMatchesMistral(unittest.TestCase):
+    maxDiff = None
+
     def base(self) -> JSONDict:
         return json.loads(PRICING_JSON.read_text(encoding="utf-8"))
 
@@ -604,14 +690,12 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
         validate.validate_document(json.loads(BASELINE_JSON.read_text(encoding="utf-8")))
 
     def test_the_baseline_has_the_same_shape_as_the_published_file(self) -> None:
-        """Figures may differ -- the baseline is pinned to its own capture -- but the
-        set of entries still on sale, and the units they are priced in, may not drift
-        apart unnoticed. Entries marked `absent_since` are excluded on both sides: the
-        published file keeps a withdrawn model for a year and the fixture, being a
-        single capture, has no way to know about one."""
-        published = {
-            k: v for k, v in self.mistral_block()["models"].items() if "absent_since" not in v
-        }
+        """Figures may differ -- the baseline is pinned to its own capture -- but the set
+        of entries still on sale, and the units they are priced in, may not drift apart
+        unnoticed. Entries marked `absent_since` are excluded on both sides: the
+        published file keeps a withdrawn model for a year and the fixtures, being a
+        single capture, have no way to know about one."""
+        published = {k: v for k, v in self.mistral_block()["models"].items() if "absent_since" not in v}
         baseline = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))["providers"]["mistral"]["models"]
         baseline = {k: v for k, v in baseline.items() if "absent_since" not in v}
 
@@ -624,35 +708,50 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
             )
 
     def test_the_committed_file_matches_the_mapping(self) -> None:
-        """There is no model list to agree with any more, so what is checked is what the
-        mapping still decides: where the figures come from, what currency they are in,
-        and which price fields the rows table can produce."""
+        """There is no model list to agree with, so what is checked is what the mapping
+        still decides: where the figures come from, what currency they are in, and which
+        price fields its two translation tables can produce."""
         published = self.mistral_block()
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 
         self.assertEqual(published["source"], mapping["source"])
         self.assertEqual(published["currency"], mapping["currency"])
 
-        producible = {spec["field"] for spec in mapping["rows"].values()}
+        producible = set(mapping["labels"].values())
+        for side in mapping["denominators"].values():
+            producible |= set(side.values())
+        producible |= {spec["field"] for spec in mapping["rows"].values()}
+
         for model_id, entry in published["models"].items():
             fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
-            self.assertTrue(fields, model_id)
-            self.assertLessEqual(fields, producible, model_id)
+            if entry.get("free") is True:
+                self.assertEqual(fields, set(), f"{model_id} is free and priced at once")
+            else:
+                self.assertTrue(fields, model_id)
+                self.assertLessEqual(fields, producible, model_id)
 
-    def test_every_key_is_a_card_name_the_page_states(self) -> None:
-        """The keys are page card names, deliberately not API model ids. An API-shaped
-        key creeping back in would mean somebody had started translating names by hand
-        again, which is the thing that made this block need a human every week."""
+    def test_only_products_carry_a_kind(self) -> None:
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        products = set(mapping["products"])
+        for model_id, entry in self.mistral_block()["models"].items():
+            if "kind" in entry:
+                self.assertEqual(entry["kind"], "product", model_id)
+                self.assertIn(model_id, products, model_id)
+
+    def test_every_key_is_a_name_a_source_states(self) -> None:
+        """The keys are names the sources state, deliberately not API model ids. An
+        API-shaped key creeping back in would mean somebody had started translating
+        names by hand again, which is the thing that made this block need a human every
+        week."""
         for model_id, entry in self.mistral_block()["models"].items():
             self.assertEqual(model_id, entry["display_name"], model_id)
             self.assertEqual(model_id, model_id.lower(), model_id)
 
-    def test_the_published_audio_prices_have_room_to_fall(self) -> None:
+    def test_the_published_figures_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits
         too close to it, a real price cut starts failing the job instead of being
         published. Caught here rather than on the Monday it happens."""
-        published = self.mistral_block()["models"]
-        for model_id, entry in published.items():
+        for model_id, entry in self.mistral_block()["models"].items():
             for field, value in entry.items():
                 if field not in validate.KNOWN_PRICE_FIELDS:
                     continue
@@ -684,36 +783,71 @@ class TestMapping(unittest.TestCase):
         that back without anything else in the tests noticing."""
         self.assertNotIn("models", self.mapping())
 
+    def test_the_two_sources_are_distinct(self) -> None:
+        mapping = self.mapping()
+        self.assertNotEqual(mapping["source"], mapping["products_source"])
+
+    def test_every_mapped_denominator_names_a_known_price_field(self) -> None:
+        for side, table in self.mapping()["denominators"].items():
+            for denominator, field in table.items():
+                self.assertIn(field, validate.KNOWN_PRICE_FIELDS, f"{side} {denominator}")
+
+    def test_no_two_denominators_share_a_field_on_one_side(self) -> None:
+        """Two units mapping to one field on the same side would make an entry
+        order-dependent, and one of the two figures would silently win."""
+        for side, table in self.mapping()["denominators"].items():
+            fields = list(table.values())
+            self.assertEqual(len(fields), len(set(fields)), side)
+
     def test_every_mapped_row_names_a_known_price_field(self) -> None:
         for label, spec in self.mapping()["rows"].items():
             self.assertIn(spec["field"], validate.KNOWN_PRICE_FIELDS, label)
-            if "kind" in spec:
-                self.assertIn(spec["kind"], validate.KNOWN_KINDS, label)
 
-    def test_every_row_label_on_the_page_is_mapped(self) -> None:
-        """Catches the gap on the day the fixture is re-captured rather than on the
+    def test_every_denominator_the_docs_state_is_mapped(self) -> None:
+        """Catches the gap on the day the fixtures are re-captured rather than on the
         Monday a price silently stops being published."""
-        rows_table = self.mapping()["rows"]
-        cards = scrape.parse_page(PAGE_OK.read_text(encoding="utf-8"))
-        for card_name, rows in cards.items():
-            for label, _ in rows:
+        mapping = self.mapping()
+        manifest = json.loads((FIXTURES / "offline.json").read_text(encoding="utf-8"))
+        known = {d for table in mapping["denominators"].values() for d in table}
+
+        for url, rel in manifest.items():
+            if not url.startswith("https://docs.mistral.ai/models/"):
+                continue
+            _, _, pricing = scrape.parse_model_page(
+                (FIXTURES / rel).read_text(encoding="utf-8", errors="replace"), url
+            )
+            if not pricing:
+                continue
+            rows = (pricing.get("input") or []) + (pricing.get("output") or [])
+            if not rows and "denominator" in pricing:
+                rows = [pricing]
+            for row in rows:
+                if row.get("price") == 0:
+                    continue
+                self.assertIn(row.get("denominator"), known, f"{url}: {row}")
+
+    def test_every_product_row_label_on_the_page_is_mapped(self) -> None:
+        mapping = self.mapping()
+        cards = scrape.parse_page((FIXTURES / "page_ok.html").read_text(encoding="utf-8"))
+        for card_name in mapping["products"]:
+            for label, _ in cards.get(card_name, []):
                 self.assertIsNotNone(
-                    scrape.resolve_field(label, rows_table), f"{card_name}: {label!r}"
+                    scrape.resolve_field(label, mapping["rows"]), f"{card_name}: {label!r}"
                 )
 
-    def test_a_prefix_never_shadows_a_longer_exact_label(self) -> None:
-        """'OCR' is in the table and so is 'OCR (per 1K pages)'. Longest match wins, and
-        an exact match wins outright -- otherwise the libraries card's per-1K-pages row
-        would be read through the OCR model's entry, which expects a different suffix."""
-        rows_table = self.mapping()["rows"]
-        matched, _ = scrape.resolve_field("OCR (per 1K pages)", rows_table)
-        self.assertEqual(matched, "OCR (per 1K pages)")
-
-    def test_products_are_card_names_that_exist_on_the_page(self) -> None:
-        """The list is an annotation and gates nothing, so a stale name cannot break a
-        run -- but it can quietly stop marking anything, which is worth catching."""
-        cards = set(scrape.parse_page(PAGE_OK.read_text(encoding="utf-8")))
+    def test_products_are_card_names_that_exist_on_the_pricing_page(self) -> None:
+        """The list gates which cards are read, so a stale name in it silently stops
+        publishing that product."""
+        cards = set(scrape.parse_page((FIXTURES / "page_ok.html").read_text(encoding="utf-8")))
         self.assertLessEqual(set(self.mapping()["products"]), cards)
+
+
+def scrape_card_span(source: str, data_name: str) -> tuple[int, int]:
+    """The exact character range one pricing-page model card occupies."""
+    anchor = source.index(f'data-name="{data_name}"')
+    start = source.rindex('<div class="model-item', 0, anchor)
+    end = source.index("</mistral-block-card-model>", start) + len("</mistral-block-card-model>")
+    return start, source.index("</div>", end) + len("</div>")
 
 
 if __name__ == "__main__":

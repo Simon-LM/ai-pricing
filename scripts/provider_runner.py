@@ -7,8 +7,8 @@ provider's block. Only how to fetch and parse ONE provider's own page is
 genuinely provider-specific, and that is the one thing this module does not do.
 
 A provider's own scrape.py supplies:
-  - PROVIDER_ID, a page parser, and an `extract_new_models(html_text, mapping)`
-    callback that turns that page into a `models` dict;
+  - PROVIDER_ID, a page parser, and an `extract_new_models(fetch, mapping)`
+    callback that turns its source, or sources, into a `models` dict;
   - its own CLI_SUMMARY and default paths;
 and calls `provider_runner.main(...)` from its own `main()`.
 
@@ -38,11 +38,21 @@ from pricing_validate import (  # noqa: E402
     validate_document,
 )
 
-# (html_text, mapping) -> what a provider's source says today, plus any notes about
+# url -> the text at that url. Handed to a provider's parser rather than a single
+# already-fetched page, because not every source is one page: Mistral's models are
+# documented one page each, behind an index that says which pages exist. A provider
+# that does read exactly one page simply calls this once, with mapping["source"].
+#
+# Offline (tests, and `--html`/`--offline` on the command line) the same callable
+# serves committed fixtures instead, so a provider's parser has no idea whether it is
+# reading the network, and the tests exercise the real code path.
+Fetcher = Callable[[str], str]
+
+# (fetch, mapping) -> what a provider's source says today, plus any notes about
 # things a human should look at that are nonetheless not reasons to publish nothing
 # (a price row whose label this repository does not recognise, an entry the source
 # lists without a price). Notes never block a run; a real problem raises ScrapeError.
-ExtractNewModels = Callable[[str, JSONDict], "tuple[dict[str, JSONDict], list[str]]"]
+ExtractNewModels = Callable[[Fetcher, JSONDict], "tuple[dict[str, JSONDict], list[str]]"]
 
 
 class ScrapeError(Exception):
@@ -205,6 +215,48 @@ def load_json(path: Path, what: str) -> Any:
         raise ScrapeError(f"{what} is not valid JSON ({path}): {exc}") from exc
 
 
+def build_fetcher(args: argparse.Namespace, mapping: JSONDict) -> Fetcher:
+    """Return the url -> text callable a provider's parser will be handed.
+
+    Live, it fetches. Offline, it serves committed fixtures and refuses any url the
+    manifest does not name -- deliberately an error rather than a fall-through to the
+    network, so that a test which forgets a fixture fails loudly instead of silently
+    reaching out and passing for the wrong reason.
+    """
+    served: dict[str, Path] = {}
+
+    if args.offline:
+        manifest_path = Path(args.offline)
+        manifest = load_json(manifest_path, "offline manifest")
+        if not isinstance(manifest, dict):
+            raise ScrapeError(f"the offline manifest must be an object of url -> path: {manifest_path}")
+        served.update({url: (manifest_path.parent / rel) for url, rel in manifest.items()})
+
+    # `--html` is the one-page shorthand: bind the mapping's own source to that file.
+    # Every provider but Mistral reads exactly one page, so this is the common case.
+    if args.html:
+        served[mapping["source"]] = Path(args.html)
+
+    def fetch(url: str) -> str:
+        path = served.get(url)
+        if path is not None:
+            try:
+                return path.read_text(encoding="utf-8", errors="replace")
+            except OSError as exc:
+                raise ScrapeError(f"fixture for {url} could not be read: {exc}") from exc
+        if served:
+            raise ScrapeError(
+                f"offline run asked for {url}, which no fixture serves. Add it to the "
+                f"manifest rather than letting the run reach the network."
+            )
+        try:
+            return fetch_page(url)
+        except FetchError as exc:
+            raise ScrapeError(str(exc)) from exc
+
+    return fetch
+
+
 def run(
     provider_id: str, extract_new_models: ExtractNewModels, args: argparse.Namespace
 ) -> tuple[str, str, list[str]]:
@@ -252,16 +304,7 @@ def run(
     # human reconciled a list is what turned an automated tracker into a weekly
     # chore, and it blocked correct prices for every other model in the block.
 
-    try:
-        html_text = (
-            Path(args.html).read_text(encoding="utf-8", errors="replace")
-            if args.html
-            else fetch_page(mapping["source"])
-        )
-    except FetchError as exc:
-        raise ScrapeError(str(exc)) from exc
-
-    offered_models, notes = extract_new_models(html_text, mapping)
+    offered_models, notes = extract_new_models(build_fetcher(args, mapping), mapping)
 
     # Compare against what is published before believing any of it.
     for model_id, entry in offered_models.items():
@@ -330,7 +373,13 @@ def main(
     parser.add_argument("--out-dir", default=".ci-out", help="where candidate files are written")
     parser.add_argument("--current", default=str(default_current), help="the published pricing.json")
     parser.add_argument("--mapping", default=str(default_mapping), help="the explicit mapping")
-    parser.add_argument("--html", help="read this local HTML file instead of fetching (tests)")
+    parser.add_argument("--html", help="read this local file instead of fetching the mapping's source (tests)")
+    parser.add_argument(
+        "--offline",
+        help="a JSON file of {url: path} serving every source from disk (tests). Paths are "
+        "relative to the manifest. A url the manifest does not list is an error rather "
+        "than a live fetch, so an offline run cannot quietly reach the network.",
+    )
     parser.add_argument("--now", help="override the UTC stamp, format YYYY-MM-DDTHH:MM:SSZ (tests)")
     args = parser.parse_args(argv)
 

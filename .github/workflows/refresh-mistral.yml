@@ -1,8 +1,9 @@
 name: Refresh prices (Mistral)
 
-# Reads a public marketing page once a week and works out whether pricing.json's
-# providers.mistral block should change. It has exactly three outcomes, and never
-# a fourth:
+# Reads Mistral's two public price sources once a week -- the documentation site for
+# the models, the pricing page for the billable non-models -- and works out whether
+# pricing.json's providers.mistral block should change. It has exactly three outcomes,
+# and never a fourth:
 #
 #   figures unchanged  -> commit the checked_utc stamp straight to main
 #   a figure changed   -> commit the new figures straight to main
@@ -64,7 +65,7 @@ jobs:
         continue-on-error: true
         run: python3 -m unittest discover -s tests -v
 
-      - name: Read the pricing page
+      - name: Read both price sources
         id: scrape
         continue-on-error: true
         run: python3 scripts/providers/mistral/scrape.py --out-dir .ci-out
@@ -103,12 +104,14 @@ jobs:
             echo '```'
             echo
             echo "Run: ${RUN_URL}"
-            echo "Page: https://mistral.ai/pricing/api"
+            echo "Models:   https://docs.mistral.ai/models"
+            echo "Products: https://mistral.ai/pricing/api"
             cat <<'OUTRO'
 
-          This almost always means the page changed shape rather than the price changing.
-          Compare the page against `scripts/providers/mistral/mapping.json`, fix the mapping
-          by hand, and re-run the workflow from the Actions tab.
+          This almost always means one of the two pages changed shape rather than a price
+          changing. Compare it against `scripts/providers/mistral/mapping.json` -- which maps
+          units and row labels, never models -- fix the mapping by hand, and re-run the
+          workflow from the Actions tab.
           OUTRO
           } > /tmp/issue-body.md
 

@@ -50,7 +50,7 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_SCRIPTS_DIR))
 
 import provider_runner  # noqa: E402
-from provider_runner import ScrapeError  # noqa: E402
+from provider_runner import Fetcher, ScrapeError  # noqa: E402
 from pricing_validate import JSONDict, check_price  # noqa: E402
 
 PROVIDER_ID = "huggingface"
@@ -204,13 +204,13 @@ def extract_models(routes: dict[str, JSONDict], mapping: JSONDict) -> dict[str, 
     return models
 
 
-def extract_new_models(body: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs: source text + mapping -> a models dict.
+def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs. One source, read once.
 
     No notes: the listing states every route's price under a fixed field name, so there
     is nothing left over for a human to look at.
     """
-    return extract_models(parse_routes(body), mapping), []
+    return extract_models(parse_routes(fetch(mapping["source"])), mapping), []
 
 
 def main(argv: list[str] | None = None) -> int:

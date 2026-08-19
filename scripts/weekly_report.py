@@ -57,8 +57,16 @@ def describe(provider_id: str, block: JSONDict, now: _dt.datetime) -> tuple[bool
     models = block["models"]
     absent = [m for m, e in models.items() if "absent_since" in e]
 
+    # Reported in whichever unit reads honestly: "1 days old" is how a reader learns to
+    # distrust the rest of the sentence, and a stamp a few hours past the window is a
+    # different situation from one a fortnight old.
+    if age_hours < 48:
+        age = f"{age_hours:.0f} hours old"
+    else:
+        age = f"{age_hours / 24:.0f} days old"
+
     row = (
-        f"| {provider_id} | {'yes' if fresh else f'**NO — {age_hours / 24:.0f} days old**'} "
+        f"| {provider_id} | {'yes' if fresh else f'**NO — {age}**'} "
         f"| {block['checked_utc']} | {block['updated']} | {len(models)} | {len(absent)} |"
     )
     return fresh, row
@@ -85,11 +93,20 @@ def build_report(doc: JSONDict, now: _dt.datetime) -> tuple[bool, str, str]:
 
     today = now.strftime("%Y-%m-%d")
     if stale:
-        title = f"Weekly pricing report {today} — {len(stale)} provider(s) NOT refreshed"
+        plural = len(stale) > 1
+        title = (
+            f"Weekly pricing report {today} — "
+            f"{len(stale)} provider{'s' if plural else ''} NOT refreshed"
+        )
         opening = (
-            f"**{', '.join(stale)} did not refresh on schedule.** Its workflow did not run, "
-            f"or ran and failed without reporting. The prices it publishes are still the "
-            f"last ones verified, and they are now older than they look."
+            f"**{', '.join(stale)} did not refresh on schedule.** "
+            + (
+                "Their workflows did not run, or ran and failed without reporting."
+                if plural
+                else "Its workflow did not run, or ran and failed without reporting."
+            )
+            + " The prices they publish are still the last ones verified, and they are now "
+            "older than they look."
         )
     else:
         title = f"Weekly pricing report {today} — all providers refreshed"

@@ -106,6 +106,23 @@ class TestSomethingStale(ReportTestCase):
         self.run_report(acme=block("2026-08-16T07:00:00Z"))
         self.assertIn("NOT refreshed", self.title())
 
+    def test_one_stale_provider_is_reported_in_the_singular(self) -> None:
+        """"1 provider(s)" and "1 days old" are how a reader learns to distrust the rest
+        of the sentence. This text is an email subject line, not a log line."""
+        self.run_report(acme=block("2026-08-16T07:00:00Z"))
+        self.assertIn("1 provider NOT refreshed", self.title())
+        self.assertIn("Its workflow did not run", self.body())
+        self.assertNotIn("days old", self.body())
+        self.assertIn("hours old", self.body())
+
+    def test_several_stale_providers_are_reported_in_the_plural(self) -> None:
+        self.run_report(
+            acme=block("2026-07-01T05:00:00Z"), beta=block("2026-07-01T05:00:00Z")
+        )
+        self.assertIn("2 providers NOT refreshed", self.title())
+        self.assertIn("Their workflows did not run", self.body())
+        self.assertIn("47 days old", self.body())
+
     def test_a_working_provider_is_not_dragged_down_with_it(self) -> None:
         self.run_report(acme=block("2026-08-17T04:00:00Z"), beta=block("2026-07-01T05:00:00Z"))
         body = self.body()
