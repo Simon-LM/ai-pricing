@@ -1,93 +1,98 @@
 {
   "_comment": [
-    "What to read out of Mistral's public pricing page.",
+    "What to read out of Mistral's two public price sources.",
     "",
-    "It names ROW LABELS, not models. Which models the page shows is Mistral's business",
-    "and changes week to week; following that is the whole point of this job. A card",
-    "Mistral adds is published on the next run, one it withdraws keeps its last observed",
-    "prices and gains an 'absent_since' stamp, and a card it renames is simply a removal",
-    "and an addition.",
+    "MODELS come from `source`, https://docs.mistral.ai/models. Its index lists the",
+    "models currently offered as cards, and each card's page carries a machine-readable",
+    "price object with the unit stated per figure. PRODUCTS come from",
+    "`products_source`, https://mistral.ai/pricing/api, which is the only place web",
+    "search, code execution, image generation, libraries, data capture and the two",
+    "classifier models are priced at all.",
     "",
-    "There is no hand-written model list, and there must not be one. An earlier version",
-    "of this file pinned 30 models by API id; the only thing that achieved was failing",
-    "the weekly job -- and blocking 22 correct prices -- the week Mistral renamed six",
-    "cards and retired eight.",
+    "Neither source alone is complete, which is why both are read. An earlier version",
+    "read only the pricing page and silently missed four priced models: OCR 4.0, OCR 3,",
+    "Leanstral 1.5, and Voxtral Mini Transcribe 2 -- the last of which the pricing page",
+    "had dropped while Mistral was still selling it, so this repository published it as",
+    "withdrawn. A marketing page is not an inventory.",
     "",
-    "KEYS ARE CARD NAMES, exactly as the page states them: 'devstral 2', not",
-    "'devstral-medium-latest'. This is a deliberate change from an earlier version. The",
-    "page does not say which API id a card refers to, and nothing else on it does",
-    "either, so an API id here could only ever be a human's translation, re-checked by",
-    "hand forever. A consumer that needs to call the model resolves the id itself, from",
-    "Mistral's own model cards at https://docs.mistral.ai/models/model-cards/."
+    "Neither half names a model. Which models exist is read from the docs index every",
+    "week; a model Mistral adds is published on the next run, one it retires keeps its",
+    "last observed prices under an 'absent_since' stamp. There is no hand-written model",
+    "list and there must not be one.",
+    "",
+    "KEYS ARE THE NAMES EACH SOURCE STATES, lowercased: 'ocr 4.0', 'mistral medium 3.5',",
+    "'web search'. Not API model ids. The docs pages do carry the ids, in a 'names'",
+    "array alongside their aliases; publishing those is a separate decision that has not",
+    "been taken, and a consumer that needs to call a model resolves it there."
+  ],
+
+  "_comment_denominators": [
+    "The docs pages state a unit per figure, as a 'denominator' string, split into",
+    "'input' and 'output' lists. The table below is the whole translation: an input",
+    "figure denominated '/M Tokens' is in_per_mtok, the same string on the output side",
+    "is out_per_mtok. A denominator missing from the table is NOT guessed at -- the unit",
+    "is part of the field name and there is no honest field to put an unrecognised",
+    "figure in -- so that one figure is skipped, the run reports it, and every other",
+    "price still publishes.",
+    "",
+    "'labels' overrides the denominator when a row names itself: GLM 5.2 states two",
+    "input figures denominated '/M Tokens', ordinary and 'Cached input', which would",
+    "otherwise collide on in_per_mtok.",
+    "",
+    "A figure of 0 is skipped rather than published. On this source that is not the",
+    "ambiguous zero a broken parser produces: the pages state 'free' separately, so a",
+    "zero means 'this side is not billed' -- Voxtral TTS charges for the audio it",
+    "generates and nothing for the text it is given."
   ],
 
   "_comment_rows": [
-    "A label is matched exactly first; failing that, the longest entry below that the",
-    "label STARTS with wins. The prefix rule exists for two rows only -- training cost",
-    "and storage cost -- where Mistral appends an explanatory sentence to the label,",
-    "one of which quotes a fee that will itself change. The unit is always in the",
-    "leading segment, which is what makes a prefix enough: 'Training cost (/M tokens)'",
-    "says per-million-tokens whatever follows it.",
+    "'rows' is the same idea for the pricing page's products, which state their unit in",
+    "a row label instead. A label is matched exactly first; failing that, the longest",
+    "entry below that the label STARTS with wins. The prefix rule exists for two rows",
+    "only -- training cost and storage cost -- where Mistral appends an explanatory",
+    "sentence to the label, one of which quotes a fee that will itself change.",
     "",
-    "'expect_suffix' is checked byte-for-byte where the unit is NOT in the label. The",
-    "OCR rows read '$4' with the unit stated separately as '/ 1000 pages'; if that",
-    "suffix ever changes, per_1k_pages stops meaning what it says, so the row is",
-    "dropped and reported rather than published.",
-    "",
-    "A label missing from this table is NOT guessed at -- there is no honest way to",
-    "name the unit of a figure whose label this repository does not recognise. That one",
-    "row is skipped, the run reports it, and every other price still publishes.",
-    "",
-    "Note 'Audio Input (per min / per M tok)' and 'Text Input (per min / per M tok)':",
-    "the card carries the same parenthetical on both rows and says which unit applies",
-    "to neither. Reading the audio row as per-minute and the text row as per-M-token is",
-    "an INTERPRETATION, written down here rather than inferred in code so a human can",
-    "check it. That card is also billed in both units at once; any consumer assuming",
-    "one unit per entry silently truncates it."
-  ],
-
-  "_comment_products": [
-    "Cards listed under 'products' are billed beside the models but are not models --",
-    "they are priced per call, per image or per month, and there is nothing to call.",
-    "The list is an ANNOTATION and gates nothing: a card missing from it is published",
-    "as an ordinary model, and a name here that no longer matches any card does",
-    "nothing at all. It can never block a price.",
-    "",
-    "The 'Document AI' row carries the marker itself rather than being listed by card,",
-    "because it shares the 'ocr 4.1' card with the OCR model: the two collide on",
-    "per_1k_pages and are therefore split into an entry each, and only one of them is a",
-    "product."
+    "'products' lists the cards to read off that page. Everything else on it is a model,",
+    "and models come from the docs site. A name here that matches no card is not an",
+    "error: the card is simply gone, and the entry is dated and kept like any other."
   ],
 
   "_comment_currency": [
-    "priceUsd is read and USD is published. The page also states priceEur, and the two",
+    "priceUsd is read and USD is published. Both sources also state EUR, and the two",
     "are genuinely different prices rather than a conversion of one another -- 1.25 EUR",
     "against 1.50 USD. No conversion is performed anywhere in this repository."
   ],
 
-  "source": "https://mistral.ai/pricing/api",
+  "source": "https://docs.mistral.ai/models",
+  "products_source": "https://mistral.ai/pricing/api",
   "currency": "USD",
+
+  "denominators": {
+    "input": {
+      "/M Tokens": "in_per_mtok",
+      "/M Chars": "per_mchars",
+      "/1000 Pages": "per_1k_pages",
+      "/1000 Annotated Pages": "per_1k_annotated_pages",
+      "/Min": "per_audio_minute"
+    },
+    "output": {
+      "/M Tokens": "out_per_mtok",
+      "/M Chars": "per_mchars"
+    }
+  },
+
+  "labels": {
+    "Cached input": "cache_read_per_mtok"
+  },
 
   "rows": {
     "Input (/M tokens)": { "field": "in_per_mtok" },
     "Output (/M tokens)": { "field": "out_per_mtok" },
-    "Cached input (/M tokens)": { "field": "cache_read_per_mtok" },
-
-    "Text Input (per min / per M tok)": { "field": "in_per_mtok" },
-    "Audio Input (per min / per M tok)": { "field": "per_audio_minute" },
-    "Audio Input/min": { "field": "per_audio_minute" },
-    "Audio generation": { "field": "per_1k_chars", "expect_suffix": "per 1k characters" },
-
-    "OCR": { "field": "per_1k_pages", "expect_suffix": "/ 1000 pages" },
-    "Document AI": { "field": "per_1k_pages", "expect_suffix": "/ 1000 pages", "kind": "product" },
-
     "Training cost (/M tokens)": { "field": "train_per_mtok" },
     "Storage cost (per month per model)": { "field": "per_model_month" },
-
     "OCR (per 1K pages)": { "field": "per_1k_pages" },
     "Indexing (per M tokens)": { "field": "index_per_mtok" },
     "Call (per call)": { "field": "per_call" },
-
     "Price (per M tokens)": { "field": "per_mtok" },
     "Price (per 1K calls)": { "field": "per_1k_calls" },
     "Price (per 1K images)": { "field": "per_1k_images" }

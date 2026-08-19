@@ -4,7 +4,7 @@
     "mistral": {
       "checked_utc": "2026-08-17T00:00:00Z",
       "updated": "2026-08-17",
-      "source": "https://mistral.ai/pricing/api",
+      "source": "https://docs.mistral.ai/models",
       "currency": "USD",
       "models": {
         "classifier api model (3b)": {
@@ -42,16 +42,14 @@
           "display_name": "data capture",
           "kind": "product"
         },
-        "glm 5.2": {
-          "in_per_mtok": 1.4,
-          "out_per_mtok": 4.4,
-          "cache_read_per_mtok": 0.14,
-          "display_name": "glm 5.2"
-        },
         "images": {
           "per_1k_images": 100.0,
           "display_name": "images",
           "kind": "product"
+        },
+        "leanstral 1.5": {
+          "free": true,
+          "display_name": "leanstral 1.5"
         },
         "libraries": {
           "index_per_mtok": 1.0,
@@ -60,20 +58,20 @@
           "display_name": "libraries",
           "kind": "product"
         },
-        "ministral 3 (14b)": {
+        "ministral 3 14b": {
           "in_per_mtok": 0.2,
           "out_per_mtok": 0.2,
-          "display_name": "ministral 3 (14b)"
+          "display_name": "ministral 3 14b"
         },
-        "ministral 3 (3b)": {
+        "ministral 3 3b": {
           "in_per_mtok": 0.1,
           "out_per_mtok": 0.1,
-          "display_name": "ministral 3 (3b)"
+          "display_name": "ministral 3 3b"
         },
-        "ministral 3 (8b)": {
+        "ministral 3 8b": {
           "in_per_mtok": 0.15,
           "out_per_mtok": 0.15,
-          "display_name": "ministral 3 (8b)"
+          "display_name": "ministral 3 8b"
         },
         "mistral embed": {
           "in_per_mtok": 0.1,
@@ -89,24 +87,38 @@
           "out_per_mtok": 7.5,
           "display_name": "mistral medium 3.5"
         },
+        "mistral moderation 2": {
+          "free": true,
+          "display_name": "mistral moderation 2"
+        },
         "mistral small 4": {
           "in_per_mtok": 0.15,
           "out_per_mtok": 0.6,
           "display_name": "mistral small 4"
         },
-        "ocr 4.1 / document ai": {
-          "per_1k_pages": 5.0,
-          "display_name": "ocr 4.1 / document ai",
-          "kind": "product"
+        "ocr 3": {
+          "per_1k_pages": 2.0,
+          "per_1k_annotated_pages": 3.0,
+          "display_name": "ocr 3"
         },
-        "ocr 4.1 / ocr": {
+        "ocr 4.0": {
           "per_1k_pages": 4.0,
-          "display_name": "ocr 4.1 / ocr"
+          "per_1k_annotated_pages": 5.0,
+          "display_name": "ocr 4.0"
+        },
+        "ocr 4.1": {
+          "per_1k_pages": 4.0,
+          "per_1k_annotated_pages": 5.0,
+          "display_name": "ocr 4.1"
         },
         "premium news": {
           "per_1k_calls": 50.0,
           "display_name": "premium news",
           "kind": "product"
+        },
+        "voxtral mini transcribe 2": {
+          "per_audio_minute": 0.003,
+          "display_name": "voxtral mini transcribe 2"
         },
         "voxtral mini transcribe realtime": {
           "per_audio_minute": 0.006,
@@ -119,13 +131,19 @@
           "display_name": "voxtral small"
         },
         "voxtral tts": {
-          "per_1k_chars": 0.016,
+          "per_mchars": 16.0,
           "display_name": "voxtral tts"
         },
         "web search": {
           "per_1k_calls": 30.0,
           "display_name": "web search",
           "kind": "product"
+        },
+        "z.ai glm 5.2": {
+          "in_per_mtok": 1.4,
+          "out_per_mtok": 4.4,
+          "cache_read_per_mtok": 0.14,
+          "display_name": "z.ai glm 5.2"
         }
       }
     }

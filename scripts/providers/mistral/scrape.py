@@ -1,29 +1,37 @@
 #!/usr/bin/env python3
-"""Read Mistral's public pricing page and work out what pricing.json's providers.mistral
+"""Read Mistral's public prices and work out what pricing.json's providers.mistral
 block should say.
 
-Standard library only. Reads a public web page and nothing else: it takes no API
-key, must never be given one, and never touches anyone's Mistral account.
+Standard library only. Reads two public pages and nothing else: it takes no API key,
+must never be given one, and never touches anyone's Mistral account.
 
 This script DOES NOT WRITE pricing.json. It writes candidate files into an output
 directory and reports which one, if any, the caller should promote. That is
 deliberate: "leave pricing.json untouched on every failure path" is then a property
 of the design rather than a branch of code somebody has to remember to get right.
 
-pricing.json holds one block per provider under `providers.<name>`, because the same
-model name can mean two different prices at two different providers (OVH resells
-some of the same open models under providers.ovh, at OVH's own prices). This script
-only ever reads and writes `providers.mistral`: every other provider's block is
-carried through the candidate files byte-for-byte, untouched. The plumbing that
-makes that true -- reading, merging, writing, the three outcomes -- is shared with
-every other provider and lives in scripts/provider_runner.py. This file supplies
-only what is genuinely Mistral-specific: how to parse Mistral's page.
+TWO SOURCES, because neither one is complete:
 
-Entries are keyed by the CARD NAME the page states -- "devstral 2", not
-"devstral-medium-latest". The page never says which API id a card refers to, so any
-id here would be a human's translation of a name, re-checked by hand forever; that is
-exactly the kind of hand-maintained list this job is not supposed to need. Consumers
-that call the model resolve the id themselves.
+  MODELS come from <https://docs.mistral.ai/models>. Its index lists the models
+  currently offered, one card each, and every card links to a page carrying a
+  machine-readable price object -- `{"price": 4, "denominator": "/1000 Pages"}` --
+  along with an `isRetired` flag. It is by far the better source: structured, with
+  the unit stated per figure rather than implied by a label.
+
+  PRODUCTS come from <https://mistral.ai/pricing/api>. Web search, code execution,
+  image generation, libraries, data capture and the two classifier models are billed
+  there and documented nowhere else. They are not models -- there is nothing to call
+  -- and they carry `"kind": "product"`.
+
+Reading only the pricing page, as an earlier version did, silently missed four
+priced models the docs list and the pricing page does not: OCR 4.0, OCR 3, Leanstral
+1.5, and Voxtral Mini Transcribe 2 -- the last of which the pricing page had dropped
+while Mistral was still selling it, so this repository published it as withdrawn.
+A marketing page is not an inventory.
+
+Entries are keyed by the NAME each source states -- "ocr 4.0", "web search" -- not by
+API model id. The docs pages do carry the ids, in a `names` array; publishing them is
+a separate decision and this file does not make it.
 
 Outcomes, matching the three the workflow must implement:
 
@@ -32,13 +40,14 @@ Outcomes, matching the three the workflow must implement:
   failure    fetch, parse or validation failed -> out/error.txt, exit code 1, no candidates
 
 Usage:
-    scripts/providers/mistral/scrape.py --out-dir .ci-out                  # fetch the live page
-    scripts/providers/mistral/scrape.py --out-dir .ci-out --html page.html # offline, for tests
+    scripts/providers/mistral/scrape.py --out-dir .ci-out                      # live
+    scripts/providers/mistral/scrape.py --out-dir .ci-out --offline m.json     # fixtures
 """
 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -47,8 +56,9 @@ from typing import cast
 _SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_SCRIPTS_DIR))
 
+import nextjs_flight  # noqa: E402
 import provider_runner  # noqa: E402
-from provider_runner import ScrapeError  # noqa: E402
+from provider_runner import Fetcher, ScrapeError  # noqa: E402
 from pricing_validate import JSONDict, check_price  # noqa: E402
 
 # A price row on the page: (label, {"priceUsd": ..., "suffix": ..., ...}).
@@ -63,7 +73,17 @@ DEFAULT_CURRENT = REPO_ROOT / "pricing.json"
 # Kept as its own constant rather than read off __doc__: the module docstring is
 # stripped to None under `python -OO`, which would otherwise take this script down
 # for a reason with nothing to do with argparse.
-CLI_SUMMARY = "Read Mistral's public pricing page and work out what providers.mistral should say."
+CLI_SUMMARY = "Read Mistral's public prices and work out what providers.mistral should say."
+
+# A model card on the docs index: an <a> tagged with the model's colour, wrapping an
+# icon whose alt text is the model's name. Models Mistral has deprecated are listed
+# further down the same page as plain table rows instead, which is what keeps them
+# out -- matching bare hrefs would pull in forty-five retired models.
+_INDEX_CARD = re.compile(
+    r'--model-color:[^"]*"\s+href="(?P<href>/models/[a-z0-9.-]+)">'
+    r'.{0,400}?<img alt="(?P<name>[^"]*) icon"',
+    re.S,
+)
 
 
 # --------------------------------------------------------------------------------------
@@ -220,7 +240,156 @@ def parse_page(html_text: str) -> dict[str, list[PriceRow]]:
 
 
 # --------------------------------------------------------------------------------------
-# Turning cards into entries
+# docs.mistral.ai -- the models
+# --------------------------------------------------------------------------------------
+
+
+def parse_index(html_text: str) -> dict[str, str]:
+    """Return {page path: model name} for every model card on the docs index.
+
+    Cards only. The same page lists Mistral's deprecated models further down as plain
+    table rows, and matching every /models/ link would pull in forty-five retired ones
+    -- including several this repository correctly stopped publishing.
+    """
+    found = {m.group("href"): m.group("name").strip() for m in _INDEX_CARD.finditer(html_text)}
+    if not found:
+        raise ScrapeError(
+            "no model card found on the docs index. The layout has changed: this scraper "
+            "expects each current model to be linked from a card carrying a "
+            "--model-color style and an icon whose alt text is the model name."
+        )
+    return found
+
+
+def parse_model_page(html_text: str, path: str) -> tuple[str | None, bool, JSONDict | None]:
+    """Return (name, retired, pricing object) for one docs model page.
+
+    Every value is optional because the pages are not uniform: a model with no
+    published price carries no pricing object at all, and the pages of some models
+    carry no `isRetired` flag. Deciding what to do with each combination is the
+    caller's job; this function only reports what the page says.
+    """
+    name = nextjs_flight.find_value(html_text, "currentModelName")
+    retired = nextjs_flight.find_value(html_text, "isRetired")
+    pricing = nextjs_flight.find_value(html_text, "pricing")
+
+    if not isinstance(name, str) or not name.strip():
+        raise ScrapeError(
+            f"{path}: the page states no currentModelName. Its data shape has changed, "
+            f"and the key this model would be published under cannot be read."
+        )
+    if pricing is not None and not isinstance(pricing, dict):
+        raise ScrapeError(f"{path}: the pricing value is not an object. The data shape has changed.")
+
+    return name.strip(), retired is True, cast("JSONDict | None", pricing)
+
+
+def docs_entry(model_id: str, pricing: JSONDict, mapping: JSONDict) -> tuple[JSONDict, list[str]]:
+    """Turn one docs pricing object into an entry, plus anything a human should see."""
+    notes: list[str] = []
+
+    # `free` is stated by the source itself rather than inferred from a figure of 0,
+    # so it is taken as said -- unlike OVH's catalog, which has no such flag and where
+    # "every unit is 0" is the only thing that can stand in for one.
+    if pricing.get("free") is True:
+        return {"free": True}, notes
+
+    denominators: JSONDict = mapping["denominators"]
+    labels: JSONDict = mapping["labels"]
+    entry: JSONDict = {}
+
+    # Two shapes in the wild. Most models state "input" and "output" lists; a model
+    # billed at a single rate states that rate on the pricing object itself, with no
+    # lists at all. The flat one is read as a single input row rather than ignored --
+    # ignoring it would silently drop the only price such a model has.
+    sides: dict[str, object] = {"input": pricing.get("input"), "output": pricing.get("output")}
+    if sides["input"] is None and sides["output"] is None and "price" in pricing:
+        sides["input"] = [pricing]
+
+    for side in ("input", "output"):
+        rows = sides[side]
+        if rows is None:
+            continue
+        if not isinstance(rows, list):
+            raise ScrapeError(f"{model_id}: pricing.{side} is not a list. The data shape has changed.")
+
+        for row in cast("list[JSONDict]", rows):
+            if not isinstance(row, dict):
+                raise ScrapeError(f"{model_id}: a pricing.{side} row is not an object.")
+
+            denominator = row.get("denominator")
+            price = row.get("price")
+
+            # A zero here is this source saying "this side is not billed" -- Voxtral
+            # TTS charges for the audio it generates and nothing for the text it is
+            # given. It is not the ambiguous zero OVH's catalog produces, because this
+            # source states `free` separately when a model is actually free, so there
+            # is nothing to report and nothing to publish.
+            if not isinstance(price, bool) and isinstance(price, (int, float)) and price == 0:
+                continue
+
+            field = labels.get(row.get("label")) or denominators.get(side, {}).get(denominator)
+            if field is None:
+                notes.append(
+                    f"{model_id}: {side} priced at {price!r} per {denominator!r}"
+                    + (f" (labelled {row.get('label')!r})" if row.get("label") else "")
+                    + f", a unit {DEFAULT_MAPPING.name} has no field for. That price is not "
+                    f"published. Add it to the mapping's 'denominators' table to publish it."
+                )
+                continue
+
+            if field in entry:
+                raise ScrapeError(
+                    f"{model_id}.{field}: two prices map to it. Refusing to guess which "
+                    f"one is the real figure."
+                )
+            entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, price)
+
+    return entry, notes
+
+
+def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """Read every model the docs index currently lists, and price it."""
+    index = parse_index(fetch(mapping["source"]))
+    base = mapping["source"].split("/models", 1)[0]
+
+    models: dict[str, JSONDict] = {}
+    notes: list[str] = []
+
+    for path in sorted(index):
+        name, retired, pricing = parse_model_page(fetch(base + path), path)
+        model_id = name.lower()
+
+        # Listed but marked retired: treated as not offered, exactly like one that has
+        # left the index. The runner keeps it, dated, rather than deleting it.
+        if retired or pricing is None:
+            continue
+
+        if model_id in models:
+            raise ScrapeError(
+                f"two docs pages are both called {name!r}. Refusing to guess which one "
+                f"carries the real price."
+            )
+
+        entry, entry_notes = docs_entry(model_id, pricing, mapping)
+        notes += entry_notes
+        if not entry:
+            notes.append(f"{model_id}: no price on this page could be published at all.")
+            continue
+        entry["display_name"] = model_id
+        models[model_id] = entry
+
+    if not models:
+        raise ScrapeError(
+            "not a single model on the docs site could be published. Either Mistral "
+            "restructured it, or the pages are not what they look like. Refusing to "
+            "publish an empty block."
+        )
+    return models, notes
+
+
+# --------------------------------------------------------------------------------------
+# mistral.ai/pricing/api -- the products
 # --------------------------------------------------------------------------------------
 
 
@@ -269,60 +438,36 @@ def read_price(prices: JSONDict, spec: JSONDict) -> float | None:
     return float(raw)
 
 
-def _entry_key(card_name: str, label: str) -> str:
-    """The key for a row that has to live in its own entry. See extract_models."""
-    return f"{card_name} / {' '.join(label.split()).lower()}"
-
-
-def extract_models(
+def extract_products(
     cards: dict[str, list[PriceRow]], mapping: JSONDict
 ) -> tuple[dict[str, JSONDict], list[str]]:
-    """Turn parsed cards into a `models` block: every card the page prices, no list.
+    """Read the billable non-models off the pricing page.
 
-    The mapping says which ROW LABELS this repository knows how to publish, and nothing
-    else. Which models the page shows is Mistral's business and changes week to week;
-    following that is the whole point of this job. A card Mistral adds is published on
-    the next run, one it withdraws keeps its last observed prices under an
-    `absent_since` stamp, and a card it renames is simply a removal and an addition.
-
-    The key is the card name exactly as the page states it -- "devstral 2", not
-    "devstral-medium-latest". The page does not say which API id a card refers to, and
-    nothing else on it does either, so any such key would be a human's translation
-    rather than something read from the source. Consumers that need to call the model
-    resolve the id themselves, from Mistral's own model cards.
-
-    Most cards become one entry. A card that prices two DIFFERENT things in the same
-    unit cannot: "ocr 4.1" states a per-1000-pages price for OCR and another for
-    Document AI, and one entry has exactly one per_1k_pages field. Those rows each get
-    their own entry, keyed "<card> / <row label>", for every row involved rather than
-    just the second one -- so that the keys do not swap the day Mistral reorders the
-    rows. Rows on the same card that do not collide stay in the plain card entry.
+    Only the cards `mapping["products"]` names are read. Everything else on that page
+    is a model, and models come from the docs site, which prices them better and lists
+    more of them. A name in the list that matches no card is not an error -- the card
+    is simply gone, and the runner will date and keep the entry like any other.
     """
+    wanted = mapping["products"]
     rows_table: JSONDict = mapping["rows"]
-    products = set(mapping.get("products", []))
 
-    models: dict[str, JSONDict] = {}
+    products: dict[str, JSONDict] = {}
     notes: list[str] = []
 
-    for card_name, rows in cards.items():
+    for card_name in wanted:
+        rows = cards.get(card_name)
         if not rows:
-            # Three cards state no price at all -- an agent product, a moderation model
-            # and a research preview. They are absent from the file rather than
-            # published at 0, and they are not worth a weekly note: "still not priced"
-            # is not news, and an alert channel that repeats itself gets ignored.
             continue
 
-        # (field, value, label, spec) for every row this file knows how to read.
-        read: list[tuple[str, float, str, JSONDict]] = []
+        entry: JSONDict = {"kind": "product", "display_name": card_name}
 
         for label, prices in rows:
             resolved = resolve_field(label, rows_table)
             if resolved is None:
                 notes.append(
-                    f"{card_name}: row {label!r} is priced at "
-                    f"{prices.get('priceUsd')!r} USD, and {DEFAULT_MAPPING.name} has no "
-                    f"field for that label. The price is not published. Add the label to "
-                    f"the mapping's 'rows' table to publish it."
+                    f"{card_name}: row {label!r} is priced at {prices.get('priceUsd')!r} USD, "
+                    f"and {DEFAULT_MAPPING.name} has no field for that label. The price is "
+                    f"not published. Add the label to the mapping's 'rows' table to publish it."
                 )
                 continue
 
@@ -338,41 +483,35 @@ def extract_models(
                 )
                 continue
 
-            read.append((spec["field"], value, label, spec))
+            field = spec["field"]
+            if field in entry:
+                raise ScrapeError(
+                    f"{card_name}.{field}: two rows map to it. Refusing to guess which one "
+                    f"is the real figure."
+                )
+            entry[field] = check_price(f"{PROVIDER_ID}/{card_name}", field, value)
 
-        if not read:
+        if len(entry) == 2:  # kind and display_name only
             notes.append(f"{card_name}: no price on this card could be published at all.")
             continue
+        products[card_name] = entry
 
-        # A field claimed by more than one row on the same card cannot share an entry.
-        collided = {f for f in {r[0] for r in read} if sum(1 for r in read if r[0] == f) > 1}
+    return products, notes
 
-        for field, value, label, spec in read:
-            if field in collided:
-                key = _entry_key(card_name, label)
-                kind = spec.get("kind")
-            else:
-                key = card_name
-                kind = "product" if card_name in products else None
 
-            entry = models.setdefault(key, {"display_name": key})
-            if kind is not None:
-                entry["kind"] = kind
-            entry[field] = check_price(f"{PROVIDER_ID}/{key}", field, value)
+def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs. Two sources, merged."""
+    models, notes = extract_docs_models(fetch, mapping)
+    products, product_notes = extract_products(parse_page(fetch(mapping["products_source"])), mapping)
 
-    if not models:
+    clash = sorted(set(models) & set(products))
+    if clash:
         raise ScrapeError(
-            "not a single card on the page could be published. Either Mistral "
-            "restructured it, or the page is not what it looks like. Refusing to publish "
-            "an empty block."
+            f"{clash} is published both as a model from the docs site and as a product "
+            f"from the pricing page. One key cannot be two things; resolve it by hand."
         )
 
-    return models, notes
-
-
-def extract_new_models(html_text: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs: page text + mapping -> a models dict."""
-    return extract_models(parse_page(html_text), mapping)
+    return {**models, **products}, notes + product_notes
 
 
 def main(argv: list[str] | None = None) -> int:

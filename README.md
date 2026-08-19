@@ -17,7 +17,7 @@ those numbers is in this file.
 
 | provider | entries | on sale | currency | what it is |
 | --- | --- | --- | --- | --- |
-| `mistral` | 31 | 23 | USD | called directly |
+| `mistral` | 34 | 27 | USD | called directly |
 | `ovh` | 19 | 19 | EUR | called directly |
 | `edenai` | 105 | 104 | USD | resold, 5 upstreams |
 | `huggingface` | 15 | 15 | USD | routed, 2 partners |
@@ -34,15 +34,20 @@ full.
 
 ## Read this before you trust a number in it
 
-**Most of these figures are scraped from public marketing pages**, one scraper per
-provider. Mistral, specifically, publishes no machine-readable pricing: there is no
-pricing endpoint in the API, and the one usage endpoint that returns a `prices`
-field requires an *admin* API key that an ordinary user of an open-source tool does
-not have and should never be asked for. So Mistral's numbers here come from reading
-<https://mistral.ai/pricing/api>, a page with no contract behind it and no
-versioning. OVH's are read the same way, from their public AI Endpoints catalog --
-a Next.js app that embeds its model list and pricing as JSON inside the page rather
-than rendering scrapeable card markup the way Mistral's does.
+**Most of these figures are scraped from public web pages**, one scraper per provider.
+There is no pricing endpoint in Mistral's API, and the one usage endpoint that returns
+a `prices` field requires an *admin* API key that an ordinary user of an open-source
+tool does not have and should never be asked for. So Mistral's models are read from
+its documentation site, <https://docs.mistral.ai/models>, which does at least state a
+machine-readable price object per model; its billable non-models are read from
+<https://mistral.ai/pricing/api>, which is the only place they are priced. OVH's
+catalog is read the same way -- a Next.js app that embeds its model list and pricing
+as JSON inside the page.
+
+**One provider, two sources, on purpose.** Mistral's pricing page had dropped Voxtral
+Mini Transcribe 2 while Mistral was still selling it, and this file published it as
+withdrawn until the documentation site was read alongside. A marketing page is not an
+inventory. See [scripts/providers/mistral/README.md](scripts/providers/mistral/README.md).
 
 Eden AI is the exception and the sturdiest source here: a real public JSON API,
 <https://api.edenai.run/v3/models>, stating an input and an output price per model
@@ -132,15 +137,14 @@ convention because there is no single source:
 | `ovh` | the callable API model id, from the catalog's own `name` | `Qwen3.6-27B` |
 | `edenai` | Eden's model id, upstream prefix included | `mistral/codestral-latest` |
 | `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
-| `mistral` | **the pricing page's card name** | `mistral medium 3.5` |
+| `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
-Mistral is the odd one. Its pricing page states no API model id anywhere, and nothing
-else on the page implies one, so a key like `mistral-medium-latest` could only ever be
-a human's translation of `mistral medium 3.5` -- re-checked by hand every time Mistral
-renames a card, which it does. That translation is not this repository's to make: if
-you call Mistral's API, resolve the id yourself from
-`docs.mistral.ai/models/model-cards/`, and treat this block as what it is, a price
-list keyed the way its source keys it.
+Mistral is the odd one. Its documentation pages do carry the callable ids, alongside
+their aliases (`"names": ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]`),
+but publishing them is a separate decision that has not been taken, so this block is
+keyed the way its sources name things. If you call Mistral's API, resolve the id
+yourself at `docs.mistral.ai/models/<slug>` -- and note that every `-latest` id is an
+alias whose meaning changes without warning.
 
 The unit is part of the key name, so that a consumer cannot silently apply a
 per-token price to a per-page model. There is deliberately no generic `price` field.
@@ -154,6 +158,7 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `index_per_mtok` | per million tokens indexed |
 | `train_per_mtok` | per million tokens trained on, one-off |
 | `per_1k_pages` | per thousand pages |
+| `per_1k_annotated_pages` | per thousand pages that are also annotated (OCR bills these higher) |
 | `per_1k_chars` | per thousand characters |
 | `per_audio_minute` | per minute of audio sent |
 | `per_audio_second` | per second of audio sent |
@@ -365,9 +370,9 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 205 tests
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live page
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
+python3 -m unittest discover -s tests -v                          # 231 tests
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live sources
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 
 python3 scripts/providers/ovh/scrape.py --out-dir .ci-out         # read the live catalog
 python3 scripts/providers/ovh/scrape.py --out-dir .ci-out --html tests/fixtures/ovh/catalog_ok.html
@@ -400,13 +405,15 @@ What still needs a human is a source stating something the file has no way to ex
    rather than left to find out on a Monday morning.
 2. **A new way of naming that unit at one source.** Add it to that provider's
    `mapping.json`: OVH's `units` maps a catalog `price_unit` to a field, Mistral's
-   `rows` maps a page row label to one, Eden AI's and Hugging Face's `fields` map an
-   API field name. Copy the string byte-for-byte from the source.
-3. Re-capture that provider's fixture (Mistral's is
-   `tests/fixtures/mistral/page_ok.html`, OVH's is `tests/fixtures/ovh/catalog_ok.html`)
-   so it contains the new shape, and regenerate its `baseline.json` from it.
+   `denominators` maps a docs unit string to one and its `rows` maps a pricing-page row
+   label, Eden AI's and Hugging Face's `fields` map an API field name. Copy the string
+   byte-for-byte from the source.
+3. Re-capture that provider's fixtures (Mistral's are under `tests/fixtures/mistral/`,
+   listed by `offline.json`; OVH's is `tests/fixtures/ovh/catalog_ok.html`) so they
+   contain the new shape, and regenerate its `baseline.json` from them.
 4. Run the tests. `tests/test_pricing_validate.py` checks the shared schema,
-   `tests/test_provider_runner.py` the reconciliation every provider shares, and each
+   `tests/test_provider_runner.py` the reconciliation every provider shares,
+   `tests/test_nextjs_flight.py` the payload reader the two Next.js sources share, and each
    provider's `tests/scraper_tests/test_<name>.py` has `TestPublishedFileMatches<Name>`
    and `TestMapping` classes that check that provider's own files agree with each
    other -- including that its mapping still contains no model list.
@@ -428,7 +435,9 @@ or [`scripts/providers/ovh/scrape.py`](scripts/providers/ovh/scrape.py) -- for t
 page-reading half, and use [`scripts/provider_runner.py`](scripts/provider_runner.py)
 for everything else: it already handles reading, merging, writing, the three outcomes,
 and keeping withdrawn entries for a year. It only needs a provider id and an
-`extract_new_models(source_text, mapping)` callback returning `(models, notes)` --
+`extract_new_models(fetch, mapping)` callback returning `(models, notes)` -- `fetch`
+being a url-to-text callable, so a provider that needs several pages (as Mistral does)
+reads them all through the same offline-testable path --
 `models` being everything the source offers *today*, with no reference to what is
 already published. Write a mapping that names units and labels, never models, and give
 the new provider its own `refresh-<name>.yml` sharing the `pricing-json-writes`

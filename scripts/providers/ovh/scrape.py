@@ -41,7 +41,6 @@ Usage:
 from __future__ import annotations
 
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any, cast
@@ -49,8 +48,9 @@ from typing import Any, cast
 _SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_SCRIPTS_DIR))
 
+import nextjs_flight  # noqa: E402
 import provider_runner  # noqa: E402
-from provider_runner import ScrapeError  # noqa: E402
+from provider_runner import Fetcher, ScrapeError  # noqa: E402
 from pricing_validate import JSONDict, check_price  # noqa: E402
 
 PROVIDER_ID = "ovh"
@@ -64,76 +64,10 @@ DEFAULT_CURRENT = REPO_ROOT / "pricing.json"
 # for a reason with nothing to do with argparse.
 CLI_SUMMARY = "Read OVH's AI Endpoints catalog and work out what providers.ovh should say."
 
-_PUSH_START = re.compile(r'self\.__next_f\.push\(\[1,"')
-
-
-# --------------------------------------------------------------------------------------
-# Page parsing
-# --------------------------------------------------------------------------------------
-
-
-def _extract_push_strings(html_text: str) -> list[str]:
-    """Every raw (still JS-escaped) string literal argument to a
-    `self.__next_f.push([1, "..."])` call, in document order.
-
-    Regex only finds where each one starts; the string itself is walked
-    character by character so an escaped quote (`\\"`) inside it is never
-    mistaken for the string's real closing quote.
-    """
-    out: list[str] = []
-    for m in _PUSH_START.finditer(html_text):
-        i = m.end()
-        start = i
-        while i < len(html_text):
-            ch = html_text[i]
-            if ch == "\\":
-                i += 2
-                continue
-            if ch == '"':
-                break
-            i += 1
-        out.append(html_text[start:i])
-    return out
-
-
-def _extract_bracketed_array(text: str, key: str) -> str:
-    """Return the raw `[...]` substring for `"<key>":[...]` in `text`.
-
-    Matches brackets one character at a time, skipping over quoted strings,
-    rather than a regex -- the array holds nested arrays and objects of its own,
-    which a regex cannot reliably bound.
-    """
-    marker = f'"{key}":['
-    idx = text.index(marker)
-    start = idx + len(marker) - 1
-    depth = 0
-    in_str = False
-    i = start
-    while i < len(text):
-        ch = text[i]
-        if in_str:
-            if ch == "\\":
-                i += 2
-                continue
-            if ch == '"':
-                in_str = False
-        else:
-            if ch == '"':
-                in_str = True
-            elif ch == "[":
-                depth += 1
-            elif ch == "]":
-                depth -= 1
-                if depth == 0:
-                    return text[start : i + 1]
-        i += 1
-    raise ValueError(f"unterminated array for key {key!r}")
-
-
 def extract_catalog_models(html_text: str) -> list[JSONDict]:
     """Pull the full model catalog out of the page's embedded React Flight data."""
     try:
-        chunks = _extract_push_strings(html_text)
+        chunks = nextjs_flight.push_chunks(html_text)
     except Exception as exc:  # a scan crash is a layout failure like any other
         raise ScrapeError(f"the page could not be scanned for its embedded data: {exc}") from exc
 
@@ -144,7 +78,7 @@ def extract_catalog_models(html_text: str) -> list[JSONDict]:
             "a Next.js React Server Components payload."
         )
 
-    target = next((c for c in chunks if '\\"models\\":[' in c), None)
+    target = next((c for c in nextjs_flight.decoded_chunks(html_text) if '"models":[' in c), None)
     if target is None:
         raise ScrapeError(
             'none of the page\'s embedded data chunks contain a "models" array. '
@@ -152,13 +86,7 @@ def extract_catalog_models(html_text: str) -> list[JSONDict]:
         )
 
     try:
-        decoded = json.loads('"' + target + '"')
-    except json.JSONDecodeError as exc:
-        raise ScrapeError(f'the chunk containing "models" could not be decoded: {exc}') from exc
-
-    try:
-        models_array = _extract_bracketed_array(decoded, "models")
-        models = json.loads(models_array)
+        models = nextjs_flight.decode_after(target, "models")
     except (ValueError, json.JSONDecodeError) as exc:
         raise ScrapeError(f'the "models" array could not be parsed: {exc}') from exc
 
@@ -304,9 +232,9 @@ def extract_models(
     return models, notes
 
 
-def extract_new_models(html_text: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs: page text + mapping -> a models dict."""
-    return extract_models(extract_catalog_models(html_text), mapping)
+def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs. One page, read once."""
+    return extract_models(extract_catalog_models(fetch(mapping["source"])), mapping)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -67,6 +67,10 @@ KNOWN_PRICE_FIELDS = (
     "per_mchars",
     # document prices
     "per_1k_pages",
+    # Mistral's OCR models bill a second, higher rate for pages it also annotates.
+    # Its own key rather than a second per_1k_pages, because an entry has one of each
+    # field and the two are genuinely different prices for the same thousand pages.
+    "per_1k_annotated_pages",
     "per_1k_chars",
     # audio prices
     "per_audio_minute",

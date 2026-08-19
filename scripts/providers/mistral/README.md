@@ -2,111 +2,105 @@
 
 # Mistral
 
-Reads Mistral's [public pricing page](https://mistral.ai/pricing/api) and publishes
-`providers.mistral` in `pricing.json`. Covers every card on the page that states a
-price — 23 entries today, and the count follows the page.
+Publishes `providers.mistral` in `pricing.json` from **two** public sources, because
+neither one is complete.
+
+| what | source | why it has to be that one |
+| --- | --- | --- |
+| the models | <https://docs.mistral.ai/models> | states a machine-readable price object and an `isRetired` flag per model, and lists models the pricing page does not |
+| the billable non-models | <https://mistral.ai/pricing/api> | the only place web search, code execution, images, libraries, data capture and the two classifiers are priced at all |
+
+34 entries today: 27 on sale, 7 kept with `absent_since`.
+
+## Why two sources, and not just the pricing page
+
+An earlier version read only `mistral.ai/pricing/api`. It silently missed four priced
+models the docs site lists and that page does not:
+
+| model | price the docs state |
+| --- | --- |
+| OCR 4.0 | `$4` / 1000 pages, `$5` / 1000 annotated pages |
+| OCR 3 | `$2` / `$3` |
+| Leanstral 1.5 | free |
+| **Voxtral Mini Transcribe 2** | `$0.003` / min |
+
+The last one is the one that mattered. The pricing page dropped its card while
+Mistral was still selling it — the docs page says `isRetired: false` and states a
+price — so this repository published a model that was on sale as withdrawn. **A
+marketing page is not an inventory.** Exactly the same thing happened on OVH's
+catalog, which is why that provider has a coverage check; here the fix was to read
+the source that actually knows.
 
 ## Why there is no API model id in this block
 
-**The keys here are page card names**: `mistral medium 3.5`, `codestral`,
-`ministral 3 (3b)`. Not `mistral-medium-latest`. This is a deliberate change from an
-earlier version of this repository, and it is the thing most likely to surprise you.
+**The keys are the names the sources state, lowercased**: `ocr 4.0`,
+`mistral medium 3.5`, `web search`. Not `mistral-ocr-4-1`.
 
-Mistral publishes no machine-readable pricing at all. There is no pricing endpoint in
-the API, and the one usage endpoint returning a `prices` field requires an **admin**
-API key that an ordinary user of an open-source tool does not have and must never be
-asked for. So the numbers come from reading a marketing page.
+The docs pages *do* carry the ids, alongside their aliases:
 
-That page states a card name and a price. It does not state an API model id, and
-nothing else on it implies one — `devstral 2` is `devstral-medium-latest` and
-`voxtral tts` is `voxtral-mini-tts-latest`, neither derivable from the other. An id in
-this file could therefore only ever be a human's translation, re-checked by hand every
-time Mistral renames a card.
+```json
+"names": ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]
+```
 
-Mistral renames cards. In the week of 2026-08-17 it renamed six of them (`ocr 4` →
-`ocr 4.1`, `ministral 3 - 3b` → `ministral 3 (3b)`, and four more) and retired eight
-others. The version of this scraper that held a hand-written name-to-id table did the
-only thing it could: it refused to publish anything, and 22 correct prices sat blocked
-behind a translation problem that had nothing to do with them.
-
-So the translation is not made here any more. This block is a price list keyed the way
-its source keys it. **A consumer that needs to call the model resolves the id itself**,
-from `docs.mistral.ai/models/model-cards/`, where each card states its versioned id and
-its aliases together.
+Publishing those is a separate decision that has not been taken, so this scraper does
+not read them. A consumer that needs to call a model resolves it there, at
+`docs.mistral.ai/models/<slug>` — and should note that every `-latest` id is an alias
+whose meaning changes without warning.
 
 ## What the mapping still holds
 
-`mapping.json` names **row labels**, not models:
+No model list, and there must not be one — the docs index says which models exist,
+every week. What `mapping.json` holds is the translation for the two things the
+sources state in prose rather than in data.
+
+**`denominators`** — the docs state a unit per figure, split into `input` and
+`output`:
 
 ```json
-"Input (/M tokens)":  { "field": "in_per_mtok" },
-"Audio generation":   { "field": "per_1k_chars", "expect_suffix": "per 1k characters" }
+"input":  { "/M Tokens": "in_per_mtok", "/1000 Pages": "per_1k_pages" },
+"output": { "/M Tokens": "out_per_mtok" }
 ```
 
-A label is matched exactly first; failing that, the longest table entry the label
-starts with wins. The prefix rule exists for two rows only — training cost and storage
-cost — where Mistral appends an explanatory sentence to the label, one of which quotes
-a fee that will itself change. The unit is always in the leading segment, which is what
-makes a prefix enough.
+`labels` overrides it when a row names itself: GLM 5.2 states two input figures both
+denominated `/M Tokens`, ordinary and `Cached input`, which would otherwise collide.
 
-`expect_suffix` is checked byte-for-byte where the unit is **not** in the label. The
-OCR rows read `$4` with the unit stated separately as `/ 1000 pages`; if that suffix
-changes, `per_1k_pages` stops meaning what it says, so the row is dropped and reported
-rather than published.
+**`rows`** — the same idea for the pricing page's products, which put their unit in a
+row label. A label is matched exactly first; failing that, the longest entry it
+*starts with* wins. That prefix rule exists for two rows only, where Mistral appends
+an explanatory sentence to the label — one of which quotes a fee that will itself
+change.
 
-A label missing from the table is not guessed at — there is no honest way to name the
-unit of a figure whose label this file does not recognise. That one row is skipped, the
-run reports it by email, and every other price still publishes.
+A denominator or label missing from those tables is **not guessed at**: the unit is
+part of the field name and there is no honest field for an unrecognised figure. That
+one figure is skipped, the run reports it by email, and every other price publishes.
 
-## Two decoys the tests exist to catch
+## Three things worth knowing about the data
 
-Prices are read **per card**, never by searching the page for a label. Two things on
-the page would go wrong immediately otherwise:
+**A figure of `0` means "this side is not billed", not "free".** Voxtral TTS charges
+for the audio it generates and nothing for the text it is given. This source states
+`free` separately, so a zero is unambiguous here and is simply not published — unlike
+OVH's catalog, which has no such flag and where every-unit-zero is the only thing that
+can stand in for one.
 
-- the `libraries` card carries a row labelled `OCR (per 1K pages)` at `$3`, which is
-  not the OCR model's own price of `$4`;
-- `voxtral mini transcribe realtime` carries a row labelled `Audio Input/min`, a label
-  that has appeared on more than one card at different prices.
+**OCR bills annotated pages at a higher rate**, so those models carry both
+`per_1k_pages` and `per_1k_annotated_pages`. A consumer reading only the first
+understates the bill.
 
-## The one card that becomes two entries
-
-`ocr 4.1` prices two different things in the same unit: OCR at `$4` per 1000 pages and
-Document AI at `$5`. One entry has exactly one `per_1k_pages` field, so they cannot
-share one. Both get their own entry, keyed by row label:
-
-```json
-"ocr 4.1 / ocr":         { "per_1k_pages": 4.0 },
-"ocr 4.1 / document ai": { "per_1k_pages": 5.0, "kind": "product" }
-```
-
-Both, rather than the first keeping the plain card name — so that the two cannot swap
-the day Mistral reorders the rows.
-
-## Products, and three cards with no price
-
-`mapping.json`'s `products` list marks the cards that are billable but are not models:
-web search, code execution, images, and so on. It is an **annotation and gates
-nothing** — a card missing from it is published as an ordinary model, and a name in it
-that matches no card does nothing at all. It can never block a price.
-
-Three cards state no price at all (`leanstral`, `mistral moderation 2`, `agent api`).
-They are absent from the file rather than published at `0`: the page states no price,
-which is not the same statement as a price of zero. They are not reported either —
-"still not priced" is not news, and an alert channel that repeats itself gets ignored.
-
-## Currency
-
-**USD.** The page states both `priceUsd` and `priceEur`, and they are genuinely
-different prices rather than a conversion of one another — `1.25 EUR` against
-`1.50 USD` for the same row. `priceUsd` is read; no conversion is performed anywhere
-in this repository.
+**The pricing page still carries a card for every model, at prices of its own.** They
+are deliberately ignored; reading them too would give each model two sources of truth
+and let one silently win. A test moves the pricing page's own `codestral` figure and
+asserts nothing published changes.
 
 ## Running it yourself
 
 ```sh
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --html tests/fixtures/mistral/page_ok.html
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live, ~22 fetches
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 ```
+
+`--offline` serves every URL from committed fixtures and **refuses** any URL the
+manifest does not name, so a test that forgets a fixture fails loudly instead of
+quietly reaching the network and passing for the wrong reason.
 
 Same rules as every other provider here: no API key, ever; never writes `pricing.json`
 directly; touches only `providers.mistral`, carrying every other provider's block
