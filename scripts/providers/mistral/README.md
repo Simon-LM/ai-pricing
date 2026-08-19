@@ -62,10 +62,28 @@ there is nothing to call. A model whose page states no identifier is still publi
 with its price, and the run reports it — a missing id is not a reason to withhold a
 correct figure, but a consumer has nothing to pass.
 
-Cross-checked against a second source before publishing: Eden AI's own model list
-independently names `mistral-medium-3-5`, `mistral-medium-3`, `mistral-medium-latest`,
-`codestral-2508`, `mistral-large-2512` and the rest, which is what pins these as real
-callable ids rather than documentation slugs.
+**Read from Mistral's own docs and from nowhere else.** Before these were first
+published they were sanity-checked by hand against Eden AI's model list, which
+independently names `mistral-medium-3-5`, `codestral-2508`, `mistral-large-2512` and
+the rest — enough to establish that they are callable ids rather than documentation
+slugs. That check was a one-off and is deliberately wired into nothing, because a
+reseller can only testify to half the question:
+
+- it *can* confirm a string is a genuine Mistral id, since it resells against that id;
+- it *cannot* confirm Mistral still sells it. A reseller lags a retirement by however
+  long its own catalogue takes to notice, and may hold a contract that keeps a model
+  callable through the reseller for months after Mistral has dropped it from the
+  public API.
+
+So the inventory — which models exist, and which are dated with `absent_since` —
+comes from the docs index alone. Eden still listing `mistral/<something>` that this
+file marks absent is not a contradiction anyone needs to reconcile: it is two
+different sellers, and only one of them is Mistral.
+
+That is structural rather than a promise. The offline test manifest serves 22 URLs,
+every one of them Mistral's, and a run that asks for any URL it does not name fails
+instead of reaching the network — so a scraper here that started reading somebody
+else's catalogue would break the test suite rather than quietly publish from it.
 
 ## What the mapping still holds
 

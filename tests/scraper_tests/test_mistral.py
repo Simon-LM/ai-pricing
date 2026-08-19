@@ -29,6 +29,7 @@ import shutil
 import sys
 import unittest
 from pathlib import Path
+from urllib.parse import urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -818,6 +819,33 @@ class TestMapping(unittest.TestCase):
     def test_the_two_sources_are_distinct(self) -> None:
         mapping = self.mapping()
         self.assertNotEqual(mapping["source"], mapping["products_source"])
+
+    def test_both_sources_are_mistrals_own(self) -> None:
+        """This block must be built from Mistral and from nothing else. A reseller can
+        confirm that a string is a real Mistral id, since it sells against that id, but
+        never that Mistral still offers it: resellers lag a retirement by however long
+        their own catalogue takes to notice, and can hold a contract that keeps a model
+        callable through them for months after it has left the public API. Taking either
+        the inventory or the ids from one would date a withdrawal late, or never."""
+        mapping = self.mapping()
+        for key in ("source", "products_source"):
+            host = urlsplit(mapping[key]).netloc
+            self.assertTrue(
+                host == "mistral.ai" or host.endswith(".mistral.ai"),
+                f"{key} points at {host!r}, which is not Mistral's own site.",
+            )
+
+    def test_the_offline_manifest_serves_only_mistral(self) -> None:
+        """Makes the rule above structural rather than a promise. An offline run refuses
+        any URL the manifest does not name, so a scraper that started reading somebody
+        else's catalogue fails here instead of quietly publishing from it."""
+        manifest = json.loads((FIXTURES / "offline.json").read_text(encoding="utf-8"))
+        for url in manifest:
+            host = urlsplit(url).netloc
+            self.assertTrue(
+                host == "mistral.ai" or host.endswith(".mistral.ai"),
+                f"the manifest serves {url}, which is not Mistral's own site.",
+            )
 
     def test_every_mapped_denominator_names_a_known_price_field(self) -> None:
         for side, table in self.mapping()["denominators"].items():
