@@ -95,7 +95,8 @@ show it to whoever is reading your number. Display it:
         "mistral medium 3.5": {
           "in_per_mtok": 1.5,
           "out_per_mtok": 7.5,
-          "display_name": "mistral medium 3.5"
+          "display_name": "mistral medium 3.5",
+          "api_ids": ["mistral-medium-3-5", "mistral-medium-3", "mistral-medium-latest"]
         },
         "voxtral small": {
           "in_per_mtok": 0.1,
@@ -125,6 +126,7 @@ show it to whoever is reading your number. Display it:
 | `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
 | `providers.<name>.models` | Keyed by **whatever identifies the entry at that source**, which is not the same thing at every provider -- see below. |
 | `display_name` | A human-readable label, kept only so that a diff is readable. Never use it for matching. |
+| `api_ids` | The strings you pass **as the model** when calling that provider, most specific first. Present only where the source states them. See below. |
 | `free` | Present, and always `true`, when the provider gives the model away. The entry then carries **no price field at all** -- see below. |
 | `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model: Mistral's web search, code execution and image generation are priced on the same page as its models. Filter on it if you are listing models to call. |
 | `absent_since` | Absent on a model still on sale, which is the normal case. When present, the source has stopped offering this entry as of that day, and **every price beside it is the last one observed, not a current one**. See below. |
@@ -139,12 +141,37 @@ convention because there is no single source:
 | `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
-Mistral is the odd one. Its documentation pages do carry the callable ids, alongside
-their aliases (`"names": ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]`),
-but publishing them is a separate decision that has not been taken, so this block is
-keyed the way its sources name things. If you call Mistral's API, resolve the id
-yourself at `docs.mistral.ai/models/<slug>` -- and note that every `-latest` id is an
-alias whose meaning changes without warning.
+Mistral is the odd one: its sources name things for people, not for callers. So its
+entries carry `api_ids` as well -- see the next section.
+
+### `api_ids` -- what to actually call
+
+**These are model identifiers, not endpoints.** The endpoint is the provider's own
+URL, and it is the same one for every model there; the identifier goes in the request
+body, as the `model` field. This file publishes no URLs.
+
+```json
+"api_ids": ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]
+```
+
+**Order is meaning, and it is preserved exactly as the source gives it: most specific
+first.** The first entry pins a version and will keep costing what this file says. The
+last is usually a `-latest` alias, which resolves to a different model, at a different
+price, whenever the provider decides -- with no change anywhere in this file. Pin the
+first, and treat the last as a convenience you cannot price.
+
+The field is **absent** when there is nothing to publish for it, which means one of
+two different things -- tell them apart with `kind`:
+
+- on a model, absent means the key itself is the identifier. `ovh`, `edenai` and
+  `huggingface` are all keyed by the exact string their API takes, so they carry no
+  `api_ids` at all;
+- on a `"kind": "product"` entry, absent means there is nothing to call. Mistral's web
+  search and image generation are billed, but they are not models.
+
+Only Mistral publishes the field today, because it is the only provider whose keys are
+human-facing names rather than callable ids. Its documentation site states the ids
+per model; the pricing page this repository used to read never did.
 
 The unit is part of the key name, so that a consumer cannot silently apply a
 per-token price to a per-page model. There is deliberately no generic `price` field.
@@ -370,7 +397,7 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 231 tests
+python3 -m unittest discover -s tests -v                          # 242 tests
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live sources
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 

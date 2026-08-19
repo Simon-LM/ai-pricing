@@ -31,21 +31,41 @@ marketing page is not an inventory.** Exactly the same thing happened on OVH's
 catalog, which is why that provider has a coverage check; here the fix was to read
 the source that actually knows.
 
-## Why there is no API model id in this block
+## The keys are names; the identifiers are a field of their own
 
 **The keys are the names the sources state, lowercased**: `ocr 4.0`,
-`mistral medium 3.5`, `web search`. Not `mistral-ocr-4-1`.
+`mistral medium 3.5`, `web search`. Those are what a human reads on the page, and they
+are not what you call.
 
-The docs pages *do* carry the ids, alongside their aliases:
+What you call is published beside them, in `api_ids`, read from the same docs page —
+which streams it as a `names` array and renders it as copy-to-clipboard badges:
 
 ```json
-"names": ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]
+"ocr 4.1": {
+  "per_1k_pages": 4.0,
+  "per_1k_annotated_pages": 5.0,
+  "display_name": "ocr 4.1",
+  "api_ids": ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]
+}
 ```
 
-Publishing those is a separate decision that has not been taken, so this scraper does
-not read them. A consumer that needs to call a model resolves it there, at
-`docs.mistral.ai/models/<slug>` — and should note that every `-latest` id is an alias
-whose meaning changes without warning.
+**These are model identifiers, not endpoints.** The endpoint is Mistral's own URL and
+is the same for every model; the identifier goes in the request body's `model` field.
+
+**Order is meaning and is preserved: most specific first.** `mistral-ocr-4-1` pins a
+version and will keep costing what this file says. `mistral-ocr-latest` resolves to
+whatever Mistral points it at next, at a different price, with no change anywhere in
+this file. Pin the first; treat the last as a convenience you cannot price.
+
+The eight products carry no `api_ids`: web search and image generation are billed, but
+there is nothing to call. A model whose page states no identifier is still published
+with its price, and the run reports it — a missing id is not a reason to withhold a
+correct figure, but a consumer has nothing to pass.
+
+Cross-checked against a second source before publishing: Eden AI's own model list
+independently names `mistral-medium-3-5`, `mistral-medium-3`, `mistral-medium-latest`,
+`codestral-2508`, `mistral-large-2512` and the rest, which is what pins these as real
+callable ids rather than documentation slugs.
 
 ## What the mapping still holds
 

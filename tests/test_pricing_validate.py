@@ -218,6 +218,53 @@ class TestEntryKind(unittest.TestCase):
         self.assertNotIn("kind", doc["providers"]["acme"]["models"]["some-model"])
 
 
+class TestApiIds(unittest.TestCase):
+    """The strings a caller passes as the model, where the source states them."""
+
+    def document(self, api_ids: object) -> JSONDict:
+        return minimal_document(
+            acme=minimal_provider_block(
+                models={
+                    "some-model": {
+                        "in_per_mtok": 1.0,
+                        "display_name": "Some Model",
+                        "api_ids": api_ids,
+                    }
+                }
+            )
+        )
+
+    def test_a_list_of_identifiers_is_accepted(self) -> None:
+        validate.validate_document(self.document(["acme-1-0", "acme-1", "acme-latest"]))
+
+    def test_order_is_preserved_because_it_carries_meaning(self) -> None:
+        """Most specific first, moving alias last. Sorting it would destroy the only
+        thing telling a consumer which one is safe to pin."""
+        doc = self.document(["acme-1-0", "acme-1", "acme-latest"])
+        validate.validate_document(doc)
+        self.assertEqual(
+            doc["providers"]["acme"]["models"]["some-model"]["api_ids"],
+            ["acme-1-0", "acme-1", "acme-latest"],
+        )
+
+    def test_it_is_absent_by_default(self) -> None:
+        """An entry with nothing to call -- a billable product -- omits the field
+        rather than carrying an empty list."""
+        doc = minimal_document()
+        validate.validate_document(doc)
+        self.assertNotIn("api_ids", doc["providers"]["acme"]["models"]["some-model"])
+
+    def test_anything_that_is_not_a_list_of_names_is_refused(self) -> None:
+        for bad in ("acme-latest", [], [""], ["ok", 3], ["ok", None], {}, None, True):
+            with self.subTest(value=bad), self.assertRaises(validate.ValidationError):
+                validate.validate_document(self.document(bad))
+
+    def test_a_repeated_identifier_is_refused(self) -> None:
+        """Two of the same string means one of them came from somewhere unexpected."""
+        with self.assertRaises(validate.ValidationError):
+            validate.validate_document(self.document(["acme-latest", "acme-latest"]))
+
+
 class TestAbsentSince(unittest.TestCase):
     """The marker that says: these prices are the last ones observed, not today's."""
 

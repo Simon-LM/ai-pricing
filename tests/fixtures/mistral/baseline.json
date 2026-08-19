@@ -31,11 +31,19 @@
         "codestral": {
           "in_per_mtok": 0.3,
           "out_per_mtok": 0.9,
-          "display_name": "codestral"
+          "display_name": "codestral",
+          "api_ids": [
+            "codestral-2508",
+            "codestral-latest"
+          ]
         },
         "codestral embed": {
           "in_per_mtok": 0.15,
-          "display_name": "codestral embed"
+          "display_name": "codestral embed",
+          "api_ids": [
+            "codestral-embed-2505",
+            "codestral-embed"
+          ]
         },
         "data capture": {
           "per_mtok": 0.04,
@@ -49,7 +57,10 @@
         },
         "leanstral 1.5": {
           "free": true,
-          "display_name": "leanstral 1.5"
+          "display_name": "leanstral 1.5",
+          "api_ids": [
+            "labs-leanstral-1-5"
+          ]
         },
         "libraries": {
           "index_per_mtok": 1.0,
@@ -61,55 +72,98 @@
         "ministral 3 14b": {
           "in_per_mtok": 0.2,
           "out_per_mtok": 0.2,
-          "display_name": "ministral 3 14b"
+          "display_name": "ministral 3 14b",
+          "api_ids": [
+            "ministral-14b-2512",
+            "ministral-14b-latest"
+          ]
         },
         "ministral 3 3b": {
           "in_per_mtok": 0.1,
           "out_per_mtok": 0.1,
-          "display_name": "ministral 3 3b"
+          "display_name": "ministral 3 3b",
+          "api_ids": [
+            "ministral-3b-2512",
+            "ministral-3b-latest"
+          ]
         },
         "ministral 3 8b": {
           "in_per_mtok": 0.15,
           "out_per_mtok": 0.15,
-          "display_name": "ministral 3 8b"
+          "display_name": "ministral 3 8b",
+          "api_ids": [
+            "ministral-8b-2512",
+            "ministral-8b-latest"
+          ]
         },
         "mistral embed": {
           "in_per_mtok": 0.1,
-          "display_name": "mistral embed"
+          "display_name": "mistral embed",
+          "api_ids": [
+            "mistral-embed-2312",
+            "mistral-embed"
+          ]
         },
         "mistral large 3": {
           "in_per_mtok": 0.5,
           "out_per_mtok": 1.5,
-          "display_name": "mistral large 3"
+          "display_name": "mistral large 3",
+          "api_ids": [
+            "mistral-large-2512",
+            "mistral-large-latest"
+          ]
         },
         "mistral medium 3.5": {
           "in_per_mtok": 1.5,
           "out_per_mtok": 7.5,
-          "display_name": "mistral medium 3.5"
+          "display_name": "mistral medium 3.5",
+          "api_ids": [
+            "mistral-medium-3-5",
+            "mistral-medium-3",
+            "mistral-medium-latest"
+          ]
         },
         "mistral moderation 2": {
           "free": true,
-          "display_name": "mistral moderation 2"
+          "display_name": "mistral moderation 2",
+          "api_ids": [
+            "mistral-moderation-2603"
+          ]
         },
         "mistral small 4": {
           "in_per_mtok": 0.15,
           "out_per_mtok": 0.6,
-          "display_name": "mistral small 4"
+          "display_name": "mistral small 4",
+          "api_ids": [
+            "mistral-small-2603",
+            "mistral-small-latest"
+          ]
         },
         "ocr 3": {
           "per_1k_pages": 2.0,
           "per_1k_annotated_pages": 3.0,
-          "display_name": "ocr 3"
+          "display_name": "ocr 3",
+          "api_ids": [
+            "mistral-ocr-2512"
+          ]
         },
         "ocr 4.0": {
           "per_1k_pages": 4.0,
           "per_1k_annotated_pages": 5.0,
-          "display_name": "ocr 4.0"
+          "display_name": "ocr 4.0",
+          "api_ids": [
+            "mistral-ocr-4-0"
+          ]
         },
         "ocr 4.1": {
           "per_1k_pages": 4.0,
           "per_1k_annotated_pages": 5.0,
-          "display_name": "ocr 4.1"
+          "display_name": "ocr 4.1",
+          "api_ids": [
+            "mistral-ocr-4-1",
+            "mistral-ocr-4",
+            "mistral-ocr-latest"
+          ]
         },
         "premium news": {
           "per_1k_calls": 50.0,
@@ -118,21 +172,37 @@
         },
         "voxtral mini transcribe 2": {
           "per_audio_minute": 0.003,
-          "display_name": "voxtral mini transcribe 2"
+          "display_name": "voxtral mini transcribe 2",
+          "api_ids": [
+            "voxtral-mini-2602",
+            "voxtral-mini-latest"
+          ]
         },
         "voxtral mini transcribe realtime": {
           "per_audio_minute": 0.006,
-          "display_name": "voxtral mini transcribe realtime"
+          "display_name": "voxtral mini transcribe realtime",
+          "api_ids": [
+            "voxtral-mini-transcribe-realtime-2602",
+            "voxtral-mini-transcribe-realtime-latest"
+          ]
         },
         "voxtral small": {
           "in_per_mtok": 0.1,
           "out_per_mtok": 0.4,
           "per_audio_minute": 0.004,
-          "display_name": "voxtral small"
+          "display_name": "voxtral small",
+          "api_ids": [
+            "voxtral-small-2507",
+            "voxtral-small-latest"
+          ]
         },
         "voxtral tts": {
           "per_mchars": 16.0,
-          "display_name": "voxtral tts"
+          "display_name": "voxtral tts",
+          "api_ids": [
+            "voxtral-mini-tts-2603",
+            "voxtral-mini-tts-latest"
+          ]
         },
         "web search": {
           "per_1k_calls": 30.0,
@@ -143,7 +213,10 @@
           "in_per_mtok": 1.4,
           "out_per_mtok": 4.4,
           "cache_read_per_mtok": 0.14,
-          "display_name": "z.ai glm 5.2"
+          "display_name": "z.ai glm 5.2",
+          "api_ids": [
+            "zai-glm-5-2"
+          ]
         }
       }
     }
