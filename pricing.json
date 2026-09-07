@@ -263,8 +263,8 @@
       }
     },
     "ovh": {
-      "checked_utc": "2026-08-31T05:09:12Z",
-      "updated": "2026-08-04",
+      "checked_utc": "2026-09-07T05:09:09Z",
+      "updated": "2026-09-07",
       "source": "https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/",
       "currency": "EUR",
       "models": {
@@ -296,6 +296,11 @@
           "in_per_mtok": 0.4,
           "out_per_mtok": 2.7,
           "display_name": "Qwen3.6-27B"
+        },
+        "Qwen3.8-27B": {
+          "in_per_mtok": 0.4,
+          "out_per_mtok": 2.7,
+          "display_name": "Qwen3.8-27B"
         },
         "Qwen3Guard-Gen-0.6B": {
           "free": true,
