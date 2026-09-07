@@ -1025,7 +1025,7 @@
       }
     },
     "huggingface": {
-      "checked_utc": "2026-08-31T07:26:04Z",
+      "checked_utc": "2026-09-07T11:34:11Z",
       "updated": "2026-08-10",
       "source": "https://router.huggingface.co/v1/models",
       "currency": "USD",
