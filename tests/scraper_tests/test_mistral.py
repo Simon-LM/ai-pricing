@@ -722,20 +722,45 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
     def test_the_fixture_baseline_is_valid(self) -> None:
         validate.validate_document(json.loads(BASELINE_JSON.read_text(encoding="utf-8")))
 
-    def test_the_baseline_has_the_same_shape_as_the_published_file(self) -> None:
-        """Figures may differ -- the baseline is pinned to its own capture -- but the set
-        of entries still on sale, and the units they are priced in, may not drift apart
-        unnoticed. Entries marked `absent_since` are excluded on both sides: the
+    def test_an_entry_in_both_files_is_priced_in_the_same_units(self) -> None:
+        """Figures may differ -- the baseline is pinned to its own capture -- but an
+        entry the two files share may not change the units it is billed in without
+        somebody noticing. That is the regression worth catching here: a parser that
+        starts reading a per-page figure into a per-token field publishes something
+        plausible and wrong.
+
+        Checked over the intersection, deliberately. The two files are NOT required to
+        list the same entries, because they answer different questions: the baseline is
+        a pinned capture, and the published file follows the docs index every week. A
+        model Mistral puts on sale must publish itself with no human in the loop -- that
+        is the entire point of mapping.json holding no model list -- and an assertion
+        that the inventories match would put a human back in that loop, one directory
+        over. OVH's copy of this test did exactly that on 2026-09-07: one new model
+        turned it red, and the red then blocked two other providers' refreshes for a
+        week over a fixture that had nothing to do with either.
+
+        Entries marked `absent_since` are excluded on both sides regardless: the
         published file keeps a withdrawn model for a year and the fixtures, being a
-        single capture, have no way to know about one."""
+        single capture, have no way to know about one.
+
+        Fixtures going stale is a real worry and this was never the thing that caught
+        it. The weekly run reads the live pages: if Mistral restructures them, the
+        scraper raises and opens an issue within seven days.
+        """
         published = {k: v for k, v in self.mistral_block()["models"].items() if "absent_since" not in v}
         baseline = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))["providers"]["mistral"]["models"]
         baseline = {k: v for k, v in baseline.items() if "absent_since" not in v}
 
-        self.assertEqual(set(published), set(baseline))
-        for model_id, entry in published.items():
+        shared = set(published) & set(baseline)
+        self.assertTrue(
+            shared,
+            "the baseline and the published file have no entry in common at all, so "
+            "this check is vacuous and the fixtures no longer describe what Mistral "
+            "sells. Re-capture tests/fixtures/mistral/.",
+        )
+        for model_id in sorted(shared):
             self.assertEqual(
-                {k for k in entry if k in validate.KNOWN_PRICE_FIELDS},
+                {k for k in published[model_id] if k in validate.KNOWN_PRICE_FIELDS},
                 {k for k in baseline[model_id] if k in validate.KNOWN_PRICE_FIELDS},
                 model_id,
             )

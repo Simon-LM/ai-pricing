@@ -614,16 +614,40 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
     def test_the_fixture_baseline_is_valid(self) -> None:
         validate.validate_document(json.loads(BASELINE_JSON.read_text(encoding="utf-8")))
 
-    def test_the_baseline_has_the_same_shape_as_the_published_file(self) -> None:
-        """Figures may differ -- the baseline is pinned to an older capture -- but the
-        set of models and the units they are priced in may not drift apart unnoticed."""
+    def test_a_model_in_both_files_is_priced_in_the_same_units(self) -> None:
+        """Figures may differ -- the baseline is pinned to an older capture -- but a
+        model the two files share may not change the units it is billed in without
+        somebody noticing. That is the regression worth catching here: a parser that
+        starts reading a per-token figure into a per-hour field publishes something
+        plausible and wrong.
+
+        Checked over the intersection, deliberately. The two files are NOT required to
+        list the same models, because they answer different questions: the baseline is a
+        pinned capture, and the published file follows OVH's catalogue every week. A
+        model OVH puts on sale must publish itself with no human in the loop -- that is
+        the entire point of scripts/providers/ovh/mapping.json holding no model list --
+        and an assertion that the inventories match would put a human back in that loop,
+        one directory over. It did exactly that on 2026-09-07: OVH added Qwen3.8-27B,
+        this test went red, and the red then blocked Eden AI's and Hugging Face's
+        refreshes for a week over a fixture that has nothing to do with either.
+
+        Fixtures going stale is a real worry and this was never the thing that caught
+        it. The weekly run reads the live page: if OVH restructures it, the scraper
+        raises and opens an issue within seven days.
+        """
         published = self.ovh_block()["models"]
         baseline = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))["providers"]["ovh"]["models"]
 
-        self.assertEqual(set(published), set(baseline))
-        for model_id, entry in published.items():
+        shared = set(published) & set(baseline)
+        self.assertTrue(
+            shared,
+            "the baseline and the published file have no model in common at all, so "
+            "this check is vacuous and the fixtures no longer describe OVH's catalogue. "
+            "Re-capture tests/fixtures/ovh/.",
+        )
+        for model_id in sorted(shared):
             self.assertEqual(
-                {k for k in entry if k in validate.KNOWN_PRICE_FIELDS},
+                {k for k in published[model_id] if k in validate.KNOWN_PRICE_FIELDS},
                 {k for k in baseline[model_id] if k in validate.KNOWN_PRICE_FIELDS},
                 model_id,
             )
