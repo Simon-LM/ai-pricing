@@ -2,7 +2,7 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-08-31T04:12:54Z",
+      "checked_utc": "2026-09-07T04:12:23Z",
       "updated": "2026-08-19",
       "source": "https://docs.mistral.ai/models",
       "currency": "USD",
