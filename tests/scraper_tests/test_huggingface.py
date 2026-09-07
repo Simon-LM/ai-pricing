@@ -284,14 +284,55 @@ class TestPriceFailures(ScrapeTestCase):
         code, _, stderr = self.run_scrape(json.dumps(payload))
         self.assert_failed(code, stderr, "not a number")
 
-    def test_a_price_of_zero_without_the_free_flag_is_refused(self) -> None:
-        """The router does carry routes priced 0 with is_free false. That is not a
-        declared free tier, it is a figure nothing vouches for, and the sanity floor
-        is exactly the check that catches it."""
+    def test_a_route_priced_zero_without_the_free_flag_is_skipped_not_refused(self) -> None:
+        """The router really does carry routes that are live, `is_free: false`, and
+        priced 0. The listing is contradicting itself, and that figure may not be
+        published either way: as a price it tells consumers the model is free, and 0 is
+        also exactly what a misparse reads.
+
+        What it must NOT do is take the whole block down with it. It did, until
+        2026-09-07: Qwen/Qwen3.8-27B:ovhcloud appeared priced 0/0 and the raise stopped
+        the other fifteen routes from being refreshed at all, for a week. So the route
+        is skipped, the run reports it, and everything else publishes."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"]["input"] = 0
+        code, stdout, _ = self.run_scrape(json.dumps(payload))
+
+        self.assertEqual(code, 0, "one unpriceable route stopped the whole block again")
+        models = self.candidate_block("updated.json" if "changed" in stdout else "stamped.json")["models"]
+        self.assertNotIn(
+            "openai/gpt-oss-120b:ovhcloud",
+            {k: v for k, v in models.items() if "absent_since" not in v},
+            "published a route the router prices at 0",
+        )
+        self.assertTrue(
+            [k for k, v in models.items() if "absent_since" not in v],
+            "skipped every route, not just the unpriceable one",
+        )
+        self.assertIn("openai/gpt-oss-120b:ovhcloud", self.notes())
+        self.assertIn("contradicts itself", self.notes())
+
+    def test_a_zero_price_is_still_never_published_as_a_figure(self) -> None:
+        """The skip above must not become a quiet way of publishing 0."""
+        payload = self.payload()
+        self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"]["input"] = 0
+        code, stdout, _ = self.run_scrape(json.dumps(payload))
+        self.assertEqual(code, 0)
+        models = self.candidate_block("updated.json" if "changed" in stdout else "stamped.json")["models"]
+        for model_id, entry in models.items():
+            for field in [k for k in entry if k in validate.KNOWN_PRICE_FIELDS]:
+                self.assertNotEqual(entry[field], 0, f"{model_id}.{field}")
+
+    def test_every_route_being_unpriceable_is_still_a_failure(self) -> None:
+        """Skipping one route is triage; skipping all of them means the listing is not
+        what this scraper thinks it is, and an empty block must never be published."""
+        payload = self.payload()
+        for model in payload["data"]:
+            for offer in model.get("providers", []):
+                if isinstance(offer.get("pricing"), dict):
+                    offer["pricing"] = {"input": 0, "output": 0}
         code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "outside the plausible range")
+        self.assert_failed(code, stderr, "Refusing to publish an empty block")
 
     def test_a_route_marked_free_is_published_as_free(self) -> None:
         payload = self.payload()

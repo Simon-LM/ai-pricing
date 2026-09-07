@@ -64,11 +64,22 @@ that first sees it gone sends one email. The same applies to a route the router 
 marking `live`: a price for a call that cannot be served is worse than no price, so it
 is treated as not offered rather than published as current.
 
-**A price of `0` with `is_free` false** is still refused outright. The router does
-carry such routes. That is not a declared free tier, it is a figure nothing vouches
-for, and the shared sanity floor catches it. A route Hugging Face genuinely marks
-`is_free` is published with the shared `"free": true` marker and no price field,
-exactly as OVH's free models are.
+**A price of `0` with `is_free` false** is never published, and the route is skipped
+whole. The router does carry such routes — it says the model is live and not free,
+then quotes nothing for it. Neither reading is publishable: as a price it tells
+consumers the model is free, and `0` is also exactly what a misparse produces. Input
+and output are two halves of one token price, so half of one prices nothing and the
+route goes rather than half of it.
+
+Skipped, **not** refused. Raising here froze the whole block: on 2026-09-07 the router
+listed `Qwen/Qwen3.8-27B:ovhcloud` as live, `is_free: false`, priced `0/0`, and that
+one route stopped the other fifteen from being refreshed for a week. The run reports
+it by email and publishes everything else; the route publishes itself the day the
+router quotes a price. If *every* route turns out unpriceable the run does fail — that
+is no longer one bad route, and an empty block must never be published.
+
+A route Hugging Face genuinely marks `is_free` is published with the shared
+`"free": true` marker and no price field, exactly as OVH's free models are.
 
 Routes on partners this block does not cover are ignored, not refused — none of its
 business, and no reason to disturb the weekly run.

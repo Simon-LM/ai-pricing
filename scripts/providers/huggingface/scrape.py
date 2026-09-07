@@ -131,8 +131,14 @@ def parse_routes(body: str) -> dict[str, JSONDict]:
     return routes
 
 
-def extract_models(routes: dict[str, JSONDict], mapping: JSONDict) -> dict[str, JSONDict]:
-    """Turn the routes into a `models` block, through the explicit mapping only."""
+def extract_models(
+    routes: dict[str, JSONDict], mapping: JSONDict
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """Turn the routes into a `models` block, plus anything a human should see.
+
+    Returns notes rather than raising on a route it cannot price, so that one bad route
+    still publishes the others. See the zero-price branch below for why that matters.
+    """
     partners = mapping["partners"]
     field_specs: JSONDict = mapping["fields"]
 
@@ -158,6 +164,7 @@ def extract_models(routes: dict[str, JSONDict], mapping: JSONDict) -> dict[str, 
         )
 
     models: dict[str, JSONDict] = {}
+    notes: list[str] = []
 
     for route in offered:
         offer = routes[route]
@@ -178,6 +185,8 @@ def extract_models(routes: dict[str, JSONDict], mapping: JSONDict) -> dict[str, 
                 )
             pricing = cast(JSONDict, pricing)
 
+            zeroed: list[str] = []
+
             for field, field_spec in field_specs.items():
                 api_field = field_spec["api_field"]
                 raw = pricing.get(api_field)
@@ -193,24 +202,54 @@ def extract_models(routes: dict[str, JSONDict], mapping: JSONDict) -> dict[str, 
                         f"The data shape has changed."
                     )
 
+                # A zero from a route the router itself says is NOT free. The listing is
+                # contradicting itself, and neither reading may be published: as a price
+                # it tells consumers the model is free, and 0 is also exactly what a
+                # misparse produces, which is what check_price's floor exists to catch.
+                if not isinstance(raw, bool) and raw == 0:
+                    zeroed.append(api_field)
+                    continue
+
                 # No scaling: unlike Eden AI's per-token figures, the router already
                 # quotes per million tokens. Cross-checked against OVHcloud's own
                 # catalog, whose EUR prices these track at the USD conversion rate.
                 result_entry[field] = check_price(f"{PROVIDER_ID}/{route}", field, float(raw))
 
+            # Skipped whole, not half. Unlike OVH's catalog -- where the units are
+            # independent and a model can lose one and keep the others -- input and
+            # output are two halves of one token price, and half of one prices nothing.
+            #
+            # A note rather than a raise, and that is the point of this branch. Raising
+            # here froze the entire block: on 2026-09-07 the router listed
+            # Qwen/Qwen3.8-27B:ovhcloud as live, `is_free: false`, priced 0/0, and that
+            # one unpriced route stopped the other fifteen from being refreshed at all.
+            # A route this file cannot price is worth reporting; it is not worth holding
+            # every other route hostage to.
+            if zeroed:
+                notes.append(
+                    f"{route}: the router says it is live and not free, then prices it at "
+                    f"0 ({', '.join(sorted(zeroed))}). The listing contradicts itself, so "
+                    f"this route is not published -- publishing 0 would say the model is "
+                    f"free. It publishes itself as soon as the router states a price."
+                )
+                continue
+
         result_entry["display_name"] = route
         models[route] = result_entry
 
-    return models
+    if not models:
+        raise ScrapeError(
+            "not one live route from the mapped partners could be priced. Either Hugging "
+            "Face restructured the listing, or it is quoting nothing at all. Refusing to "
+            "publish an empty block."
+        )
+
+    return models, notes
 
 
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs. One source, read once.
-
-    No notes: the listing states every route's price under a fixed field name, so there
-    is nothing left over for a human to look at.
-    """
-    return extract_models(parse_routes(fetch(mapping["source"])), mapping), []
+    """The one callback provider_runner needs. One source, read once."""
+    return extract_models(parse_routes(fetch(mapping["source"])), mapping)
 
 
 def main(argv: list[str] | None = None) -> int:
