@@ -65,11 +65,25 @@ jobs:
         with:
           python-version: "3.12"
 
-      # A scraper whose own tests fail has no business publishing a number.
+      # A scraper whose own tests fail has no business publishing a number. Its own,
+      # and not somebody else's: this runs the shared tests plus Hugging Face's, never the
+      # other providers'. Discovering the whole suite here made every provider a single
+      # point of failure for the other three, and on 2026-09-07 that is exactly what
+      # happened -- OVH put one new model on sale, an OVH fixture went stale, and Eden
+      # AI and Hugging Face stopped publishing for a week over it. The full suite still
+      # runs on every push, in tests.yml, which is where a cross-provider regression
+      # belongs.
       - name: Run tests
         id: tests
         continue-on-error: true
-        run: python3 -m unittest discover -s tests -v
+        run: |
+          set -o pipefail
+          python3 -m unittest -v \
+            tests.test_pricing_validate \
+            tests.test_provider_runner \
+            tests.test_nextjs_flight \
+            tests.test_weekly_report \
+            tests.scraper_tests.test_huggingface 2>&1 | tee /tmp/tests.log
 
       - name: Read the router listing
         id: scrape
@@ -88,8 +102,14 @@ jobs:
           set -euo pipefail
 
           if [ "${{ steps.tests.outcome }}" = "failure" ]; then
-            echo "The test suite failed, so the scraper was not trusted to publish anything." \
-              > /tmp/reason.txt
+            # Naming the test is the whole point: "the test suite failed" on its own
+            # sends the reader to the run log to find out what this is even about.
+            {
+              echo "The test suite failed, so the scraper was not trusted to publish anything."
+              echo
+              grep -E '^(FAIL|ERROR): ' /tmp/tests.log \
+                || echo "(no FAIL line in the test log -- see the run)"
+            } > /tmp/reason.txt
           elif [ -s .ci-out/error.txt ]; then
             cp .ci-out/error.txt /tmp/reason.txt
           else
@@ -113,13 +133,23 @@ jobs:
             echo "Endpoint: https://router.huggingface.co/v1/models"
             cat <<'OUTRO'
 
-          Three failures are routine here and are not bugs: a mapped partner starting to
-          serve a new model, one of them dropping a model, and a route leaving `live` status.
-          All are refused on purpose, because publishing a price nobody read -- or dropping
-          one consumers may depend on, or quoting one for a call that cannot be served -- is
-          a human's decision. Add or remove the route in
-          `scripts/providers/huggingface/mapping.json` after reading the figures, and re-run
-          the workflow from the Actions tab.
+          The reason is quoted above, and it is one of two things.
+
+          **A test failed.** Its name is in the block above. This refresh runs the shared
+          tests plus Hugging Face's own and no others, so the fault is here -- in this scraper,
+          in its fixtures, or in the block it publishes -- and not in another provider's.
+          Reproduce it with the command this run's "Run tests" step shows.
+
+          **The scrape failed.** The router's model list answered with something other
+          than the shape this scraper reads. `scripts/providers/huggingface/mapping.json`
+          says which partners are covered and which API fields carry the prices, and holds
+          no list of routes. Compare it against the endpoint, fix it by hand, and re-run
+          this workflow from the Actions tab.
+
+          A model appearing or disappearing is neither of those, and needs nothing from
+          you: a new one publishes itself on the next run, and a withdrawn one keeps the
+          last prices actually observed under an `absent_since` date until it is dropped a
+          year later.
           OUTRO
           } > /tmp/issue-body.md
 
