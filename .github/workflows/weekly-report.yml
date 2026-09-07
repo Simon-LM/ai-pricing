@@ -85,8 +85,10 @@ jobs:
             | grep -oE '[0-9]+$')"
 
           if [ "${{ steps.report.outputs.all_fresh }}" = "true" ]; then
-            gh issue close "$NUMBER" \
-              --comment "Closed automatically: this is a receipt, and it says everything is fine."
+            # Closed without a comment on purpose. The comment said what closing the
+            # issue already says, and it cost a fourth notification email for a receipt
+            # that only ever carries one piece of information.
+            gh issue close "$NUMBER"
             echo "::notice::All four providers refreshed on schedule."
           else
             echo "::warning::At least one provider did not refresh. Issue #$NUMBER is open."
