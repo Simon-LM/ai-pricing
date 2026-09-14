@@ -23,13 +23,20 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+# The repository root too, so `tests.published` resolves both under
+# `unittest discover` and when this file is run directly as a script.
+sys.path.insert(0, str(REPO_ROOT))
 
 import pricing_validate as validate  # noqa: E402
 import weekly_report  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
+from tests.published import published_file  # noqa: E402
 
 NOW = "2026-08-17T08:00:00Z"
-PRICING_JSON = REPO_ROOT / "pricing.json"
+# Not REPO_ROOT / "pricing.json": a refresh points this at the candidate it is
+# about to commit, so Monday's report is proven against the bytes about to be
+# published rather than the ones being replaced.
+PRICING_JSON = published_file()
 
 
 def block(checked_utc: str, models: JSONDict | None = None) -> JSONDict:

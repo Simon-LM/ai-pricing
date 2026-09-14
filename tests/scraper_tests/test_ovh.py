@@ -31,8 +31,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-# The repository root too, so `tests.scraper_tests.published` resolves both
-# under `unittest discover` and when this file is run directly as a script.
+# The repository root too, so `tests.published` resolves both under
+# `unittest discover` and when this file is run directly as a script.
 sys.path.insert(0, str(REPO_ROOT))
 
 # Imported via the providers.ovh package, not a flat `import scrape` off a
@@ -43,8 +43,9 @@ sys.path.insert(0, str(REPO_ROOT))
 from providers.ovh import scrape  # noqa: E402
 import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
-from tests.scraper_tests.published import (  # noqa: E402
+from tests.published import (  # noqa: E402
     assert_price_fields_are_producible,
+    published_file,
 )
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "ovh"
@@ -58,7 +59,9 @@ CATALOG_OK = FIXTURES / "catalog_ok.html"
 # deliberately re-captured.
 BASELINE_JSON = FIXTURES / "baseline.json"
 
-PRICING_JSON = REPO_ROOT / "pricing.json"
+# Not REPO_ROOT / "pricing.json": a refresh points this at the candidate it is
+# about to commit, so these checks run on the bytes about to be published.
+PRICING_JSON = published_file()
 MAPPING_JSON = REPO_ROOT / "scripts" / "providers" / "ovh" / "mapping.json"
 
 FIXED_NOW = "2026-08-10T04:00:00Z"

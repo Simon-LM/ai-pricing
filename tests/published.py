@@ -1,4 +1,4 @@
-"""What a published provider block may carry as a price, asked once for all four.
+"""Which file counts as "the published one", and what its blocks may carry.
 
 Every provider's test file asks pricing.json the same question: are the price fields
 actually published ones this provider's mapping could have produced? The answer has
@@ -14,19 +14,51 @@ the same week-long stall, in a provider each.
 So the rule lives here now, once. A fifth provider gets it by calling this, and a
 fourth state -- if there is ever one -- is added in a single place rather than in
 four that drift.
+
+The same day exposed a second gap, and `published_file()` closes it. Every test that
+checks "the published file" used to hardcode the committed pricing.json -- the file
+as it was *before* the scrape. What a refresh actually commits is a candidate built
+after it, and nothing ever tested that. A refresh now points AI_PRICING_FILE at the
+candidate and runs these same tests against it, so the question asked is about the
+bytes that are about to be published rather than the ones being replaced.
 """
 
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
+
+
+# A refresh sets this to the candidate it is about to promote. Unset -- which is
+# every local run and every CI run on a push -- it means the committed file.
+PUBLISHED_FILE_ENV = "AI_PRICING_FILE"
+
+
+def published_file() -> Path:
+    """The pricing.json under test: the committed one, or a candidate to be published.
+
+    Read at import time by each test module, so a refresh exports the variable for
+    the whole `python3 -m unittest` process rather than per test.
+    """
+    override = os.environ.get(PUBLISHED_FILE_ENV)
+    if not override:
+        return REPO_ROOT / "pricing.json"
+    path = Path(override)
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"{PUBLISHED_FILE_ENV}={override} does not name a file. A refresh sets this "
+            f"to the candidate it is about to publish; an empty or wrong path here would "
+            f"otherwise silently test the committed file instead and prove nothing."
+        )
+    return path
 
 
 def assert_price_fields_are_producible(

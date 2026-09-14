@@ -13,6 +13,14 @@ Two providers went a week without an update over a fixture belonging to a third.
 So a refresh runs the shared tests plus its own provider's, and no other provider's. That
 is easy to undo by "simplifying" the step back to a discover, and nothing else would
 notice, which is what these tests are for.
+
+A second property joined it on 2026-09-14, learned the same way. Those tests read the
+committed pricing.json -- the file as it stood *before* the scrape -- while the file a
+refresh commits is a candidate built after it. Nothing tested the candidate, and a block
+its own tests reject reached main and stayed red there, unnoticed because the one job
+that runs the full suite is never triggered by a push made with GITHUB_TOKEN. Each
+refresh now re-runs its checks against the candidate before committing, and tests.yml
+runs on workflow_run as the net beneath that. Both are equally easy to drop by accident.
 """
 
 from __future__ import annotations
@@ -88,6 +96,58 @@ class TestARefreshRunsOnlyItsOwnProvidersTests(unittest.TestCase):
                 )
 
 
+class TestTheCandidateIsTestedBeforeItIsPublished(unittest.TestCase):
+    """The file a refresh commits is not the file its tests read. Asking the question
+    of the candidate too is what stops a block that fails its own tests from being
+    published, which is exactly what happened on 2026-09-14."""
+
+    def test_every_refresh_tests_the_file_it_is_about_to_commit(self) -> None:
+        for slug in PROVIDER_MODULES:
+            self.assertIn(
+                "AI_PRICING_FILE=",
+                workflow(slug),
+                f"refresh-{slug}.yml never points the tests at its candidate, so it "
+                f"can publish a block that fails them.",
+            )
+
+    def test_the_candidate_is_tested_before_it_is_committed(self) -> None:
+        """Order is the whole point. After the commit it is already published."""
+        for slug in PROVIDER_MODULES:
+            text = workflow(slug)
+            self.assertLess(
+                text.index("AI_PRICING_FILE="),
+                text.index("- name: Commit the figures"),
+                f"refresh-{slug}.yml tests its candidate after committing it.",
+            )
+
+    def test_a_candidate_that_fails_stops_the_refresh(self) -> None:
+        """The step runs with continue-on-error, so its outcome has to be read back
+        or a failure is merely printed and then published anyway."""
+        for slug in PROVIDER_MODULES:
+            self.assertIn(
+                "steps.verify.outcome == 'failure'",
+                workflow(slug),
+                f"refresh-{slug}.yml does not act on its candidate check failing.",
+            )
+
+    def test_a_refresh_tests_its_candidate_with_its_own_provider_only(self) -> None:
+        """The same rule as the first test run: one provider's candidate check must not
+        be gated on another provider's fixtures."""
+        for slug, own in PROVIDER_MODULES.items():
+            after = workflow(slug).split("AI_PRICING_FILE=", 1)[1].split("- name:", 1)[0]
+            for other_slug, others in PROVIDER_MODULES.items():
+                if other_slug == slug:
+                    continue
+                for module in others:
+                    if module in own:
+                        continue
+                    self.assertNotIn(
+                        module,
+                        after,
+                        f"refresh-{slug}.yml checks its candidate with {module}.",
+                    )
+
+
 class TestTheFullSuiteStillRunsSomewhere(unittest.TestCase):
     def test_the_push_workflow_discovers_everything(self) -> None:
         """Scoping the refreshes is only safe because this one is not scoped: a change
@@ -96,6 +156,24 @@ class TestTheFullSuiteStillRunsSomewhere(unittest.TestCase):
             "discover -s tests" in (WORKFLOWS / "tests.yml").read_text(encoding="utf-8"),
             "tests.yml no longer runs the whole suite, so nothing does.",
         )
+
+    def test_the_full_suite_runs_after_every_refresh(self) -> None:
+        """`on: push` does not cover the bot's commits -- a push made with GITHUB_TOKEN
+        triggers nothing -- and those are most of the commits this repository gets.
+
+        The name is read out of each refresh file rather than written here twice, so
+        renaming a workflow without updating tests.yml fails instead of silently
+        unhooking it."""
+        tests_yml = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_run:", tests_yml, "tests.yml never sees a bot commit.")
+        for slug in PROVIDER_MODULES:
+            first_line = workflow(slug).splitlines()[0]
+            name = first_line.split("name:", 1)[1].strip()
+            self.assertIn(
+                f'"{name}"',
+                tests_yml,
+                f"tests.yml does not run after refresh-{slug}.yml ({name!r}).",
+            )
 
 
 if __name__ == "__main__":

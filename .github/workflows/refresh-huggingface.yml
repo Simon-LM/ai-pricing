@@ -91,10 +91,45 @@ jobs:
         run: python3 scripts/providers/huggingface/scrape.py --out-dir .ci-out
 
       # ---------------------------------------------------------------------------
+      # The tests above ran against the committed pricing.json -- the file as it stood
+      # BEFORE this scrape. What the commit step below publishes is a candidate built
+      # after it, and until 2026-09-14 nothing ever tested that candidate. That day a
+      # block its own tests reject was committed to main and stayed red there, because
+      # the one job that runs the full suite never sees these commits: a push made with
+      # GITHUB_TOKEN triggers no workflow.
+      #
+      # So the same tests run a second time, pointed at the bytes about to be published.
+      # The scraper already checked them against the schema; this adds everything the
+      # schema cannot express -- that the block still agrees with its mapping, that the
+      # cross-source price band holds, and that Monday's report can still be built.
+      # ---------------------------------------------------------------------------
+      - name: Test the file that is about to be published
+        id: verify
+        if: steps.tests.outcome == 'success' && steps.scrape.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            CANDIDATE="$PWD/.ci-out/updated.json"
+          else
+            CANDIDATE="$PWD/.ci-out/stamped.json"
+          fi
+          echo "Testing $CANDIDATE -- the exact file this run would commit."
+
+          # AI_PRICING_FILE is read once at import; unset it means the committed file,
+          # so a typo here would quietly re-test what is already on main and prove
+          # nothing. tests/published.py fails loudly on a path that does not exist.
+          AI_PRICING_FILE="$CANDIDATE" python3 -m unittest -v \
+            tests.test_weekly_report \
+            tests.scraper_tests.test_huggingface 2>&1 | tee /tmp/candidate.log
+
+      # ---------------------------------------------------------------------------
       # Outcome 3: something failed. Report it, change nothing, fail the job.
       # ---------------------------------------------------------------------------
       - name: Report failure and stop
         if: steps.tests.outcome == 'failure' || steps.scrape.outcome == 'failure'
+          || steps.verify.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -109,6 +144,14 @@ jobs:
               echo
               grep -E '^(FAIL|ERROR): ' /tmp/tests.log \
                 || echo "(no FAIL line in the test log -- see the run)"
+            } > /tmp/reason.txt
+          elif [ "${{ steps.verify.outcome }}" = "failure" ]; then
+            {
+              echo "The scrape succeeded, but the file it was about to commit does not"
+              echo "pass the tests that describe a published file. Nothing was committed."
+              echo
+              grep -E '^(FAIL|ERROR): ' /tmp/candidate.log \
+                || echo "(no FAIL line in the candidate log -- see the run)"
             } > /tmp/reason.txt
           elif [ -s .ci-out/error.txt ]; then
             cp .ci-out/error.txt /tmp/reason.txt
@@ -133,12 +176,21 @@ jobs:
             echo "Endpoint: https://router.huggingface.co/v1/models"
             cat <<'OUTRO'
 
-          The reason is quoted above, and it is one of two things.
+          The reason is quoted above, and it is one of three things.
 
           **A test failed.** Its name is in the block above. This refresh runs the shared
           tests plus Hugging Face's own and no others, so the fault is here -- in this scraper,
           in its fixtures, or in the block it publishes -- and not in another provider's.
           Reproduce it with the command this run's "Run tests" step shows.
+
+          **The file about to be published failed its own tests.** The scrape worked
+          and the figures are probably fine. What failed is a check on the candidate:
+          the block no longer agrees with its mapping, the cross-source price band
+          broke, or the weekly report could not be built from it. Nothing was
+          committed, so the published file is still the last one that passed.
+          Reproduce it by scraping into a directory and pointing the tests at the
+          result: `AI_PRICING_FILE=$PWD/.ci-out/updated.json python3 -m unittest ...`,
+          the command this run's "Test the file that is about to be published" shows.
 
           **The scrape failed.** The router's model list answered with something other
           than the shape this scraper reads. `scripts/providers/huggingface/mapping.json`

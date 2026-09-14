@@ -31,8 +31,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-# The repository root too, so `tests.scraper_tests.published` resolves both
-# under `unittest discover` and when this file is run directly as a script.
+# The repository root too, so `tests.published` resolves both under
+# `unittest discover` and when this file is run directly as a script.
 sys.path.insert(0, str(REPO_ROOT))
 
 # Imported via the providers.huggingface package, not a flat `import scrape`: every
@@ -41,15 +41,18 @@ sys.path.insert(0, str(REPO_ROOT))
 from providers.huggingface import scrape  # noqa: E402
 import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
-from tests.scraper_tests.published import (  # noqa: E402
+from tests.published import (  # noqa: E402
     assert_price_fields_are_producible,
+    published_file,
 )
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "huggingface"
 MODELS_OK = FIXTURES / "models_ok.json"
 BASELINE_JSON = FIXTURES / "baseline.json"
 
-PRICING_JSON = REPO_ROOT / "pricing.json"
+# Not REPO_ROOT / "pricing.json": a refresh points this at the candidate it is
+# about to commit, so these checks run on the bytes about to be published.
+PRICING_JSON = published_file()
 MAPPING_JSON = REPO_ROOT / "scripts" / "providers" / "huggingface" / "mapping.json"
 
 

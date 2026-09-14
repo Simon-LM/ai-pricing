@@ -1,13 +1,29 @@
 name: Tests
 
-# Runs on every push and every pull request, including the pull requests the
-# refresh workflow opens. A price change lands on main only if the file it
-# produces still validates.
+# Runs on every push and every pull request, and after every refresh. This is also
+# the only job that runs the WHOLE suite: a refresh deliberately runs its own
+# provider's tests and no other's, so a regression that crosses providers has to be
+# caught here or nowhere.
+#
+# The refresh workflows do not open pull requests -- they commit straight to main --
+# and that is what the `workflow_run` trigger below is for. A push made with
+# GITHUB_TOKEN triggers no workflow, so the bot's commits, which are most of the
+# commits this repository receives, never reached this job at all. On 2026-09-14 one
+# of them left main red and nothing said so. Each refresh now tests its own candidate
+# before committing, which is the actual fix; this trigger is the net beneath it, and
+# it is the only thing that sees a bot commit through another provider's eyes.
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_run:
+    workflows:
+      - "Refresh prices (Eden AI)"
+      - "Refresh prices (Hugging Face)"
+      - "Refresh prices (Mistral)"
+      - "Refresh prices (OVH)"
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +31,10 @@ permissions:
 
 jobs:
   test:
+    # A refresh that failed committed nothing, so there is nothing new to look at.
+    if: >-
+      github.event_name != 'workflow_run'
+      || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -25,6 +45,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # On a workflow_run event the default checkout is the default branch's tip,
+          # which is usually -- but not necessarily -- the commit the refresh just
+          # pushed. Naming it means this run reports on the commit that triggered it.
+          # Empty on every other event, where the default is already right.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-python@v5
         with:
@@ -33,8 +59,9 @@ jobs:
       - name: Run tests
         run: python3 -m unittest discover -s tests -v
 
-      # Says out loud, on every pull request that touches the file, that what is about
-      # to be published still satisfies the contract consumers read.
+      # Says out loud, on every change that touches the file, that what consumers
+      # read still satisfies the contract -- before a merge, and again after a
+      # refresh has committed.
       - name: Validate the published pricing.json
         run: |
           python3 -c "
