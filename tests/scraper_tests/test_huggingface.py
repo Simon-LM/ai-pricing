@@ -31,6 +31,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+# The repository root too, so `tests.scraper_tests.published` resolves both
+# under `unittest discover` and when this file is run directly as a script.
+sys.path.insert(0, str(REPO_ROOT))
 
 # Imported via the providers.huggingface package, not a flat `import scrape`: every
 # provider's scraper is a module literally named scrape.py, and a flat import would
@@ -38,6 +41,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from providers.huggingface import scrape  # noqa: E402
 import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
+from tests.scraper_tests.published import (  # noqa: E402
+    assert_price_fields_are_producible,
+)
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "huggingface"
 MODELS_OK = FIXTURES / "models_ok.json"
@@ -45,6 +51,23 @@ BASELINE_JSON = FIXTURES / "baseline.json"
 
 PRICING_JSON = REPO_ROOT / "pricing.json"
 MAPPING_JSON = REPO_ROOT / "scripts" / "providers" / "huggingface" / "mapping.json"
+
+
+def _still_quoted(entry: JSONDict | None) -> bool:
+    """True if the source still quotes this per-token figure today.
+
+    False for a model the other side does not list at all, and false for an entry
+    carrying `absent_since` or `unpriced_since`: those keep the last figure actually
+    observed, frozen at the day the source stopped standing behind it. Such a figure
+    is worth publishing and worth nothing at all for comparison.
+    """
+    return bool(
+        entry
+        and "in_per_mtok" in entry
+        and "absent_since" not in entry
+        and "unpriced_since" not in entry
+    )
+
 
 FIXED_NOW = "2026-08-10T07:00:00Z"
 
@@ -421,13 +444,7 @@ class TestPublishedFileMatchesHuggingFace(unittest.TestCase):
         self.assertEqual(published["currency"], mapping["currency"])
 
         producible = set(mapping["fields"])
-        for route, entry in published["models"].items():
-            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
-            if entry.get("free") is True:
-                self.assertEqual(fields, set(), f"{route} is free and priced at once")
-            else:
-                self.assertTrue(fields, route)
-                self.assertLessEqual(fields, producible, route)
+        assert_price_fields_are_producible(self, published["models"], producible)
 
     def test_every_key_carries_a_mapped_partner_suffix(self) -> None:
         """The key is the exact string the router takes. Without the suffix it would
@@ -453,7 +470,12 @@ class TestPublishedFileMatchesHuggingFace(unittest.TestCase):
             if partner != "ovhcloud":
                 continue
             direct = ovh.get(model_id.split("/")[-1])
-            if not direct or "in_per_mtok" not in direct:
+            # Compare only two figures both sources still quote. One frozen side and
+            # one live side drift apart on nothing but age, and the band would break
+            # on a file that is entirely correct -- which stops the weekly refresh
+            # from publishing at all. That is what happened on 2026-09-14, when the
+            # router kept selling Qwen3.8-27B and stopped pricing it.
+            if not _still_quoted(entry) or not _still_quoted(direct):
                 continue
             ratio = entry["in_per_mtok"] / direct["in_per_mtok"]
             with self.subTest(route=route):

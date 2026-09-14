@@ -33,6 +33,9 @@ from urllib.parse import urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+# The repository root too, so `tests.scraper_tests.published` resolves both
+# under `unittest discover` and when this file is run directly as a script.
+sys.path.insert(0, str(REPO_ROOT))
 
 # Imported via the providers.mistral package, not a flat `import scrape` off a
 # directly-inserted directory: OVH's scraper is also a module literally named
@@ -42,6 +45,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from providers.mistral import scrape  # noqa: E402
 import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
+from tests.scraper_tests.published import (  # noqa: E402
+    assert_price_fields_are_producible,
+)
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "mistral"
 
@@ -789,13 +795,7 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
             producible |= set(side.values())
         producible |= {spec["field"] for spec in mapping["rows"].values()}
 
-        for model_id, entry in published["models"].items():
-            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
-            if entry.get("free") is True:
-                self.assertEqual(fields, set(), f"{model_id} is free and priced at once")
-            else:
-                self.assertTrue(fields, model_id)
-                self.assertLessEqual(fields, producible, model_id)
+        assert_price_fields_are_producible(self, published["models"], producible)
 
     def test_only_products_carry_a_kind(self) -> None:
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))

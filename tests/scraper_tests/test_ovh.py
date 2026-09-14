@@ -31,6 +31,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+# The repository root too, so `tests.scraper_tests.published` resolves both
+# under `unittest discover` and when this file is run directly as a script.
+sys.path.insert(0, str(REPO_ROOT))
 
 # Imported via the providers.ovh package, not a flat `import scrape` off a
 # directly-inserted directory: Mistral's scraper is also a module literally named
@@ -40,6 +43,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from providers.ovh import scrape  # noqa: E402
 import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
+from tests.scraper_tests.published import (  # noqa: E402
+    assert_price_fields_are_producible,
+)
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "ovh"
 CATALOG_OK = FIXTURES / "catalog_ok.html"
@@ -670,13 +676,7 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
         self.assertEqual(published["currency"], mapping["currency"])
 
         producible = set(mapping["units"].values())
-        for model_id, entry in published["models"].items():
-            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
-            if entry.get("free") is True:
-                self.assertEqual(fields, set(), f"{model_id} is free and priced at once")
-            else:
-                self.assertTrue(fields, model_id)
-                self.assertLessEqual(fields, producible, model_id)
+        assert_price_fields_are_producible(self, published["models"], producible)
 
     def test_the_published_figures_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits

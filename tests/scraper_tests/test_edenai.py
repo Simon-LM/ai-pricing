@@ -30,6 +30,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+# The repository root too, so `tests.scraper_tests.published` resolves both
+# under `unittest discover` and when this file is run directly as a script.
+sys.path.insert(0, str(REPO_ROOT))
 
 # Imported via the providers.edenai package, not a flat `import scrape` off a
 # directly-inserted directory: every provider's scraper is a module literally named
@@ -38,6 +41,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from providers.edenai import scrape  # noqa: E402
 import pricing_validate as validate  # noqa: E402
 from pricing_validate import JSONDict  # noqa: E402
+from tests.scraper_tests.published import (  # noqa: E402
+    assert_price_fields_are_producible,
+)
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "edenai"
 MODELS_OK = FIXTURES / "models_ok.json"
@@ -379,10 +385,7 @@ class TestPublishedFileMatchesEdenAI(unittest.TestCase):
         self.assertEqual(published["currency"], mapping["currency"])
 
         producible = set(mapping["fields"])
-        for model_id, entry in published["models"].items():
-            fields = {k for k in entry if k in validate.KNOWN_PRICE_FIELDS}
-            self.assertTrue(fields, model_id)
-            self.assertLessEqual(fields, producible, model_id)
+        assert_price_fields_are_producible(self, published["models"], producible)
 
     def test_every_key_is_prefixed_by_a_mapped_upstream(self) -> None:
         """Eden's model id namespaces the upstream, and the key is that whole id --
