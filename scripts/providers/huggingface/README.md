@@ -64,11 +64,27 @@ that first sees it gone sends one email. The same applies to a route the router 
 marking `live`: a price for a call that cannot be served is worse than no price, so it
 is treated as not offered rather than published as current.
 
-**A route the router will not price is skipped whole, never refused.** One rule, for
-every way that happens: no `pricing` object at all, a missing `input` or `output`, a
-price that is not a number, or a `0` on a route the router itself marks `is_free:
-false`. Input and output are two halves of one token price, so half of one prices
-nothing and the route goes rather than half of it.
+**A route the router will not price is published carrying `unpriced_since`, never
+refused and never dropped.** One rule, for every way that happens: no `pricing` object
+at all, a missing `input` or `output`, a price that is not a number, or a `0` on a
+route the router itself marks `is_free: false`. Input and output are two halves of one
+token price, so half of one prices nothing and no price at all is published for it.
+
+```json
+"deepseek-ai/DeepSeek-V4-Flash-0731:scaleway": {
+  "display_name": "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway",
+  "unpriced_since": "2026-09-14"
+}
+```
+
+Published, because "the router sells this and will not say what it costs" is a fact a
+consumer needs — it is the difference between a model that does not exist and one that
+must not be called before the bill is checked. Dropping the route threw that away.
+
+The scraper hands back an internal `unpriced` marker carrying the reason in words;
+`provider_runner` stamps the date, keeps any price observed before it happened, and
+reports the transition **once** rather than every Monday. The day the router quotes a
+price, the marker goes on its own.
 
 The `0` is worth its own line: it is unpublishable in both readings. As a price it
 tells consumers the model is free, and `0` is also exactly what a misparse produces.

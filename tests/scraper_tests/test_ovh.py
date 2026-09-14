@@ -510,7 +510,13 @@ class TestSanityBounds(ScrapeTestCase):
         """per_audio_second must not keep its name if the catalog stops meaning seconds.
         There is no honest field to put a per-minute figure in, so that price is not
         published at all -- but the other eighteen models' prices are, because the unit
-        of an audio model says nothing about whether a token price was read correctly."""
+        of an audio model says nothing about whether a token price was read correctly.
+
+        The model is marked `unpriced_since`, NOT `absent_since`. OVH still sells it;
+        it is this repository that cannot name the unit. Saying "no longer offered"
+        would be a false statement about the source, and it would send whoever reads it
+        looking at OVH rather than at the mapping, which is where the fix belongs. The
+        last prices actually observed stay beside the marker either way."""
         html = mutate(self.catalog_ok, '\\"price_unit\\":\\"audio_duration_seconds\\"',
                        '\\"price_unit\\":\\"audio_duration_minutes\\"', expected_count=2)
         code, _, _ = self.run_scrape(html)
@@ -520,7 +526,8 @@ class TestSanityBounds(ScrapeTestCase):
         self.assertIn("audio_duration_minutes", self.notes())
         self.assertIn("no publishable price", self.notes())
         for model_id in ("whisper-large-v3", "whisper-large-v3-turbo"):
-            self.assertEqual(models[model_id]["absent_since"], FIXED_NOW[:10])
+            self.assertEqual(models[model_id]["unpriced_since"], FIXED_NOW[:10])
+            self.assertNotIn("absent_since", models[model_id], "OVH still offers it")
             self.assertEqual(models[model_id]["per_audio_second"], 4.083e-05 if model_id == "whisper-large-v3" else 1.278e-05)
         self.assertEqual(models["gpt-oss-120b"]["in_per_mtok"], 0.08)
 

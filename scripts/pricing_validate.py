@@ -252,10 +252,15 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
                 f"{full_id}: marked free but also carries price field(s) {prices}. "
                 f"One of the two is wrong and nothing here can tell which."
             )
-        if free is not True and not prices:
+        if free is True and "unpriced_since" in entry:
+            raise ValidationError(
+                f"{full_id}: marked free and also unpriced_since. The source cannot both "
+                f"be giving this away and be declining to say what it costs."
+            )
+        if free is not True and not prices and "unpriced_since" not in entry:
             raise ValidationError(
                 f'{full_id}: no price field and not marked free. Expected one of '
-                f'{list(KNOWN_PRICE_FIELDS)}, or "free": true.'
+                f'{list(KNOWN_PRICE_FIELDS)}, "free": true, or "unpriced_since".'
             )
 
         # Mistral's pricing page bills models and non-model products side by side --
@@ -270,11 +275,6 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
                 f"{full_id}: kind must be one of {list(KNOWN_KINDS)}, got {kind!r}"
             )
 
-        # Set on the day the source was first seen without this entry, and cleared the
-        # day it comes back. Its presence changes what every price beside it means --
-        # last known rather than current -- so the format is pinned as tightly as
-        # `updated` is, and a value that is not a plain day is refused rather than
-        # published as something a consumer would have to guess at.
         # The strings a caller passes as the model, when the source states them. Most
         # specific first, as the source orders them: the versioned id, then any shorter
         # aliases, then usually a `-latest` one whose meaning moves without warning.
@@ -296,20 +296,38 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
             if len(set(api_ids)) != len(api_ids):
                 raise ValidationError(f"{full_id}: api_ids repeats an identifier: {api_ids!r}")
 
-        if "absent_since" in entry:
-            absent_since = entry["absent_since"]
-            if not isinstance(absent_since, str) or not _ISO_DAY.match(absent_since):
+        # absent_since is set on the day the source was first seen without this entry,
+        # and cleared the day it comes back. unpriced_since is set on the day the source
+        # was first seen offering it WITHOUT a usable price, and cleared the day it
+        # quotes one. Both change what every price beside them means -- last known
+        # rather than current -- so both formats are pinned as tightly as `updated` is,
+        # and a value that is not a plain day is refused rather than published as
+        # something a consumer would have to guess at.
+        #
+        # They say different things and a consumer must not merge them:
+        #
+        #   absent_since    the source no longer offers this at all
+        #   unpriced_since  the source still offers it, still says it is not free, and
+        #                   states no price this file can publish. It may carry the last
+        #                   prices observed before that happened, or no price at all if
+        #                   it was never quoted one.
+        for field in ("absent_since", "unpriced_since"):
+            if field not in entry:
+                continue
+            day = entry[field]
+            if not isinstance(day, str) or not _ISO_DAY.match(day):
                 raise ValidationError(
-                    f"{full_id}: absent_since must be a plain day, YYYY-MM-DD, got "
-                    f"{absent_since!r}. An entry the source still offers omits the field; "
-                    f"null and false are ways of writing something it cannot mean."
+                    f"{full_id}: {field} must be a plain day, YYYY-MM-DD, got {day!r}. "
+                    f"An entry it does not apply to omits the field; null and false are "
+                    f"ways of writing something it cannot mean."
                 )
 
         unknown = [
             k
             for k in entry
             if k not in KNOWN_PRICE_FIELDS
-            and k not in ("display_name", "free", "kind", "absent_since", "api_ids")
+            and k
+            not in ("display_name", "free", "kind", "absent_since", "unpriced_since", "api_ids")
         ]
         if unknown:
             raise ValidationError(f"{full_id}: unknown field(s) {unknown}")
@@ -360,4 +378,10 @@ def _render(entry: JSONDict | None) -> str:
         return "(missing)"
     if entry.get("free") is True:
         return "free"
-    return ", ".join(f"{k}={v}" for k, v in sorted(entry.items()) if k in KNOWN_PRICE_FIELDS)
+    prices = ", ".join(f"{k}={v}" for k, v in sorted(entry.items()) if k in KNOWN_PRICE_FIELDS)
+    # An entry the source offers without stating a price has nothing in the number
+    # space, and "added ()" in a commit message reads as a bug rather than as the
+    # statement it is.
+    if "unpriced_since" in entry:
+        return f"unpriced{f'; last known {prices}' if prices else ''}"
+    return prices

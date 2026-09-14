@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import provider_runner  # noqa: E402
-from pricing_validate import ABSENT_RETENTION_DAYS, JSONDict  # noqa: E402
+from pricing_validate import ABSENT_RETENTION_DAYS, KNOWN_PRICE_FIELDS, JSONDict  # noqa: E402
 
 TODAY = "2026-08-17"
 
@@ -114,6 +114,88 @@ class TestComingBack(unittest.TestCase):
     def test_a_model_that_never_left_says_nothing(self) -> None:
         _, notes = provider_runner.reconcile_inventory({"m": entry(1.0)}, {"m": entry(1.0)}, TODAY)
         self.assertEqual(notes, [])
+
+
+class TestOfferedButUnpriced(unittest.TestCase):
+    """A source that sells something and will not say what it costs.
+
+    Hugging Face's router does this: `status: live`, `is_free: false`, and either a
+    price of 0 or no pricing object at all. So does OVH, for a unit this repository has
+    no field for. Publishing the entry with `unpriced_since` says the true thing --
+    "this exists, it is not free, and there is no price here" -- where dropping it made
+    that indistinguishable from a model that no longer exists.
+
+    A scraper signals it by handing back the internal `unpriced` key carrying the reason
+    in words. The date is stamped here, and the marker itself never reaches the file.
+    """
+
+    def unpriced(self, reason: str = "input is 0") -> JSONDict:
+        return {"display_name": "m", "unpriced": reason}
+
+    def test_the_date_is_stamped_and_the_marker_never_leaks(self) -> None:
+        merged, notes = provider_runner.reconcile_inventory({}, {"m": self.unpriced()}, TODAY)
+        self.assertEqual(merged["m"]["unpriced_since"], TODAY)
+        self.assertNotIn("unpriced", merged["m"], "internal marker reached pricing.json")
+        self.assertEqual(len(notes), 1)
+        self.assertIn("input is 0", notes[0], "the note does not say what the source did")
+
+    def test_it_is_reported_once_and_then_never_again(self) -> None:
+        """The whole point of keeping the state in the file. Before this, the scraper
+        recomputed a note every run, so the same unpriced route opened a fresh issue --
+        and a fresh email -- every Monday until the source got round to pricing it. A
+        weekly reminder of a fact nobody can act on is how an alert channel gets muted.
+        """
+        first, notes = provider_runner.reconcile_inventory({}, {"m": self.unpriced()}, TODAY)
+        self.assertEqual(len(notes), 1)
+
+        for week in ("2026-08-24", "2026-08-31", "2026-09-07"):
+            first, notes = provider_runner.reconcile_inventory(first, {"m": self.unpriced()}, week)
+            self.assertEqual(notes, [], f"said it again on {week}")
+            self.assertEqual(
+                first["m"]["unpriced_since"], TODAY, "re-stamped an old gap as if it were new"
+            )
+
+    def test_the_last_prices_observed_are_kept_beside_the_marker(self) -> None:
+        """A consumer then has a figure to reason with AND the warning that the source
+        no longer stands behind it -- strictly more than either alone."""
+        merged, notes = provider_runner.reconcile_inventory(
+            {"m": entry(2.5)}, {"m": self.unpriced()}, TODAY
+        )
+        self.assertEqual(merged["m"]["in_per_mtok"], 2.5)
+        self.assertEqual(merged["m"]["unpriced_since"], TODAY)
+        self.assertIn("last prices observed are kept", notes[0])
+
+    def test_one_that_was_never_priced_carries_no_price(self) -> None:
+        merged, notes = provider_runner.reconcile_inventory({}, {"m": self.unpriced()}, TODAY)
+        self.assertEqual([k for k in merged["m"] if k in KNOWN_PRICE_FIELDS], [])
+        self.assertIn("never been quoted one", notes[0])
+
+    def test_a_price_returning_clears_the_marker_and_says_so(self) -> None:
+        """The other half of the requirement: it has to be able to come back."""
+        merged, notes = provider_runner.reconcile_inventory(
+            {"m": {"display_name": "m", "unpriced_since": "2026-08-10"}}, {"m": entry(4.0)}, TODAY
+        )
+        self.assertNotIn("unpriced_since", merged["m"])
+        self.assertEqual(merged["m"]["in_per_mtok"], 4.0)
+        self.assertEqual(len(notes), 1)
+        self.assertIn("priced again", notes[0])
+
+    def test_unpriced_is_not_absent(self) -> None:
+        """Two different statements, and a consumer must not merge them: one says the
+        source stopped offering it, the other says the source still offers it and will
+        not quote it."""
+        merged, _ = provider_runner.reconcile_inventory({}, {"m": self.unpriced()}, TODAY)
+        self.assertNotIn("absent_since", merged["m"])
+
+    def test_an_entry_that_goes_away_while_unpriced_goes_absent(self) -> None:
+        """Disappearing outranks being unpriced: it is no longer offered at all."""
+        merged, notes = provider_runner.reconcile_inventory(
+            {"m": {"display_name": "m", "in_per_mtok": 1.0, "unpriced_since": "2026-08-10"}},
+            {},
+            TODAY,
+        )
+        self.assertEqual(merged["m"]["absent_since"], TODAY)
+        self.assertIn("no longer offered", notes[0])
 
 
 class TestOneModelDoesNotBlockTheOthers(unittest.TestCase):

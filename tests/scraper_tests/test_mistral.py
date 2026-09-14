@@ -586,12 +586,19 @@ class TestUnreadableFigures(ScrapeTestCase):
         self.assertEqual(models["ocr 4.1"]["per_1k_annotated_pages"], 5.0)
         self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
 
-    def test_a_model_whose_every_figure_is_unreadable_goes_absent(self) -> None:
+    def test_a_model_whose_every_figure_is_unreadable_is_marked_unpriced(self) -> None:
+        """Marked `unpriced_since`, NOT `absent_since`. Mistral still lists OCR 4.1 and
+        still charges for it -- it is this repository that cannot read the unit. Saying
+        "no longer offered" would be a false statement about the source, and it would
+        send whoever reads it looking at Mistral's site rather than at the mapping,
+        which is where the fix actually is."""
         self.edit(self.docs_url("ocr-4-1"), '/1000 ', '/100 ', expected_count=None)
         code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
         self.assertIn("no price on this page could be published", self.notes())
-        self.assertEqual(self.models()["ocr 4.1"]["absent_since"], FIXED_NOW[:10])
+        entry = self.models()["ocr 4.1"]
+        self.assertEqual(entry["unpriced_since"], FIXED_NOW[:10])
+        self.assertNotIn("absent_since", entry, "Mistral still offers it")
 
     def test_an_unrecognised_product_row_label_is_reported(self) -> None:
         self.edit(PRICING_PAGE, "Price (per 1K calls)", "Cost (per 1K calls)", expected_count=None)
@@ -599,7 +606,9 @@ class TestUnreadableFigures(ScrapeTestCase):
         self.assertEqual(code, 0)
         self.assertIn("Cost (per 1K calls)", self.notes())
         self.assertIn("has no field for that label", self.notes())
-        self.assertEqual(self.models()["web search"]["absent_since"], FIXED_NOW[:10])
+        entry = self.models()["web search"]
+        self.assertEqual(entry["unpriced_since"], FIXED_NOW[:10])
+        self.assertNotIn("absent_since", entry, "the pricing page still lists it")
 
 
 class TestSanityBounds(ScrapeTestCase):

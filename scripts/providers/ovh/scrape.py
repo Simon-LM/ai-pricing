@@ -152,11 +152,16 @@ def extract_models(
 
         raw_pricing = entry.get("metadata", {}).get("usage_information", {}).get("pricing")
         if not isinstance(raw_pricing, list) or not raw_pricing:
-            notes.append(
-                f"{model_id}: the catalog lists it with no "
-                f"metadata.usage_information.pricing, so there is no price to publish. "
-                f"Skipped."
-            )
+            # Published carrying the shared `unpriced` marker rather than dropped. OVH
+            # sells this and states no price for it, and that is a fact a consumer
+            # needs: it is the difference between a model that does not exist and one
+            # that must not be called before the cost is checked. provider_runner
+            # stamps the date, keeps any price observed before this happened, and
+            # reports the transition once instead of every week.
+            models[model_id] = {
+                "unpriced": "the catalog lists it with no metadata.usage_information.pricing",
+                "display_name": model_id,
+            }
             continue
         raw_pricing = cast("list[Any]", raw_pricing)
         if not all(isinstance(p, dict) for p in raw_pricing):
@@ -216,17 +221,23 @@ def extract_models(
             result_entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, price)
 
         if not result_entry:
-            notes.append(f"{model_id}: no publishable price could be read at all. Skipped.")
+            models[model_id] = {
+                "unpriced": "no publishable price could be read at all",
+                "display_name": model_id,
+            }
             continue
 
         result_entry["display_name"] = model_id
         models[model_id] = result_entry
 
-    if not models:
+    # Counts PRICED models, not entries. Marking one model unpriced is an honest
+    # report; marking every one of them would quietly turn the whole provider into
+    # last-known figures, and no single bad read upstream may cause that.
+    if not any("unpriced" not in e for e in models.values()):
         raise ScrapeError(
             "the catalog priced not a single model this scraper could publish. Either "
             "OVH restructured it, or the page is not what it looks like. Refusing to "
-            "publish an empty block."
+            "republish the whole block as unpriced on the strength of one bad read."
         )
 
     return models, notes

@@ -229,28 +229,31 @@ def extract_models(
             # Skipped whole, not half. Unlike OVH's catalog -- where the units are
             # independent and a model can lose one and keep the others -- input and
             # output are two halves of one token price, and half of one prices nothing.
+            # Published, not dropped. "The router sells this and will not say what it
+            # costs" is a fact a consumer needs: it is the difference between a model
+            # that does not exist and one that must not be called without checking the
+            # bill first. Dropping the route threw that away and left a caller to
+            # discover it at the invoice.
+            #
+            # The entry carries no price -- half a token price prices nothing, and a 0
+            # would say the model is free -- so `unpriced` goes back with the reason in
+            # words. provider_runner stamps the date, keeps any prices observed before
+            # this happened, and reports the transition once rather than every Monday.
             if unusable:
-                # The zero deserves its own sentence, and only when there is one: a
-                # reader told "0 would say the model is free" about a route that states
-                # no price at all learns to skim these notes.
-                why = "a figure this file cannot read honestly is worse than none"
-                if any(r.endswith(" is 0") for r in unusable):
-                    why += ", and 0 in particular would tell consumers the model is free"
-                notes.append(
-                    f"{route}: the router says it is live and not free, then does not "
-                    f"price it -- {'; '.join(unusable)}. Not published: {why}. It "
-                    f"publishes itself as soon as the router quotes a usable price."
-                )
-                continue
+                result_entry = {"unpriced": "; ".join(unusable)}
 
         result_entry["display_name"] = route
         models[route] = result_entry
 
-    if not models:
+    # The backstop, and it counts PRICED routes rather than routes. Marking one route
+    # unpriced is an honest report; marking every one of them would silently turn the
+    # whole provider into last-known figures, which is a change no consumer would see
+    # coming and which no single upstream edit should be able to cause.
+    if not any("unpriced" not in e for e in models.values()):
         raise ScrapeError(
-            "not one live route from the mapped partners could be priced. Either Hugging "
+            "not one live route from the mapped partners carries a price. Either Hugging "
             "Face restructured the listing, or it is quoting nothing at all. Refusing to "
-            "publish an empty block."
+            "republish the whole block as unpriced on the strength of one bad read."
         )
 
     return models, notes

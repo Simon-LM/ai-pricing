@@ -130,6 +130,7 @@ show it to whoever is reading your number. Display it:
 | `free` | Present, and always `true`, when the provider gives the model away. The entry then carries **no price field at all** -- see below. |
 | `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model: Mistral's web search, code execution and image generation are priced on the same page as its models. Filter on it if you are listing models to call. |
 | `absent_since` | Absent on a model still on sale, which is the normal case. When present, the source has stopped offering this entry as of that day, and **every price beside it is the last one observed, not a current one**. See below. |
+| `unpriced_since` | Absent on a model the source prices, which is the normal case. When present, the source **still offers this entry and still calls it paid, and states no price** as of that day. Any price beside it is the last one observed; there may be none at all. See below. |
 
 **The key is whatever the source itself states, per provider.** There is no single
 convention because there is no single source:
@@ -206,6 +207,56 @@ costing nothing, not as missing data.
 per minute of audio and per million tokens of text, and reading only one of the two
 undercounts a bill without ever looking wrong. Do not assume one unit per model:
 iterate the keys you find.
+
+## Sold, with no price attached
+
+Some sources list a model, say plainly that it is not free, and then quote nothing for
+it. Hugging Face's router does it today: `"status": "live"`, `"is_free": false`, and
+either `{"input": 0, "output": 0}` or no `pricing` object at all.
+
+That entry is published, carrying
+
+```json
+"unpriced_since": "2026-09-14"
+```
+
+and no price of its own:
+
+```json
+"deepseek-ai/DeepSeek-V4-Flash-0731:scaleway": {
+  "display_name": "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway",
+  "unpriced_since": "2026-09-14"
+}
+```
+
+**It is published rather than dropped because the fact is worth having.** "This model
+is sold, it is not free, and nobody will say what it costs" is a different statement
+from "this model does not exist", and a consumer that cannot tell them apart finds out
+at the invoice. An agent reading this file can say: *this one is billable and unpriced
+— do not call it without checking the cost first.*
+
+**`unpriced_since` is not `absent_since`.** Tell them apart:
+
+| | the source | the price beside it |
+| --- | --- | --- |
+| `absent_since` | no longer offers it at all | last observed, frozen |
+| `unpriced_since` | still offers it, still charges for it | last observed, or none at all |
+
+The cause is not always the source's. OVH sometimes prices a model in a unit this
+repository has no field for; the model is real and on sale, and marking it *absent*
+would be a false statement about OVH that sends a reader looking at the wrong place.
+It is marked unpriced, and the run says which unit is missing from the mapping.
+
+**It clears itself.** The day the source quotes a price, the marker goes and the
+figures are live again — nothing to undo by hand.
+
+**It is reported once.** The run that first observes it sends one email; while it stays
+unpriced, later runs say nothing, and the day it is priced again sends one more. The
+date does not move in the meantime, so a gap that opened in March still reads as March.
+
+**If a whole provider went unpriced, the run fails instead.** Marking one entry is an
+honest report; marking every one of them would quietly turn the block into last-known
+figures, and no single bad read upstream may cause that.
 
 ## Models that go away
 

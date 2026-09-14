@@ -80,8 +80,10 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
     The non-price fields travel with the entry: `api_ids` lists the strings a caller
     passes as the model, `free` stands in place of the price fields for a model a
     provider gives away, `kind` marks an entry that is billable but is not a model at
-    all, and `absent_since` marks one the source has stopped offering, whose prices are
-    therefore the last ones observed rather than today's.
+    all, `absent_since` marks one the source has stopped offering, and `unpriced_since`
+    marks one it still offers, still calls paid, and declines to put a figure on. In
+    both of those last two cases any price beside the marker is the last one observed
+    rather than today's.
     """
     ordered_models: dict[str, JSONDict] = {}
     for model_id in sorted(models):
@@ -99,6 +101,8 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
             ordered["kind"] = entry["kind"]
         if "absent_since" in entry:
             ordered["absent_since"] = entry["absent_since"]
+        if "unpriced_since" in entry:
+            ordered["unpriced_since"] = entry["unpriced_since"]
         ordered_models[model_id] = ordered
 
     return {
@@ -138,12 +142,63 @@ def reconcile_inventory(
 
     for model_id, entry in new_models.items():
         entry = dict(entry)
+        old_entry = old_models.get(model_id, {})
+
         # Whatever the source says today is current by definition, so a stamp left over
         # from an earlier absence is not merely stale, it is now false.
-        was_absent = old_models.get(model_id, {}).get("absent_since")
+        was_absent = old_entry.get("absent_since")
         entry.pop("absent_since", None)
         if was_absent:
             notes.append(f"{model_id}: offered again (absent since {was_absent}); prices are live again")
+
+        # A scraper sets the internal `unpriced` marker when the source offers an entry,
+        # calls it paid, and states no price this file can publish. The DATE is stamped
+        # here rather than there, for the same reason absent_since is: only this function
+        # can see what was already true last week, and re-stamping today every run would
+        # make a months-old gap look like it opened this morning.
+        #
+        # The marker itself never reaches pricing.json -- what a consumer reads is
+        # `unpriced_since` -- and the note fires on the TRANSITION only. An entry that
+        # was already unpriced last week says nothing further, exactly like an absent
+        # one. Weekly repetition of a fact nobody can act on is how an alert channel
+        # gets muted, and this one has to still work the day something real happens.
+        was_unpriced = old_entry.get("unpriced_since")
+        # The scraper sets `unpriced` to the REASON, in words -- "input is 0", "no
+        # pricing object at all". It travels here so the transition note can say what
+        # the source actually did, and is dropped before publication: a consumer needs
+        # to know there is no price, not which field was missing the week it vanished.
+        reason = entry.pop("unpriced", None)
+        if reason:
+            entry["unpriced_since"] = was_unpriced or today
+
+            # The last prices actually observed are worth keeping beside the marker: a
+            # consumer then has a figure to reason with AND the warning that the source
+            # no longer stands behind it. One that was never quoted a price simply has
+            # none, and the marker is the whole of what this file knows.
+            if not any(k in KNOWN_PRICE_FIELDS for k in entry):
+                for field, value in old_entry.items():
+                    if field in KNOWN_PRICE_FIELDS:
+                        entry[field] = value
+
+            if not was_unpriced:
+                kept = sorted(k for k in entry if k in KNOWN_PRICE_FIELDS)
+                notes.append(
+                    f"{model_id}: still offered and still not free, but the source states "
+                    f"no price this file can publish -- {reason}. "
+                    f"Marked unpriced_since={today}"
+                    + (
+                        f"; the last prices observed are kept beside it ({', '.join(kept)})."
+                        if kept
+                        else ", and it carries no price at all, having never been quoted one."
+                    )
+                    + " A consumer must not call it without checking the cost first."
+                )
+        elif was_unpriced:
+            notes.append(
+                f"{model_id}: priced again by the source (unpriced since {was_unpriced}); "
+                f"the marker is gone and the figures are live."
+            )
+
         merged[model_id] = entry
 
     for model_id, entry in old_models.items():

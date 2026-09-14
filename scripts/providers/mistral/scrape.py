@@ -392,8 +392,12 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
         entry, entry_notes = docs_entry(model_id, pricing, mapping)
         notes += entry_notes
         if not entry:
-            notes.append(f"{model_id}: no price on this page could be published at all.")
-            continue
+            # Published carrying the shared `unpriced` marker rather than dropped.
+            # Mistral still lists this model and still calls it paid; dropping it would
+            # make "sold, at a price this file cannot read" indistinguishable from
+            # "gone". provider_runner stamps the date, keeps any price observed before
+            # this happened, and reports the transition once instead of every week.
+            entry = {"unpriced": "no price on this page could be published at all"}
         entry["display_name"] = model_id
         if api_ids:
             entry["api_ids"] = api_ids
@@ -517,8 +521,7 @@ def extract_products(
             entry[field] = check_price(f"{PROVIDER_ID}/{card_name}", field, value)
 
         if len(entry) == 2:  # kind and display_name only
-            notes.append(f"{card_name}: no price on this card could be published at all.")
-            continue
+            entry["unpriced"] = "no price on this card could be published at all"
         products[card_name] = entry
 
     return products, notes

@@ -266,48 +266,61 @@ class TestPriceFailures(ScrapeTestCase):
         self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
         self.assertIn("no longer offered", self.notes())
 
-    def assert_skipped_and_others_published(self, payload: JSONDict, *in_note: str) -> None:
-        """One route unusable must cost that route, and nothing else.
+    def assert_published_as_unpriced(self, payload: JSONDict, *in_note: str) -> None:
+        """A route the source will not price is PUBLISHED, marked, and costs nothing else.
 
-        The shape every case below shares: the run succeeds, the offending route is
-        absent from what is published, the OTHER routes are still there, and the run
-        says out loud what it skipped and why.
+        The shape every case below shares: the run succeeds, the offending route is in
+        the file carrying `unpriced_since` and no price of its own, the OTHER routes
+        still carry real prices, and the run says once what the source did.
+
+        Published rather than dropped, because "sold, and the seller will not say what
+        it costs" is a fact a consumer needs. Dropping it made that indistinguishable
+        from a model that does not exist, and left a caller to find out at the invoice.
         """
         route = "openai/gpt-oss-120b:ovhcloud"
         code, stdout, _ = self.run_scrape(json.dumps(payload))
 
         self.assertEqual(code, 0, "one unpriceable route stopped the whole block again")
         models = self.candidate_block("updated.json" if "changed" in stdout else "stamped.json")["models"]
-        on_sale = {k: v for k, v in models.items() if "absent_since" not in v}
 
-        self.assertNotIn(route, on_sale, "published a route with no usable price")
-        self.assertTrue(on_sale, "skipped every route, not just the unusable one")
+        self.assertIn(route, models, "dropped the route instead of marking it")
+        entry = models[route]
+        self.assertIn("unpriced_since", entry)
+        self.assertNotIn("free", entry, "an unpriced route is not a free one")
+
+        priced = [
+            m
+            for m, e in models.items()
+            if m != route and any(k in validate.KNOWN_PRICE_FIELDS for k in e)
+        ]
+        self.assertTrue(priced, "marked every route unpriced, not just the unusable one")
+
         self.assertIn(route, self.notes())
         for fragment in in_note:
             self.assertIn(fragment, self.notes())
 
-    def test_a_missing_pricing_object_is_skipped_not_refused(self) -> None:
+    def test_a_missing_pricing_object_is_published_as_unpriced(self) -> None:
         """2026-09-14: deepseek-ai/DeepSeek-V4-Flash-0731:scaleway went live with no
         pricing object at all, and the raise that used to be here froze the whole
         provider for a week -- three lines away from the branch fixed the week before
         for exactly the same reason."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud").pop("pricing")
-        self.assert_skipped_and_others_published(payload, "no pricing object at all")
+        self.assert_published_as_unpriced(payload, "no pricing object at all")
 
-    def test_a_missing_output_price_is_skipped_not_refused(self) -> None:
+    def test_a_missing_output_price_is_published_as_unpriced(self) -> None:
         """Half a token price prices nothing, so the route goes whole rather than half
         of it -- but it goes alone."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"].pop("output")
-        self.assert_skipped_and_others_published(payload, "output missing")
+        self.assert_published_as_unpriced(payload, "output missing")
 
-    def test_a_non_numeric_price_is_skipped_not_refused(self) -> None:
+    def test_a_non_numeric_price_is_published_as_unpriced(self) -> None:
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"]["input"] = "0.09"
-        self.assert_skipped_and_others_published(payload, "not a number")
+        self.assert_published_as_unpriced(payload, "not a number")
 
-    def test_a_route_priced_zero_without_the_free_flag_is_skipped_not_refused(self) -> None:
+    def test_a_route_priced_zero_without_the_free_flag_is_published_as_unpriced(self) -> None:
         """The router really does carry routes that are live, `is_free: false`, and
         priced 0. The listing is contradicting itself, and that figure may not be
         published either way: as a price it tells consumers the model is free, and 0 is
@@ -319,7 +332,7 @@ class TestPriceFailures(ScrapeTestCase):
         is skipped, the run reports it, and everything else publishes."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"]["input"] = 0
-        self.assert_skipped_and_others_published(payload, "input is 0", "would tell consumers")
+        self.assert_published_as_unpriced(payload, "input is 0", "checking the cost first")
 
     def test_a_zero_price_is_still_never_published_as_a_figure(self) -> None:
         """The skip above must not become a quiet way of publishing 0."""
@@ -333,27 +346,27 @@ class TestPriceFailures(ScrapeTestCase):
                 self.assertNotEqual(entry[field], 0, f"{model_id}.{field}")
 
     def test_every_route_being_unpriceable_is_still_a_failure(self) -> None:
-        """Skipping one route is triage; skipping all of them means the listing is not
-        what this scraper thinks it is, and an empty block must never be published."""
+        """Marking one route unpriced is an honest report; marking every one of them
+        would quietly turn the whole provider into last-known figures. No single bad
+        read upstream may cause that, so the run fails instead."""
         payload = self.payload()
         for model in payload["data"]:
             for offer in model.get("providers", []):
                 if isinstance(offer.get("pricing"), dict):
                     offer["pricing"] = {"input": 0, "output": 0}
         code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "Refusing to publish an empty block")
+        self.assert_failed(code, stderr, "not one live route", "carries a price")
 
     def test_the_listing_losing_pricing_entirely_is_still_a_failure(self) -> None:
-        """The same backstop, reached by the other road. Skipping is only ever triage
-        for one route; a listing that prices nothing at all is a listing this scraper no
-        longer understands, and publishing an empty block would quietly drop every price
-        a consumer depends on."""
+        """The same backstop, reached by the other road: no `pricing` object anywhere
+        rather than zeros everywhere. A listing that prices nothing at all is one this
+        scraper no longer understands."""
         payload = self.payload()
         for model in payload["data"]:
             for offer in model.get("providers", []):
                 offer.pop("pricing", None)
         code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "Refusing to publish an empty block")
+        self.assert_failed(code, stderr, "not one live route", "carries a price")
 
     def test_a_route_marked_free_is_published_as_free(self) -> None:
         payload = self.payload()
