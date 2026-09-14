@@ -177,37 +177,48 @@ def extract_models(
         if offer.get("is_free") is True:
             result_entry["free"] = True
         else:
-            pricing = offer.get("pricing")
-            if not isinstance(pricing, dict):
-                raise ScrapeError(
-                    f"{route}: no pricing object and not marked free. The data shape has "
-                    f"changed, or this route stopped publishing a price."
-                )
-            pricing = cast(JSONDict, pricing)
+            # ONE RULE for everything below: a route this scraper cannot price is noted
+            # and skipped, never raised on. Raising freezes the whole provider, and the
+            # other routes have done nothing wrong.
+            #
+            # That rule was learned twice. On 2026-09-07 Qwen/Qwen3.8-27B:ovhcloud
+            # appeared priced 0/0 while marked not free, and the raise stopped the other
+            # fifteen routes for a week. Only the zero branch was fixed, so on
+            # 2026-09-14 deepseek-ai/DeepSeek-V4-Flash-0731:scaleway appeared with no
+            # pricing object at all and froze the block again, from three lines away.
+            # Hence one rule rather than four cases.
+            #
+            # The backstop is below, not here: if NO route survives, that is no longer
+            # one bad route but a listing this scraper no longer understands, and the
+            # run fails rather than publishing an empty block.
+            #
+            # check_price still raises, deliberately. A figure outside its bounds, or
+            # one that moved further than MAX_CHANGE_FACTOR, is not an unpriceable route
+            # -- it is a number this repository must not publish, and the whole point of
+            # that guard is that nothing quietly routes around it.
+            unusable: list[str] = []
+            raw_pricing = offer.get("pricing")
 
-            zeroed: list[str] = []
+            if not isinstance(raw_pricing, dict):
+                unusable.append("no pricing object at all")
+                field_specs_to_read: JSONDict = {}
+                pricing: JSONDict = {}
+            else:
+                field_specs_to_read = field_specs
+                pricing = cast(JSONDict, raw_pricing)
 
-            for field, field_spec in field_specs.items():
+            for field, field_spec in field_specs_to_read.items():
                 api_field = field_spec["api_field"]
                 raw = pricing.get(api_field)
 
                 if raw is None:
-                    raise ScrapeError(
-                        f"{route}.{field}: no {api_field!r} in pricing. Fields present: "
-                        f"{sorted(pricing)}. A route this file publishes must state this price."
-                    )
+                    unusable.append(f"{api_field} missing (present: {sorted(pricing)})")
+                    continue
                 if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-                    raise ScrapeError(
-                        f"{route}.{field}: {api_field!r} is {type(raw).__name__}, not a number. "
-                        f"The data shape has changed."
-                    )
-
-                # A zero from a route the router itself says is NOT free. The listing is
-                # contradicting itself, and neither reading may be published: as a price
-                # it tells consumers the model is free, and 0 is also exactly what a
-                # misparse produces, which is what check_price's floor exists to catch.
-                if not isinstance(raw, bool) and raw == 0:
-                    zeroed.append(api_field)
+                    unusable.append(f"{api_field} is {type(raw).__name__}, not a number")
+                    continue
+                if raw == 0:
+                    unusable.append(f"{api_field} is 0")
                     continue
 
                 # No scaling: unlike Eden AI's per-token figures, the router already
@@ -218,19 +229,17 @@ def extract_models(
             # Skipped whole, not half. Unlike OVH's catalog -- where the units are
             # independent and a model can lose one and keep the others -- input and
             # output are two halves of one token price, and half of one prices nothing.
-            #
-            # A note rather than a raise, and that is the point of this branch. Raising
-            # here froze the entire block: on 2026-09-07 the router listed
-            # Qwen/Qwen3.8-27B:ovhcloud as live, `is_free: false`, priced 0/0, and that
-            # one unpriced route stopped the other fifteen from being refreshed at all.
-            # A route this file cannot price is worth reporting; it is not worth holding
-            # every other route hostage to.
-            if zeroed:
+            if unusable:
+                # The zero deserves its own sentence, and only when there is one: a
+                # reader told "0 would say the model is free" about a route that states
+                # no price at all learns to skim these notes.
+                why = "a figure this file cannot read honestly is worse than none"
+                if any(r.endswith(" is 0") for r in unusable):
+                    why += ", and 0 in particular would tell consumers the model is free"
                 notes.append(
-                    f"{route}: the router says it is live and not free, then prices it at "
-                    f"0 ({', '.join(sorted(zeroed))}). The listing contradicts itself, so "
-                    f"this route is not published -- publishing 0 would say the model is "
-                    f"free. It publishes itself as soon as the router states a price."
+                    f"{route}: the router says it is live and not free, then does not "
+                    f"price it -- {'; '.join(unusable)}. Not published: {why}. It "
+                    f"publishes itself as soon as the router quotes a usable price."
                 )
                 continue
 

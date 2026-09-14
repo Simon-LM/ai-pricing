@@ -64,19 +64,32 @@ that first sees it gone sends one email. The same applies to a route the router 
 marking `live`: a price for a call that cannot be served is worse than no price, so it
 is treated as not offered rather than published as current.
 
-**A price of `0` with `is_free` false** is never published, and the route is skipped
-whole. The router does carry such routes — it says the model is live and not free,
-then quotes nothing for it. Neither reading is publishable: as a price it tells
-consumers the model is free, and `0` is also exactly what a misparse produces. Input
-and output are two halves of one token price, so half of one prices nothing and the
-route goes rather than half of it.
+**A route the router will not price is skipped whole, never refused.** One rule, for
+every way that happens: no `pricing` object at all, a missing `input` or `output`, a
+price that is not a number, or a `0` on a route the router itself marks `is_free:
+false`. Input and output are two halves of one token price, so half of one prices
+nothing and the route goes rather than half of it.
 
-Skipped, **not** refused. Raising here froze the whole block: on 2026-09-07 the router
-listed `Qwen/Qwen3.8-27B:ovhcloud` as live, `is_free: false`, priced `0/0`, and that
-one route stopped the other fifteen from being refreshed for a week. The run reports
-it by email and publishes everything else; the route publishes itself the day the
-router quotes a price. If *every* route turns out unpriceable the run does fail — that
-is no longer one bad route, and an empty block must never be published.
+The `0` is worth its own line: it is unpublishable in both readings. As a price it
+tells consumers the model is free, and `0` is also exactly what a misparse produces.
+
+**The rule is one rule because it was learned twice.** On 2026-09-07
+`Qwen/Qwen3.8-27B:ovhcloud` went live, `is_free: false`, priced `0/0`, and the raise
+stopped the other fifteen routes for a week. Only the zero branch was fixed — so on
+2026-09-14 `deepseek-ai/DeepSeek-V4-Flash-0731:scaleway` went live with no `pricing`
+object at all and froze the block again, from three lines away. Four cases, one
+disease; treating them one at a time just moves the outage.
+
+The run reports each skip by email and publishes everything else. A route publishes
+itself the day the router quotes it a usable price — there is nothing to undo by hand.
+
+**The backstop:** if *every* route turns out unpriceable the run fails. That is no
+longer one bad route but a listing this scraper no longer understands, and an empty
+block would quietly drop every price a consumer depends on.
+
+`check_price` still raises, and deliberately. A figure outside its bounds, or one that
+moved further than `MAX_CHANGE_FACTOR`, is not an unpriceable route — it is a number
+this repository must not publish, and nothing may quietly route around that guard.
 
 A route Hugging Face genuinely marks `is_free` is published with the shared
 `"free": true` marker and no price field, exactly as OVH's free models are.

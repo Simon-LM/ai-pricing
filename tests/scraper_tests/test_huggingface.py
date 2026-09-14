@@ -266,23 +266,46 @@ class TestPriceFailures(ScrapeTestCase):
         self.assertEqual(entry["absent_since"], FIXED_NOW[:10])
         self.assertIn("no longer offered", self.notes())
 
-    def test_a_missing_pricing_object_is_refused(self) -> None:
+    def assert_skipped_and_others_published(self, payload: JSONDict, *in_note: str) -> None:
+        """One route unusable must cost that route, and nothing else.
+
+        The shape every case below shares: the run succeeds, the offending route is
+        absent from what is published, the OTHER routes are still there, and the run
+        says out loud what it skipped and why.
+        """
+        route = "openai/gpt-oss-120b:ovhcloud"
+        code, stdout, _ = self.run_scrape(json.dumps(payload))
+
+        self.assertEqual(code, 0, "one unpriceable route stopped the whole block again")
+        models = self.candidate_block("updated.json" if "changed" in stdout else "stamped.json")["models"]
+        on_sale = {k: v for k, v in models.items() if "absent_since" not in v}
+
+        self.assertNotIn(route, on_sale, "published a route with no usable price")
+        self.assertTrue(on_sale, "skipped every route, not just the unusable one")
+        self.assertIn(route, self.notes())
+        for fragment in in_note:
+            self.assertIn(fragment, self.notes())
+
+    def test_a_missing_pricing_object_is_skipped_not_refused(self) -> None:
+        """2026-09-14: deepseek-ai/DeepSeek-V4-Flash-0731:scaleway went live with no
+        pricing object at all, and the raise that used to be here froze the whole
+        provider for a week -- three lines away from the branch fixed the week before
+        for exactly the same reason."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud").pop("pricing")
-        code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "no pricing object and not marked free")
+        self.assert_skipped_and_others_published(payload, "no pricing object at all")
 
-    def test_a_missing_output_price_is_refused(self) -> None:
+    def test_a_missing_output_price_is_skipped_not_refused(self) -> None:
+        """Half a token price prices nothing, so the route goes whole rather than half
+        of it -- but it goes alone."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"].pop("output")
-        code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "out_per_mtok", "'output'")
+        self.assert_skipped_and_others_published(payload, "output missing")
 
-    def test_a_non_numeric_price_is_refused(self) -> None:
+    def test_a_non_numeric_price_is_skipped_not_refused(self) -> None:
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"]["input"] = "0.09"
-        code, _, stderr = self.run_scrape(json.dumps(payload))
-        self.assert_failed(code, stderr, "not a number")
+        self.assert_skipped_and_others_published(payload, "not a number")
 
     def test_a_route_priced_zero_without_the_free_flag_is_skipped_not_refused(self) -> None:
         """The router really does carry routes that are live, `is_free: false`, and
@@ -296,21 +319,7 @@ class TestPriceFailures(ScrapeTestCase):
         is skipped, the run reports it, and everything else publishes."""
         payload = self.payload()
         self.offer(payload, "openai/gpt-oss-120b", "ovhcloud")["pricing"]["input"] = 0
-        code, stdout, _ = self.run_scrape(json.dumps(payload))
-
-        self.assertEqual(code, 0, "one unpriceable route stopped the whole block again")
-        models = self.candidate_block("updated.json" if "changed" in stdout else "stamped.json")["models"]
-        self.assertNotIn(
-            "openai/gpt-oss-120b:ovhcloud",
-            {k: v for k, v in models.items() if "absent_since" not in v},
-            "published a route the router prices at 0",
-        )
-        self.assertTrue(
-            [k for k, v in models.items() if "absent_since" not in v],
-            "skipped every route, not just the unpriceable one",
-        )
-        self.assertIn("openai/gpt-oss-120b:ovhcloud", self.notes())
-        self.assertIn("contradicts itself", self.notes())
+        self.assert_skipped_and_others_published(payload, "input is 0", "would tell consumers")
 
     def test_a_zero_price_is_still_never_published_as_a_figure(self) -> None:
         """The skip above must not become a quiet way of publishing 0."""
@@ -331,6 +340,18 @@ class TestPriceFailures(ScrapeTestCase):
             for offer in model.get("providers", []):
                 if isinstance(offer.get("pricing"), dict):
                     offer["pricing"] = {"input": 0, "output": 0}
+        code, _, stderr = self.run_scrape(json.dumps(payload))
+        self.assert_failed(code, stderr, "Refusing to publish an empty block")
+
+    def test_the_listing_losing_pricing_entirely_is_still_a_failure(self) -> None:
+        """The same backstop, reached by the other road. Skipping is only ever triage
+        for one route; a listing that prices nothing at all is a listing this scraper no
+        longer understands, and publishing an empty block would quietly drop every price
+        a consumer depends on."""
+        payload = self.payload()
+        for model in payload["data"]:
+            for offer in model.get("providers", []):
+                offer.pop("pricing", None)
         code, _, stderr = self.run_scrape(json.dumps(payload))
         self.assert_failed(code, stderr, "Refusing to publish an empty block")
 
