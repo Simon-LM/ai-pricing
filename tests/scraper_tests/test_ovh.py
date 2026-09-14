@@ -681,6 +681,12 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
         producible = set(mapping["units"].values())
         assert_price_fields_are_producible(self, published["models"], producible)
 
+    def test_the_catalog_is_declared_a_page(self) -> None:
+        """OVH's model list arrives embedded in a rendered catalog page, not from an
+        endpoint, so the page floor is the right guard."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(mapping["format"], "html")
+
     def test_the_published_figures_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits
         too close to it, a real price cut starts failing the job instead of being

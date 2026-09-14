@@ -34,6 +34,8 @@
     "Last verified against the endpoint by a human: 2026-08-17."
   ],
   "source": "https://api.edenai.run/v3/models",
+  "_comment_format": "A JSON endpoint: asked for as JSON, and judged against a floor that suits a body of pure data.",
+  "format": "json",
   "currency": "USD",
   "upstreams": [
     "mistral",

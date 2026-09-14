@@ -13,13 +13,17 @@ provider or model.
 
 from __future__ import annotations
 
+import argparse
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+import fetch  # noqa: E402
 import provider_runner  # noqa: E402
 from pricing_validate import ABSENT_RETENTION_DAYS, KNOWN_PRICE_FIELDS, JSONDict  # noqa: E402
 
@@ -211,6 +215,77 @@ class TestOneModelDoesNotBlockTheOthers(unittest.TestCase):
         self.assertEqual(merged["new"]["in_per_mtok"], 3.0)
         self.assertEqual(merged["gone"]["absent_since"], TODAY)
         self.assertEqual(len(notes), 1)
+
+
+class TestHowASourceIsAskedFor(unittest.TestCase):
+    """A marketing page and a JSON endpoint need different requests and different
+    ideas of "too short to be real", and the mapping says which is which.
+
+    Synthetic, like the rest of this file: it never names a real provider, so a
+    provider changing its mapping cannot fail another provider's refresh. Each
+    provider's own tests assert what its own mapping declares.
+    """
+
+    def fetcher(self, mapping: JSONDict) -> object:
+        args = argparse.Namespace(offline=None, html=None)
+        return provider_runner.build_fetcher(args, mapping)
+
+    def calls(self, mapping: JSONDict) -> list[tuple[str, dict[str, object]]]:
+        """Run the fetcher with the network replaced, and report how it asked."""
+        seen: list[tuple[str, dict[str, object]]] = []
+
+        def spy(url: str, **kwargs: object) -> str:
+            seen.append((url, kwargs))
+            return "{}"
+
+        original = provider_runner.fetch_page
+        provider_runner.fetch_page = spy  # type: ignore[assignment]
+        try:
+            self.fetcher(mapping)("https://example.test/prices")
+        finally:
+            provider_runner.fetch_page = original  # type: ignore[assignment]
+        return seen
+
+    def test_a_page_is_asked_for_as_html_and_must_be_big(self) -> None:
+        (_, kwargs), = self.calls({"source": "https://example.test/prices", "format": "html"})
+        self.assertEqual(kwargs["accept"], "text/html")
+        self.assertEqual(kwargs["min_bytes"], fetch.MIN_PAGE_BYTES)
+
+    def test_an_endpoint_is_asked_for_as_json_and_may_be_small(self) -> None:
+        """The point of the whole field: a JSON body is data and is legitimately far
+        smaller than a page, so the page floor would reject a perfectly good answer."""
+        (_, kwargs), = self.calls({"source": "https://example.test/prices", "format": "json"})
+        self.assertEqual(kwargs["accept"], "application/json")
+        self.assertEqual(kwargs["min_bytes"], fetch.MIN_JSON_BYTES)
+        self.assertLess(kwargs["min_bytes"], fetch.MIN_PAGE_BYTES)
+
+    def test_an_undeclared_source_is_treated_as_a_page(self) -> None:
+        """The strict end of both, on purpose: a source someone forgot to declare
+        fails on the size floor rather than passing quietly."""
+        (_, kwargs), = self.calls({"source": "https://example.test/prices"})
+        self.assertEqual(kwargs["accept"], "text/html")
+        self.assertEqual(kwargs["min_bytes"], fetch.MIN_PAGE_BYTES)
+
+    def test_an_unknown_format_is_refused_before_anything_is_fetched(self) -> None:
+        with self.assertRaises(provider_runner.ScrapeError) as caught:
+            self.fetcher({"source": "https://example.test/prices", "format": "xml"})
+        self.assertIn("xml", str(caught.exception))
+
+    def test_a_fixture_is_served_whatever_the_format_says(self) -> None:
+        """Offline runs read committed bytes; the header and the floor are the
+        network's business and must not change what a fixture serves."""
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp) / "payload.json"
+            fixture.write_text('{"tiny": true}', encoding="utf-8")
+            manifest = Path(tmp) / "offline.json"
+            manifest.write_text(
+                json.dumps({"https://example.test/prices": "payload.json"}), encoding="utf-8"
+            )
+            args = argparse.Namespace(offline=str(manifest), html=None)
+            fetch_it = provider_runner.build_fetcher(
+                args, {"source": "https://example.test/prices", "format": "json"}
+            )
+            self.assertEqual(fetch_it("https://example.test/prices"), '{"tiny": true}')
 
 
 if __name__ == "__main__":

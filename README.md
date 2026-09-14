@@ -540,6 +540,13 @@ already published. Write a mapping that names units and labels, never models, an
 the new provider its own `refresh-<name>.yml` sharing the `pricing-json-writes`
 concurrency group.
 
+The mapping also declares `format`, which is how its source is asked for: `html` for
+a rendered page, `json` for an API endpoint. It decides the `Accept` header and the
+floor below which an answer is treated as an error rather than parsed -- 10 kB for a
+page, which no real marketing page falls under, and 100 bytes for an endpoint, whose
+whole body is data and can legitimately be small. It defaults to `html`, the strict
+end of both, so a source left undeclared fails loudly instead of passing quietly.
+
 One naming trap worth knowing before you start: give the new provider's test file
 a distinct import path (`from providers.<name> import scrape`, not a bare
 `import scrape` off a directly-inserted directory). Two providers' `scrape.py`

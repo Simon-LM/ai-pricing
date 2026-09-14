@@ -24,6 +24,25 @@ FETCH_TIMEOUT_SECONDS = 30
 # wall, or a redirect stub. Fail rather than parse it and find nothing.
 MIN_PAGE_BYTES = 10_000
 
+# A JSON endpoint's whole body is data, so it is legitimately far smaller than a
+# marketing page. The 10 kB floor above would reject a perfectly good response.
+MIN_JSON_BYTES = 100
+
+# The two shapes a source comes in, and what each implies for the request. A source
+# is declared once, in its provider's mapping.json, rather than each scraper guessing
+# from the URL: `html` is the fail-safe default, because reading a JSON endpoint as a
+# page fails loudly on the size floor instead of quietly accepting a wrong answer.
+#
+# Both JSON endpoints this repository reads happen to ignore `Accept` today and serve
+# JSON either way, so this is hardening rather than a fix for a live fault. What it
+# removes is the pair of assumptions underneath that luck: that a server will keep
+# ignoring a header asking it for HTML, and that a data endpoint's answer will always
+# be bigger than a marketing page's.
+SOURCE_FORMATS: dict[str, dict[str, Any]] = {
+    "html": {"accept": "text/html", "min_bytes": MIN_PAGE_BYTES},
+    "json": {"accept": "application/json", "min_bytes": MIN_JSON_BYTES},
+}
+
 
 def fetch_page(url: str, *, min_bytes: int = MIN_PAGE_BYTES, accept: str = "text/html") -> str:
     """GET a public page. No credentials of any kind are sent, ever."""
@@ -49,11 +68,6 @@ def fetch_page(url: str, *, min_bytes: int = MIN_PAGE_BYTES, accept: str = "text
     return body
 
 
-# A JSON endpoint's whole body is data, so it is legitimately far smaller than a
-# marketing page. The 10 kB floor above would reject a perfectly good response.
-MIN_JSON_BYTES = 100
-
-
 def fetch_json(url: str, *, min_bytes: int = MIN_JSON_BYTES) -> Any:
     """GET a public JSON endpoint. No credentials of any kind are sent, ever.
 
@@ -63,7 +77,7 @@ def fetch_json(url: str, *, min_bytes: int = MIN_JSON_BYTES) -> Any:
     whether the endpoint was unreachable or answered with something that is not
     JSON at all.
     """
-    body = fetch_page(url, min_bytes=min_bytes, accept="application/json")
+    body = fetch_page(url, min_bytes=min_bytes, accept=SOURCE_FORMATS["json"]["accept"])
     try:
         return json.loads(body)
     except json.JSONDecodeError as exc:

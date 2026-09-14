@@ -390,6 +390,13 @@ class TestPublishedFileMatchesEdenAI(unittest.TestCase):
         producible = set(mapping["fields"])
         assert_price_fields_are_producible(self, published["models"], producible)
 
+    def test_the_model_list_is_declared_a_json_endpoint(self) -> None:
+        """Eden's source is an API, not a page. Declared `html` it would be asked for
+        as HTML and held to the 10 kB page floor, which is a rule about marketing
+        copy rather than about data."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(mapping["format"], "json")
+
     def test_every_key_is_prefixed_by_a_mapped_upstream(self) -> None:
         """Eden's model id namespaces the upstream, and the key is that whole id --
         it is the exact string a consumer passes to Eden's API."""

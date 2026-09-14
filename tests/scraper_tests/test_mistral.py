@@ -800,6 +800,12 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
 
         assert_price_fields_are_producible(self, published["models"], producible)
 
+    def test_the_docs_site_is_declared_a_page(self) -> None:
+        """Mistral's figures come out of rendered pages, so the page floor is the
+        right guard here: an answer too short to be a page is an error page."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(mapping["format"], "html")
+
     def test_only_products_carry_a_kind(self) -> None:
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
         products = set(mapping["products"])

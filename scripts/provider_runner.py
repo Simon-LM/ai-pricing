@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from fetch import FetchError, fetch_page  # noqa: E402
+from fetch import SOURCE_FORMATS, FetchError, fetch_page  # noqa: E402
 from pricing_validate import (  # noqa: E402
     ABSENT_RETENTION_DAYS,
     KNOWN_PRICE_FIELDS,
@@ -279,7 +279,21 @@ def build_fetcher(args: argparse.Namespace, mapping: JSONDict) -> Fetcher:
     manifest does not name -- deliberately an error rather than a fall-through to the
     network, so that a test which forgets a fixture fails loudly instead of silently
     reaching out and passing for the wrong reason.
+
+    How the source is asked for comes from the mapping's `format`, so that a JSON
+    endpoint is requested as JSON and judged against a floor that suits a body made
+    only of data. Defaults to `html`, which is the strict end of both: a source
+    wrongly left undeclared fails on the size floor rather than passing quietly.
     """
+    source_format = mapping.get("format", "html")
+    if source_format not in SOURCE_FORMATS:
+        raise ScrapeError(
+            f"mapping declares format {source_format!r}; known formats are "
+            f"{sorted(SOURCE_FORMATS)}. Fix the mapping rather than adding a special "
+            f"case here."
+        )
+    fetch_options = SOURCE_FORMATS[source_format]
+
     served: dict[str, Path] = {}
 
     if args.offline:
@@ -307,7 +321,7 @@ def build_fetcher(args: argparse.Namespace, mapping: JSONDict) -> Fetcher:
                 f"manifest rather than letting the run reach the network."
             )
         try:
-            return fetch_page(url)
+            return fetch_page(url, **fetch_options)
         except FetchError as exc:
             raise ScrapeError(str(exc)) from exc
 

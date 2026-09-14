@@ -70,6 +70,8 @@
   ],
 
   "source": "https://docs.mistral.ai/models",
+  "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
+  "format": "html",
   "products_source": "https://mistral.ai/pricing/api",
   "currency": "USD",
 

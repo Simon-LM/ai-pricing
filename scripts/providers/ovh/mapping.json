@@ -40,6 +40,8 @@
   ],
 
   "source": "https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/",
+  "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
+  "format": "html",
   "currency": "EUR",
 
   "units": {

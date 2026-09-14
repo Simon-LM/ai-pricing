@@ -41,6 +41,8 @@
     "models -- never as a price of 0."
   ],
   "source": "https://router.huggingface.co/v1/models",
+  "_comment_format": "A JSON endpoint: asked for as JSON, and judged against a floor that suits a body of pure data.",
+  "format": "json",
   "currency": "USD",
   "partners": [
     "ovhcloud",

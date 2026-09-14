@@ -449,6 +449,14 @@ class TestPublishedFileMatchesHuggingFace(unittest.TestCase):
         producible = set(mapping["fields"])
         assert_price_fields_are_producible(self, published["models"], producible)
 
+    def test_the_router_listing_is_declared_a_json_endpoint(self) -> None:
+        """The router answers JSON, not a page. Declared `html` it would be asked for
+        as HTML and held to the 10 kB page floor -- a floor this listing clears only
+        because it happens to be long, and would stop clearing if the router ever
+        narrowed what it returns."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(mapping["format"], "json")
+
     def test_every_key_carries_a_mapped_partner_suffix(self) -> None:
         """The key is the exact string the router takes. Without the suffix it would
         name several different prices at once."""
