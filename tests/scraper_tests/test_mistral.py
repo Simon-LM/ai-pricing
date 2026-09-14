@@ -800,6 +800,17 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
 
         assert_price_fields_are_producible(self, published["models"], producible)
 
+    def test_the_published_source_list_names_both_pages_actually_read(self) -> None:
+        """Mistral is the only provider built from two pages, and `source` alone sends
+        someone checking a product price to the docs site, which does not price
+        products at all. The list must stay equal to the two urls this scraper really
+        reads, in the order it reads them -- a third page added later and not listed
+        here would put the file back to under-documenting itself."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(
+            mapping["sources"], [mapping["source"], mapping["products_source"]]
+        )
+
     def test_the_docs_site_is_declared_a_page(self) -> None:
         """Mistral's figures come out of rendered pages, so the page floor is the
         right guard here: an answer too short to be a page is an error page."""

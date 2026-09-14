@@ -164,6 +164,62 @@ class TestAbsentEntriesAreListed(ReportTestCase):
         self.assertNotIn("No longer offered", self.body())
 
 
+class TestUnpricedEntriesAreListed(ReportTestCase):
+    """The report exists so a human learns what changed without going to look. An
+    entry the source still sells but has stopped pricing is exactly that kind of
+    change, and it was invisible here until 2026-09-14."""
+
+    def test_they_get_their_own_section_with_dates(self) -> None:
+        self.run_report(
+            acme=block(
+                "2026-08-17T04:00:00Z",
+                {
+                    "live-model": {"in_per_mtok": 1.0, "display_name": "Live"},
+                    "quiet-model": {
+                        "in_per_mtok": 2.0,
+                        "display_name": "Quiet",
+                        "unpriced_since": "2026-08-12",
+                    },
+                },
+            )
+        )
+        body = self.body()
+        self.assertIn("Still sold, with no price stated", body)
+        self.assertIn("`quiet-model` — unpriced since 2026-08-12", body)
+        self.assertNotIn("`live-model`", body)
+
+    def test_an_entry_that_never_had_a_price_is_listed_too(self) -> None:
+        """The harder half: nothing about the entry says "price" at all, so a listing
+        built by looking for price fields would miss it entirely."""
+        self.run_report(
+            acme=block(
+                "2026-08-17T04:00:00Z",
+                {"never-priced": {"display_name": "Never", "unpriced_since": "2026-08-12"}},
+            )
+        )
+        self.assertIn("`never-priced` — unpriced since 2026-08-12", self.body())
+
+    def test_it_is_counted_separately_from_absent(self) -> None:
+        """Two different states, and conflating them in the table would tell a reader
+        a model is gone when it is still on sale."""
+        self.run_report(
+            acme=block(
+                "2026-08-17T04:00:00Z",
+                {
+                    "gone": {"in_per_mtok": 1.0, "display_name": "G", "absent_since": "2026-08-10"},
+                    "quiet": {"in_per_mtok": 2.0, "display_name": "Q", "unpriced_since": "2026-08-12"},
+                },
+            )
+        )
+        body = self.body()
+        self.assertIn("| entries | absent | unpriced |", body)
+        self.assertIn("| 2 | 1 | 1 |", body)
+
+    def test_no_section_when_everything_has_a_price(self) -> None:
+        self.run_report(acme=block("2026-08-17T04:00:00Z"))
+        self.assertNotIn("Still sold, with no price stated", self.body())
+
+
 class TestCorruptInput(ReportTestCase):
     def test_an_invalid_published_file_fails_loudly(self) -> None:
         """More urgent than any staleness this script came to measure: the invalid file

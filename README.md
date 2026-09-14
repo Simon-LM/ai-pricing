@@ -126,7 +126,8 @@ show it to whoever is reading your number. Display it:
 | `providers` | Keyed by provider id (`mistral`, `ovh`). Never flatten this: the same model name at two providers is two different prices, not a collision to resolve. |
 | `providers.<name>.checked_utc` | When that provider's scraper last **verified** its figures. "Confirmed unchanged today" is a much stronger statement than "last edited in May", which is why this is separate from `updated`. Each provider has its own -- they scrape on their own schedule. |
 | `providers.<name>.updated` | When that provider's figures last actually **changed**. |
-| `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. |
+| `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. Always present. |
+| `providers.<name>.sources` | Present only where a block is built from more than one page, as `mistral` is: the full list, in the order read, and it always contains `source`. A provider that reads one page omits it. Read `source` if you want one url and `sources` if you want all of them. |
 | `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
 | `providers.<name>.models` | Keyed by **whatever identifies the entry at that source**, which is not the same thing at every provider -- see below. |
 | `display_name` | A human-readable label, kept only so that a diff is readable. Never use it for matching. |

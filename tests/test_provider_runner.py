@@ -217,6 +217,42 @@ class TestOneModelDoesNotBlockTheOthers(unittest.TestCase):
         self.assertEqual(len(notes), 1)
 
 
+class TestASourceListIsPublishedOnlyWhenThereIsOne(unittest.TestCase):
+    """`source` is one url and stays required. A block built from two pages says so
+    with `sources` as well, which is additive: a consumer reading `source` alone sees
+    no change."""
+
+    MAPPING = {"source": "https://example.test/a", "currency": "USD"}
+    MODELS = {"m": {"in_per_mtok": 1.0, "display_name": "M"}}
+
+    def build(self, **extra: object) -> JSONDict:
+        return provider_runner.build_provider_block(
+            dict(self.MODELS), "2026-08-17T04:00:00Z", "2026-08-17", {**self.MAPPING, **extra}
+        )
+
+    def test_one_page_publishes_no_list(self) -> None:
+        """Three providers out of four read a single page; a one-element list there
+        would be noise saying nothing `source` does not already say."""
+        self.assertNotIn("sources", self.build())
+
+    def test_two_pages_publish_the_list(self) -> None:
+        pages = ["https://example.test/a", "https://example.test/b"]
+        self.assertEqual(self.build(sources=pages)["sources"], pages)
+
+    def test_the_list_is_copied_not_shared_with_the_mapping(self) -> None:
+        """The block is written to disk and the mapping is reused across a run; an
+        alias would let one mutate the other."""
+        pages = ["https://example.test/a", "https://example.test/b"]
+        block = self.build(sources=pages)
+        block["sources"].append("https://example.test/c")
+        self.assertEqual(len(pages), 2)
+
+    def test_source_still_comes_first(self) -> None:
+        """Key order is reviewed by humans in diffs, so it is fixed on purpose."""
+        keys = list(self.build(sources=["https://example.test/a"]))
+        self.assertEqual(keys, ["checked_utc", "updated", "source", "sources", "currency", "models"])
+
+
 class TestHowASourceIsAskedFor(unittest.TestCase):
     """A marketing page and a JSON endpoint need different requests and different
     ideas of "too short to be real", and the mapping says which is which.

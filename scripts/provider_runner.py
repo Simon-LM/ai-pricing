@@ -105,13 +105,19 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
             ordered["unpriced_since"] = entry["unpriced_since"]
         ordered_models[model_id] = ordered
 
-    return {
+    block: JSONDict = {
         "checked_utc": checked_utc,
         "updated": updated,
         "source": mapping["source"],
-        "currency": mapping["currency"],
-        "models": ordered_models,
     }
+    # Only for a provider that genuinely reads more than one page. Emitting a
+    # one-element list everywhere would be noise in three blocks out of four, and
+    # would say nothing `source` does not already say.
+    if "sources" in mapping:
+        block["sources"] = list(mapping["sources"])
+    block["currency"] = mapping["currency"]
+    block["models"] = ordered_models
+    return block
 
 
 def reconcile_inventory(

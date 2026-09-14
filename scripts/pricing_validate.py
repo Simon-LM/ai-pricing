@@ -221,6 +221,30 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
             f"providers.{provider_id}: updated must be YYYY-MM-DD, got {block['updated']!r}"
         )
 
+    # Optional, and only meaningful for a provider whose block is built from more than
+    # one page. `source` stays the single required one, so a consumer that reads it and
+    # nothing else is unaffected; `sources` is the honest full list for the reader who
+    # clicks through to check a figure and would otherwise land on a page that does not
+    # carry it. It must contain `source` rather than replace it, so the two cannot
+    # disagree about where these numbers came from.
+    if "sources" in block:
+        sources = block["sources"]
+        if not isinstance(sources, list) or not sources:
+            raise ValidationError(
+                f"providers.{provider_id}: sources must be a non-empty list of urls"
+            )
+        for url in cast("list[Any]", sources):
+            if not isinstance(url, str) or not url:
+                raise ValidationError(
+                    f"providers.{provider_id}: every entry in sources must be a non-empty string"
+                )
+        if block["source"] not in sources:
+            raise ValidationError(
+                f"providers.{provider_id}: sources does not list source "
+                f"({block['source']!r}). One of the two is wrong about where this "
+                f"block's figures came from."
+            )
+
     models = block.get("models")
     if not isinstance(models, dict) or not models:
         raise ValidationError(f"providers.{provider_id}: models must be a non-empty object")

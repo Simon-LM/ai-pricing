@@ -56,6 +56,7 @@ def describe(provider_id: str, block: JSONDict, now: _dt.datetime) -> tuple[bool
 
     models = block["models"]
     absent = [m for m, e in models.items() if "absent_since" in e]
+    unpriced = [m for m, e in models.items() if "unpriced_since" in e]
 
     # Reported in whichever unit reads honestly: "1 days old" is how a reader learns to
     # distrust the rest of the sentence, and a stamp a few hours past the window is a
@@ -67,7 +68,8 @@ def describe(provider_id: str, block: JSONDict, now: _dt.datetime) -> tuple[bool
 
     row = (
         f"| {provider_id} | {'yes' if fresh else f'**NO — {age}**'} "
-        f"| {block['checked_utc']} | {block['updated']} | {len(models)} | {len(absent)} |"
+        f"| {block['checked_utc']} | {block['updated']} | {len(models)} | {len(absent)} "
+        f"| {len(unpriced)} |"
     )
     return fresh, row
 
@@ -89,6 +91,12 @@ def build_report(doc: JSONDict, now: _dt.datetime) -> tuple[bool, str, str]:
         for p, b in doc["providers"].items()
         for m, e in b["models"].items()
         if "absent_since" in e
+    ]
+    unpriced = [
+        (p, m, e["unpriced_since"])
+        for p, b in doc["providers"].items()
+        for m, e in b["models"].items()
+        if "unpriced_since" in e
     ]
 
     today = now.strftime("%Y-%m-%d")
@@ -118,8 +126,8 @@ def build_report(doc: JSONDict, now: _dt.datetime) -> tuple[bool, str, str]:
     lines = [
         opening,
         "",
-        "| provider | refreshed today | last checked (UTC) | figures last moved | entries | absent |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| provider | refreshed today | last checked (UTC) | figures last moved | entries | absent | unpriced |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
         *rows,
         "",
         f"{total} entries published in total.",
@@ -136,6 +144,22 @@ def build_report(doc: JSONDict, now: _dt.datetime) -> tuple[bool, str, str]:
             "",
         ]
         lines += [f"- `{p}` / `{m}` — absent since {since}" for p, m, since in sorted(absent)]
+
+    if unpriced:
+        lines += [
+            "",
+            "### Still sold, with no price stated",
+            "",
+            "The source still offers these and still charges for them, and has stopped "
+            "saying what they cost. Any figure beside one of these is the last that was "
+            "actually observed, and there may be none at all. A consumer must not quote "
+            "a price for these -- it should say the price is unavailable. The marker "
+            "clears by itself on the day the source publishes a figure again.",
+            "",
+        ]
+        lines += [
+            f"- `{p}` / `{m}` — unpriced since {since}" for p, m, since in sorted(unpriced)
+        ]
 
     return not stale, title, "\n".join(lines) + "\n"
 

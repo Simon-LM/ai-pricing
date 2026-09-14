@@ -315,6 +315,49 @@ class TestAbsentSince(unittest.TestCase):
         self.assertEqual(validate.ABSENT_RETENTION_DAYS, 365)
 
 
+class TestSources(unittest.TestCase):
+    """`source` answers "where did this come from" in one click. For a block built
+    from two pages that answer is incomplete, and the click can land on a page that
+    does not carry the figure being checked -- Mistral's docs site prices no products
+    at all. `sources` is the full list, added rather than substituted so that a
+    consumer reading only `source` is unaffected."""
+
+    PAGES = ["https://example.invalid/pricing", "https://example.invalid/products"]
+
+    def accepts(self, **overrides: object) -> None:
+        validate.validate_document(minimal_document(acme=minimal_provider_block(**overrides)))
+
+    def refuses(self, fragment: str, **overrides: object) -> None:
+        with self.assertRaises(validate.ValidationError) as caught:
+            self.accepts(**overrides)
+        self.assertIn(fragment, str(caught.exception))
+
+    def test_a_block_without_it_is_still_valid(self) -> None:
+        """Three of the four providers read exactly one page and say so with `source`
+        alone. The field must stay optional or they all become invalid."""
+        self.accepts()
+
+    def test_the_full_list_is_accepted(self) -> None:
+        self.accepts(sources=self.PAGES)
+
+    def test_it_must_contain_source(self) -> None:
+        """Otherwise the two fields disagree about where the figures came from, and a
+        reader has no way to tell which one is lying."""
+        self.refuses("does not list source", sources=["https://example.invalid/products"])
+
+    def test_an_empty_list_is_refused(self) -> None:
+        self.refuses("non-empty list", sources=[])
+
+    def test_a_bare_string_is_refused(self) -> None:
+        """A plausible mistake, and one that would otherwise pass `in`: the source url
+        is a substring of itself, so a single string would satisfy the check above
+        while meaning something entirely different."""
+        self.refuses("non-empty list", sources="https://example.invalid/pricing")
+
+    def test_a_non_string_entry_is_refused(self) -> None:
+        self.refuses("non-empty string", sources=["https://example.invalid/pricing", None])
+
+
 class TestMultiProviderIsolation(unittest.TestCase):
     """The reason pricing.json nests under providers.<name> at all: two providers
     can diverge in currency and schedule, and a break in one must not hide in --

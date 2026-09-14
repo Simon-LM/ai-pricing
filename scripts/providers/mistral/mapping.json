@@ -73,6 +73,11 @@
   "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
   "format": "html",
   "products_source": "https://mistral.ai/pricing/api",
+  "_comment_sources": "Published as providers.mistral.sources: both pages, in the order read. Must stay equal to [source, products_source] -- a test in this provider's own file enforces that, because a reader clicking through to check a product price must not land on the docs site, which does not price products at all.",
+  "sources": [
+    "https://docs.mistral.ai/models",
+    "https://mistral.ai/pricing/api"
+  ],
   "currency": "USD",
 
   "denominators": {
