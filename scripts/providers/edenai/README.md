@@ -5,8 +5,9 @@
 Reads Eden AI's [public model list](https://api.edenai.run/v3/models) and publishes
 `providers.edenai` in `pricing.json`. First implemented 2026-08-10, covering every
 model Eden offers from the five upstreams asked for: Mistral, xAI, Scaleway,
-OVHcloud and Perplexity. That was 103 models at the time and is 104 today; the
-count follows the source and nothing here has to be edited when it moves.
+OVHcloud and Perplexity. That was 103 models on the day it was written; how many it
+is now follows the source and is not written down here, so nothing in this directory
+has to be edited when it moves.
 
 ## These are Eden's prices, not the upstream provider's
 
@@ -66,8 +67,9 @@ headed "Input $". If that ever needs revisiting, it starts here.
 
 Eden states a price per single token; this file publishes per million. `raw *
 1_000_000` is wrong often enough to matter -- it turns `4e-07` into
-`0.39999999999999997`, on 48 of this provider's ~245 figures -- so the scaling goes
-through `Decimal` seeded from `repr()`. Genuinely long decimals are preserved, not
+`0.39999999999999997`, on 48 of the 245 figures this provider published the day that
+was measured -- so the scaling goes through `Decimal` seeded from `repr()`.
+Genuinely long decimals are preserved, not
 rounded: Scaleway's figures really do carry fifteen of them, because Eden converts
 them from EUR, and rounding would invent a price.
 
@@ -80,12 +82,12 @@ The API states these and this file does not carry them:
   context is has no representation in this schema, and publishing only the first
   tier as though it were *the* price would understate a long-context bill without
   ever looking wrong.
-- **`search_context_cost_per_query`** (10 models) — a per-query web-search charge,
-  and itself an object of three sizes rather than one figure.
+- **`search_context_cost_per_query`** — a per-query web-search charge, and itself an
+  object of three sizes rather than one figure.
 - **`output_cost_per_reasoning_token`** and **`citation_cost_per_token`** (one model
   each).
 
-`cache_read_per_mtok` **is** published, for the 39 models that state
+`cache_read_per_mtok` **is** published, for every model that states
 `cache_read_input_token_cost`.
 
 ## Running it yourself

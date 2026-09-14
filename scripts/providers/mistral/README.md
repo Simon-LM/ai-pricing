@@ -10,7 +10,8 @@ neither one is complete.
 | the models | <https://docs.mistral.ai/models> | states a machine-readable price object and an `isRetired` flag per model, and lists models the pricing page does not |
 | the billable non-models | <https://mistral.ai/pricing/api> | the only place web search, code execution, images, libraries, data capture and the two classifiers are priced at all |
 
-34 entries today: 27 on sale, 7 kept with `absent_since`.
+Every model the docs index lists, plus the billable products the pricing page
+names. How many that is follows the sources; count them in `pricing.json`.
 
 ## Why two sources, and not just the pricing page
 
@@ -57,7 +58,7 @@ version and will keep costing what this file says. `mistral-ocr-latest` resolves
 whatever Mistral points it at next, at a different price, with no change anywhere in
 this file. Pin the first; treat the last as a convenience you cannot price.
 
-The eight products carry no `api_ids`: web search and image generation are billed, but
+The products carry no `api_ids`: web search and image generation are billed, but
 there is nothing to call. A model whose page states no identifier is still published
 with its price, and the run reports it — a missing id is not a reason to withhold a
 correct figure, but a consumer has nothing to pass.

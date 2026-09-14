@@ -5,8 +5,8 @@
 Reads the [Inference Providers router listing](https://router.huggingface.co/v1/models)
 and publishes `providers.huggingface` in `pricing.json`. First implemented
 2026-08-10, covering every route served by the two partners asked for, OVHcloud and
-Scaleway. That is 15 routes today; the count follows the source and nothing here has
-to be edited when it moves.
+Scaleway. How many routes that is follows the source and is not written down here;
+nothing in this directory has to be edited when it moves.
 
 ## The unit here is a route, not a model
 
@@ -45,7 +45,7 @@ same partner. Both are correct, and both are in this file — the direct price u
 per-token source.
 
 That is not taken on faith. This repository reads OVH's own catalog independently,
-in EUR, and every one of the seven `ovhcloud` routes tracks it at the USD/EUR
+in EUR, and every `ovhcloud` route the router prices tracks it at the USD/EUR
 conversion rate: `0.40 → 0.47`, `0.91 → 1.01`, `0.60 → 0.71`, `0.04 → 0.05`. Two
 sources this project fetches separately agreeing to a single exchange rate is what
 pins both the unit and the currency here, and a test enforces the band so that a
@@ -96,8 +96,11 @@ stopped the other fifteen routes for a week. Only the zero branch was fixed — 
 object at all and froze the block again, from three lines away. Four cases, one
 disease; treating them one at a time just moves the outage.
 
-The run reports each skip by email and publishes everything else. A route publishes
-itself the day the router quotes it a usable price — there is nothing to undo by hand.
+Nothing is skipped any more: such a route is published carrying `unpriced_since`, so
+a consumer sees that it is on sale and that its price is unavailable rather than not
+seeing it at all. The transition is reported by email once, not weekly. A route goes
+back to a plain price the day the router quotes it a usable one, and the marker
+disappears by itself — there is nothing to undo by hand.
 
 **The backstop:** if *every* route turns out unpriceable the run fails. That is no
 longer one bad route but a listing this scraper no longer understands, and an empty

@@ -15,16 +15,20 @@ paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Ede
 `Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
 those numbers is in this file.
 
-| provider | entries | on sale | currency | what it is |
-| --- | --- | --- | --- | --- |
-| `mistral` | 34 | 27 | USD | called directly |
-| `ovh` | 19 | 19 | EUR | called directly |
-| `edenai` | 105 | 104 | USD | resold, 5 upstreams |
-| `huggingface` | 15 | 15 | USD | routed, 2 partners |
+| provider | currency | what it is |
+| --- | --- | --- |
+| `mistral` | USD | called directly |
+| `ovh` | EUR | called directly |
+| `edenai` | USD | resold, 5 upstreams |
+| `huggingface` | USD | routed, 2 partners |
 
-The difference between the two counts is entries carrying `absent_since`: models the
-source has stopped offering, kept for a year with the last prices actually observed.
-See [Models that go away](#models-that-go-away).
+How many entries each block holds, and how many of them are still on sale, is not
+written here: it follows the source and changes most weeks, so any number in this
+file would be a number to maintain and eventually a number that lies. Count them in
+`pricing.json` itself, where two markers say what is no longer a live quote --
+`absent_since` for an entry the source has stopped offering, and `unpriced_since` for
+one it still sells but will not price. See [Models that go away](#models-that-go-away)
+and [Sold, with no price attached](#sold-with-no-price-attached).
 
 `huggingface` is keyed by `<model>:<partner>` rather than by model, because the router
 serves the same model through both covered partners at different prices —
@@ -385,7 +389,7 @@ provider's workflow has three outcomes and never a fourth:
 | --- | --- |
 | figures unchanged | that provider's `checked_utc` stamp is committed straight to `main` |
 | anything changed | the new file is committed straight to `main`, with a `::notice::` on the run |
-| fetch or parse failed | an issue is opened **and assigned to the repository owner**, the job fails, and `pricing.json` is left **untouched** |
+| a check failed | an issue is opened **and assigned to the repository owner**, the job fails, and `pricing.json` is left **untouched** |
 
 "Anything changed" is deliberately wider than "a price moved": a model added, a model
 withdrawn and a model renamed all land in the same outcome and all publish. The one
@@ -396,7 +400,14 @@ refuses rather than guesses whenever:
 - a figure lands outside the plausible range for its unit, or moves by more than a
   factor of 5;
 - the same identifier appears twice, so which figure is the real one is ambiguous;
-- the page stops publishing a figure in the currency that provider's block declares.
+- the page stops publishing a figure in the currency that provider's block declares;
+- the file it is about to commit does not pass the tests that describe a published
+  file -- the block no longer agrees with its mapping, the cross-source price band
+  broke, or the weekly report could not be built from it.
+
+That last one is checked on the candidate, after the scrape and before the commit,
+rather than on the file already published. They are not the same file, and on
+2026-09-14 that difference put a block its own tests reject onto `main`.
 
 Note what is **not** on that list: the set of models. A model appearing or vanishing
 says nothing about whether the other prices were read correctly, so it never withholds
@@ -456,7 +467,7 @@ No dependencies beyond the Python standard library, and no API key of any kind -
 scraper reads a public page and must never be given a credential.
 
 ```sh
-python3 -m unittest discover -s tests -v                          # 242 tests
+python3 -m unittest discover -s tests -v                          # the whole suite
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live sources
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 

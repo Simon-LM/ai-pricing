@@ -4,8 +4,8 @@
 
 Reads OVH's [AI Endpoints catalog](https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/)
 and publishes `providers.ovh` in `pricing.json`. First implemented 2026-08-03.
-Covers the catalog in full: all 19 entries it currently lists, twelve priced and
-seven free. Five further models were dropped from the catalog page on 2026-08-04
+Covers the catalog in full, whatever it happens to list -- priced entries and free
+ones alike. Five further models were dropped from the catalog page on 2026-08-04
 while remaining on sale -- see below.
 
 If you are checking the catalog by eye, **hard-reload it first**
@@ -62,15 +62,15 @@ Summary:
 **Published: every catalog entry, whatever the catalog happens to list.** There is
 no hand-written model list here and there must not be one: the catalog states the
 callable model id itself, so a model OVH adds is published on the next run and one
-it withdraws keeps its last observed prices under an `absent_since` stamp. That is
-19 entries today, twelve priced and seven free.
-Priced: gpt-oss-120b, gpt-oss-20b, Meta-Llama-3_3-70B-Instruct,
-Qwen2.5-VL-72B-Instruct, Qwen3.5-397B-A17B, Qwen3.5-9B, Qwen3.6-27B,
-Qwen3-Embedding-8B, bge-m3, bge-multilingual-gemma2, whisper-large-v3,
-whisper-large-v3-turbo. Free: Qwen3Guard-Gen-8B, Qwen3Guard-Gen-0.6B,
-stable-diffusion-xl-base-v10 and the four nvr-tts voices. Every figure was
-confirmed against the live catalog and cross-checked against the page's own
-rendered price text before being committed.
+it withdraws keeps its last observed prices under an `absent_since` stamp.
+
+This paragraph used to end with the model list itself, spelled out. It was a
+hand-written model list under a sentence forbidding hand-written model lists, and by
+2026-09-14 it had gone stale exactly as one would expect -- OVH had put `Qwen3.8-27B`
+on sale and the list did not know. `pricing.json` is the answer to "which models",
+and it is the only thing that has to be right. Every figure in it was confirmed
+against the live catalog and cross-checked against the page's own rendered price text
+before being committed.
 
 ## The key is the API model id, and it is not the catalog's `id`
 
@@ -94,8 +94,8 @@ own per-model endpoint rather than the OpenAI-compatible one.
 **Withdrawn from the catalog page between 2026-08-03 and 2026-08-04, but still
 sold (5 models):** Qwen3-Coder-30B-A3B-Instruct, Qwen3-32B,
 Mistral-Small-3.2-24B-Instruct-2506, Mistral-7B-Instruct-v0.3,
-Mistral-Nemo-Instruct-2407. The page listed 24 models on the 3rd and lists 19
-now; these five are the difference, and the word "mistral" no longer appears
+Mistral-Nemo-Instruct-2407. The page listed 24 models on the 3rd and 19 on the
+4th; these five are the difference, and the word "mistral" no longer appears
 anywhere in the page's HTML. They have not been retired from the service --
 OVH's public, keyless OpenAI-compatible serving API
 (`https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`) still lists all five
