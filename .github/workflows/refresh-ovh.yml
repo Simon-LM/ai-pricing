@@ -244,8 +244,8 @@ jobs:
       # dropped five models it was still serving on 2026-08-04, and nothing in the
       # scrape could have noticed.
       #
-      # A gap is a notice, never a failed job: refusing to publish correct prices for
-      # nineteen models because a twentieth is missing from a page would also suppress
+      # A gap is a notice, never a failed job: refusing to publish every correct price
+      # in the catalog because one model is missing from a page would also suppress
       # the checked_utc stamp, which is the thing keeping this schedule alive.
       # ---------------------------------------------------------------------------
       - name: Check the catalog still lists everything OVH sells

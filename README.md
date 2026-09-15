@@ -452,7 +452,7 @@ workflow also runs
 which compares the catalog page against OVH's own public model list and reports what
 each one has that the other does not. It reads no price, never touches
 `pricing.json`, and a gap is a warning rather than a failed job: refusing to publish
-nineteen correct prices because a twentieth is missing would also suppress the
+every correct price because one model is missing would also suppress the
 `checked_utc` stamp that keeps the schedule alive.
 
 The stamp commit on every run is not only informative. GitHub disables a scheduled

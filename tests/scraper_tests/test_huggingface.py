@@ -72,6 +72,22 @@ def _still_quoted(entry: JSONDict | None) -> bool:
     )
 
 
+# The two sources name the same model differently, and there is no shared id to join
+# on -- neither block publishes api_ids. OVH's catalog key for Llama 3.3 carries a
+# vendor prefix and writes the version with an underscore; the router does neither.
+#
+# Stated exactly rather than matched loosely. A normalise-and-suffix-match would pair
+# these two, and would also pair a "20b" with a "120b" the day such a pair exists --
+# and a false pair compares two different models' prices, breaks the band, and blocks
+# publication of a correct file. That is the failure this suite spent 2026-09-14
+# removing; a one-line table is the cheaper side of that trade.
+#
+# If OVH renames or withdraws one of these, the route simply stops being paired and
+# is named in this check's failure message. It never blocks a refresh on its own.
+OVH_KEY_FOR_ROUTE = {
+    "Llama-3.3-70B-Instruct": "Meta-Llama-3_3-70B-Instruct",
+}
+
 FIXED_NOW = "2026-08-10T07:00:00Z"
 
 
@@ -470,29 +486,56 @@ class TestPublishedFileMatchesHuggingFace(unittest.TestCase):
 
     def test_the_ovhcloud_routes_track_the_prices_ovh_publishes_itself(self) -> None:
         """A genuine cross-source check, and what pins the unit and currency here:
-        this repository reads OVH's own catalog independently, in EUR. Every route
-        the router quotes for ovhcloud must land within a sane USD/EUR band of it.
-        If that band ever breaks, either the unit changed or one source is wrong."""
+        this repository reads OVH's own catalog independently, in EUR. Every ovhcloud
+        route that can be paired with a catalog entry, and that both sources still
+        quote, must land within a sane USD/EUR band. If that band ever breaks, either
+        the unit changed or one source is wrong.
+
+        Not every route can be paired, and the two reasons are kept apart on purpose.
+        A route one side has stopped quoting is an expected skip. A route with no
+        catalog counterpart at all is a gap in this check's reach, and collapsing the
+        two into one `continue` is how the Llama route sat uncompared without anyone
+        noticing -- see OVH_KEY_FOR_ROUTE. Both are named in the failure message, so a
+        floor that ever does fire says in one line which routes went and why.
+        """
         doc = json.loads(PRICING_JSON.read_text(encoding="utf-8"))
         ovh = doc["providers"]["ovh"]["models"]
-        checked = 0
+        compared: list[str] = []
+        not_quoted: list[str] = []
+        unpaired: list[str] = []
+
         for route, entry in doc["providers"]["huggingface"]["models"].items():
             model_id, partner = route.rsplit(":", 1)
             if partner != "ovhcloud":
                 continue
-            direct = ovh.get(model_id.split("/")[-1])
+            tail = model_id.split("/")[-1]
+            direct = ovh.get(OVH_KEY_FOR_ROUTE.get(tail, tail))
+            if direct is None:
+                unpaired.append(route)
+                continue
             # Compare only two figures both sources still quote. One frozen side and
             # one live side drift apart on nothing but age, and the band would break
             # on a file that is entirely correct -- which stops the weekly refresh
             # from publishing at all. That is what happened on 2026-09-14, when the
             # router kept selling Qwen3.8-27B and stopped pricing it.
             if not _still_quoted(entry) or not _still_quoted(direct):
+                not_quoted.append(route)
                 continue
             ratio = entry["in_per_mtok"] / direct["in_per_mtok"]
             with self.subTest(route=route):
                 self.assertTrue(1.0 < ratio < 1.4, f"{route}: USD/EUR ratio {ratio:.3f}")
-            checked += 1
-        self.assertGreaterEqual(checked, 5, "the cross-check stopped covering anything")
+            compared.append(route)
+
+        self.assertGreaterEqual(
+            len(compared),
+            5,
+            "the cross-check stopped covering anything. "
+            f"compared: {sorted(compared)}; "
+            f"skipped because a source no longer quotes them: {sorted(not_quoted)}; "
+            f"skipped because no catalog entry could be paired with them: {sorted(unpaired)} "
+            "-- an entry in that last list usually means OVH renamed something and "
+            "OVH_KEY_FOR_ROUTE needs the new name, not that this check should be relaxed.",
+        )
 
     def test_the_published_figures_have_room_to_fall(self) -> None:
         for route, entry in self.block()["models"].items():

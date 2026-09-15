@@ -85,8 +85,8 @@ id with today's price and keeps the old one, frozen and dated, so a consumer sti
 calling it finds out rather than getting a plausible price for a model that no
 longer answers.
 
-Fifteen of the nineteen names were cross-checked against OVH's public,
-keyless OpenAI-compatible model list at
+Fifteen of the nineteen names the catalog listed on 2026-08-04 were cross-checked
+against OVH's public, keyless OpenAI-compatible model list at
 `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`. The four nvr-tts
 voices are absent from that list only because text-to-speech is served from its
 own per-model endpoint rather than the OpenAI-compatible one.
@@ -148,8 +148,8 @@ It reads **no price** and can never change a figure. Prices there are quoted in
 USD while this block publishes EUR, and they are different numbers rather than
 the same price in another format; only the sets of model ids are compared.
 
-**A gap never fails the job.** Refusing to publish correct prices for nineteen
-models because a twentieth is missing from a page would also suppress the
+**A gap never fails the job.** Refusing to publish every correct price in the
+catalog because one model is missing from a page would also suppress the
 `checked_utc` stamp — and that stamp is what keeps the schedule from being
 switched off. A gap is a `::warning::` and a job-summary entry, nothing more.
 

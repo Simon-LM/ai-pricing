@@ -175,6 +175,19 @@ class TestTheFullSuiteStillRunsSomewhere(unittest.TestCase):
                 f"tests.yml does not run after refresh-{slug}.yml ({name!r}).",
             )
 
+    def test_the_net_is_not_gated_on_the_refresh_succeeding(self) -> None:
+        """A refresh pushes its commit and only then reports inventory changes. That
+        last step failing -- one flaky GitHub API call -- concludes the run as failure
+        with the commit already on main, and a `conclusion == 'success'` guard would
+        skip this job exactly then, on the one commit most worth looking at."""
+        tests_yml = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+        self.assertNotIn(
+            "workflow_run.conclusion == 'success'",
+            tests_yml,
+            "tests.yml skips the safety net whenever a refresh concludes failure, "
+            "including after it has already pushed.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

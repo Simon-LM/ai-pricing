@@ -31,10 +31,16 @@ permissions:
 
 jobs:
   test:
-    # A refresh that failed committed nothing, so there is nothing new to look at.
+    # Deliberately not gated on the refresh having concluded `success`. A refresh
+    # commits and pushes, and only then reports any inventory change; if that last
+    # step fails -- a GitHub API hiccup is enough -- the run concludes failure with a
+    # commit already on main, which is exactly the commit this job exists to look at.
+    # Gating on success would skip the net precisely when something odd just happened.
+    # A refresh that failed earlier and committed nothing costs one redundant run of a
+    # two-second suite, which is the cheaper mistake by a wide margin.
     if: >-
       github.event_name != 'workflow_run'
-      || github.event.workflow_run.conclusion == 'success'
+      || github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
