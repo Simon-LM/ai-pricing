@@ -283,9 +283,30 @@ jobs:
 
           git add pricing.json
           git commit -m "$MESSAGE"
-          git push
-          # Note: a push made with GITHUB_TOKEN does not trigger further workflow runs.
-          # Nothing here depends on it -- the trigger is the schedule, not the push.
+
+          # A human pushing to main while this job runs makes this push non-fast-forward
+          # and fails it, which opens a failure issue about nothing at all: the figures
+          # are right and the only quarrel is position in history. Rebase onto whatever
+          # landed and try again. No other provider can be mid-write -- they share the
+          # pricing-json-writes concurrency group -- so the only possible conflict is
+          # with a human edit to pricing.json, and `set -e` makes that fail loudly here
+          # rather than loop.
+          pushed=""
+          for attempt in 1 2 3; do
+            if git push; then
+              pushed=yes
+              break
+            fi
+            echo "Push rejected on attempt ${attempt}; rebasing onto origin/main."
+            git pull --rebase origin main
+          done
+          if [ -z "$pushed" ]; then
+            echo "::error::pricing.json was committed but could not be pushed after three tries."
+            exit 1
+          fi
+          # Note: a push made with GITHUB_TOKEN triggers no workflow, which is why
+          # tests.yml watches these runs with `workflow_run` instead. Nothing in this
+          # job depends on the push triggering anything.
 
           if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
             echo "::notice::edenai prices changed and are now published. See the job summary for the diff."

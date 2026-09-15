@@ -148,6 +148,57 @@ class TestTheCandidateIsTestedBeforeItIsPublished(unittest.TestCase):
                     )
 
 
+class TestARefreshSurvivesAHumanPushingAtTheSameTime(unittest.TestCase):
+    def test_the_push_rebases_and_retries(self) -> None:
+        """A human pushing to main mid-run makes the bot's push non-fast-forward. The
+        figures are correct and the only quarrel is position in history, so failing
+        there opens a failure issue about nothing -- and a failure issue that means
+        nothing is how a real one stops being read."""
+        for slug in PROVIDER_MODULES:
+            text = workflow(slug)
+            self.assertIn(
+                "git pull --rebase origin main",
+                text,
+                f"refresh-{slug}.yml fails its whole run if anyone pushes while it is "
+                f"working.",
+            )
+
+
+class TestTypeCheckingNeverGatesAPrice(unittest.TestCase):
+    """pyright checks source code. Whether a price was read correctly is a different
+    question, and letting a type error stop the weekly publication would be the same
+    mistake as gating a refresh on another provider's fixtures."""
+
+    def test_no_refresh_runs_the_type_checker(self) -> None:
+        for slug in PROVIDER_MODULES:
+            self.assertNotIn(
+                "pyright",
+                workflow(slug),
+                f"refresh-{slug}.yml can be stopped from publishing a correct price by "
+                f"a type error.",
+            )
+
+    def test_something_actually_runs_it(self) -> None:
+        """The config sat here for weeks with no job honouring it, which is exactly how
+        five errors accumulated unseen."""
+        tests_yml = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+        self.assertIn("pyright", tests_yml, "pyrightconfig.json is decoration again.")
+        self.assertTrue(
+            (REPO_ROOT / "pyrightconfig.json").is_file(),
+            "the type checker runs with no configuration to honour.",
+        )
+
+    def test_the_checker_version_is_pinned(self) -> None:
+        """An unpinned checker starts failing on its own release schedule, on a commit
+        that changed nothing."""
+        tests_yml = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+        self.assertRegex(
+            tests_yml,
+            r"pyright@\d+\.\d+\.\d+",
+            "tests.yml runs whatever pyright npm serves that day.",
+        )
+
+
 class TestTheFullSuiteStillRunsSomewhere(unittest.TestCase):
     def test_the_push_workflow_discovers_everything(self) -> None:
         """Scoping the refreshes is only safe because this one is not scoped: a change

@@ -25,6 +25,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import fetch  # noqa: E402
 import provider_runner  # noqa: E402
+from typing import Any  # noqa: E402
 from pricing_validate import ABSENT_RETENTION_DAYS, KNOWN_PRICE_FIELDS, JSONDict  # noqa: E402
 
 TODAY = "2026-08-17"
@@ -262,15 +263,15 @@ class TestHowASourceIsAskedFor(unittest.TestCase):
     provider's own tests assert what its own mapping declares.
     """
 
-    def fetcher(self, mapping: JSONDict) -> object:
+    def fetcher(self, mapping: JSONDict) -> provider_runner.Fetcher:
         args = argparse.Namespace(offline=None, html=None)
         return provider_runner.build_fetcher(args, mapping)
 
-    def calls(self, mapping: JSONDict) -> list[tuple[str, dict[str, object]]]:
+    def calls(self, mapping: JSONDict) -> list[tuple[str, dict[str, Any]]]:
         """Run the fetcher with the network replaced, and report how it asked."""
-        seen: list[tuple[str, dict[str, object]]] = []
+        seen: list[tuple[str, dict[str, Any]]] = []
 
-        def spy(url: str, **kwargs: object) -> str:
+        def spy(url: str, **kwargs: Any) -> str:
             seen.append((url, kwargs))
             return "{}"
 

@@ -77,3 +77,34 @@ jobs:
           validate.validate_document(json.load(open('pricing.json')))
           print('pricing.json satisfies schema_version', validate.SCHEMA_VERSION)
           "
+
+  # A separate job, and deliberately only here. pyrightconfig.json sat in this
+  # repository for weeks with nothing running it, which is how five type errors
+  # accumulated -- three of them written on 2026-09-14 by someone who had the config
+  # in front of them. A checked-in configuration that no job honours is decoration.
+  #
+  # It must never run inside a refresh. A type error is a statement about source code,
+  # not about whether a price was read correctly, and letting one stop the weekly
+  # publication would be the same mistake as gating a refresh on another provider's
+  # fixtures. Here it gates what humans push and nothing else.
+  #
+  # The version is pinned: an unpinned checker starts failing on its own release
+  # schedule, on a commit that changed nothing.
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          # pyrightconfig.json declares pythonVersion 3.10, the floor consumers get.
+          python-version: "3.10"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check types
+        run: npx --yes pyright@1.1.414

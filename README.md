@@ -469,6 +469,7 @@ scraper reads a public page and must never be given a credential.
 
 ```sh
 python3 -m unittest discover -s tests -v                          # the whole suite
+npx pyright                                                       # types, as CI checks them
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live sources
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 

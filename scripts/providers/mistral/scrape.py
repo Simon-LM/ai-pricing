@@ -346,11 +346,16 @@ def docs_entry(model_id: str, pricing: JSONDict, mapping: JSONDict) -> tuple[JSO
             if not isinstance(price, bool) and isinstance(price, (int, float)) and price == 0:
                 continue
 
-            field = labels.get(row.get("label")) or denominators.get(side, {}).get(denominator)
+            # Read once: the page decides what is in this cell, so it is `Any` until
+            # it has been looked at, and only a string can name a row in `labels`.
+            label = row.get("label")
+            field = (labels.get(label) if isinstance(label, str) else None) or denominators.get(
+                side, {}
+            ).get(denominator)
             if field is None:
                 notes.append(
                     f"{model_id}: {side} priced at {price!r} per {denominator!r}"
-                    + (f" (labelled {row.get('label')!r})" if row.get("label") else "")
+                    + (f" (labelled {label!r})" if label else "")
                     + f", a unit {DEFAULT_MAPPING.name} has no field for. That price is not "
                     f"published. Add it to the mapping's 'denominators' table to publish it."
                 )
@@ -397,7 +402,8 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
             # make "sold, at a price this file cannot read" indistinguishable from
             # "gone". provider_runner stamps the date, keeps any price observed before
             # this happened, and reports the transition once instead of every week.
-            entry = {"unpriced": "no price on this page could be published at all"}
+            unpriced: JSONDict = {"unpriced": "no price on this page could be published at all"}
+            entry = unpriced
         entry["display_name"] = model_id
         if api_ids:
             entry["api_ids"] = api_ids
