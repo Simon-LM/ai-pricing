@@ -199,6 +199,45 @@ class TestTypeCheckingNeverGatesAPrice(unittest.TestCase):
         )
 
 
+class TestTheSchemaArtifactNeverGatesAPrice(unittest.TestCase):
+    """Same rule as the type checker, for the same reason. A pricing.schema.json that
+    has drifted from the validator is a red build; it says nothing about whether a
+    price was read correctly."""
+
+    def test_no_refresh_checks_the_schema_artifact(self) -> None:
+        for slug in PROVIDER_MODULES:
+            text = workflow(slug)
+            for marker in ("build_schema", "test_pricing_schema"):
+                self.assertNotIn(
+                    marker,
+                    text,
+                    f"refresh-{slug}.yml can be stopped from publishing a correct price "
+                    f"by a stale schema artifact.",
+                )
+
+    def test_no_refresh_installs_anything(self) -> None:
+        """The scrapers run on the standard library alone. The schema checks need a
+        JSON Schema implementation, and that must stay on the developer side of the
+        line -- a refresh that pip-installs can fail for reasons that have nothing to
+        do with the page it came to read."""
+        for slug in PROVIDER_MODULES:
+            self.assertNotIn(
+                "pip install",
+                workflow(slug),
+                f"refresh-{slug}.yml installs a dependency; its scrape can now fail "
+                f"because an index was slow.",
+            )
+
+    def test_something_still_checks_it(self) -> None:
+        tests_yml = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+        self.assertIn("build_schema.py --check", tests_yml)
+        self.assertIn("tests.test_pricing_schema", tests_yml)
+        self.assertTrue(
+            (REPO_ROOT / "pricing.schema.json").is_file(),
+            "the contract declares a schema_version whose schema is not published.",
+        )
+
+
 class TestTheFullSuiteStillRunsSomewhere(unittest.TestCase):
     def test_the_push_workflow_discovers_everything(self) -> None:
         """Scoping the refreshes is only safe because this one is not scoped: a change

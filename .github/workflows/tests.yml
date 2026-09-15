@@ -106,5 +106,49 @@ jobs:
         with:
           node-version: "20"
 
+      # Same pin as the schema job. Without it pyright cannot resolve the guarded
+      # import in tests/test_pricing_schema.py and reports a missing module where the
+      # code is deliberately optional about it.
+      - name: Install a JSON Schema implementation
+        run: python3 -m pip install --quiet "jsonschema==4.23.0"
+
       - name: Check types
         run: npx --yes pyright@1.1.414
+
+  # pricing.json is published at a stable public URL and declares a schema_version,
+  # and the README tells a consumer that does not recognise that number to ignore the
+  # file -- which presumes the number can be looked up. pricing.schema.json is that
+  # lookup, generated from pricing_validate.py so there is still one definition of the
+  # contract rather than two that drift.
+  #
+  # Two things are checked, and the second is why this job needs a library the
+  # repository itself does not depend on: that the committed artifact is what the
+  # validator currently describes, and that it behaves -- it accepts the published
+  # file and refuses every document the Python validator refuses. A schema that
+  # accepts everything is worse than no schema, because it hands a consumer a false
+  # assurance.
+  #
+  # Like the type check, never inside a refresh. A stale artifact is a red build, not
+  # a reason to stop publishing a price that was read correctly.
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The only place in this repository anything is installed. It is a checker, not
+      # a runtime dependency: no scraper imports it, and the suite skips these tests
+      # where it is absent.
+      - name: Install a JSON Schema implementation
+        run: python3 -m pip install --quiet "jsonschema==4.23.0"
+
+      - name: Check the schema still describes the validator
+        run: python3 scripts/build_schema.py --check
+
+      - name: Check the schema accepts the file and refuses what it should
+        run: python3 -m unittest -v tests.test_pricing_schema

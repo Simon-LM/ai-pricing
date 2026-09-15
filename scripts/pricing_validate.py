@@ -105,6 +105,19 @@ PRICE_BOUNDS = {
 # API model id (Mistral's web search, code execution, image generation and the like).
 KNOWN_KINDS = ("model", "product")
 
+# Everything an entry may carry that is not a price. Named rather than written inline
+# at the check below, because the published JSON Schema is generated from these
+# constants: a second copy of this list is a second definition of the contract, and
+# the two would eventually disagree about which is true.
+NON_PRICE_ENTRY_FIELDS = (
+    "display_name",
+    "free",
+    "kind",
+    "absent_since",
+    "unpriced_since",
+    "api_ids",
+)
+
 # An entry whose source no longer offers it is NOT deleted on the spot. It keeps the
 # last prices that were actually observed, frozen, and gains `absent_since` -- the day
 # the source was first seen without it. Deleting immediately would be the automatic
@@ -349,9 +362,7 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
         unknown = [
             k
             for k in entry
-            if k not in KNOWN_PRICE_FIELDS
-            and k
-            not in ("display_name", "free", "kind", "absent_since", "unpriced_since", "api_ids")
+            if k not in KNOWN_PRICE_FIELDS and k not in NON_PRICE_ENTRY_FIELDS
         ]
         if unknown:
             raise ValidationError(f"{full_id}: unknown field(s) {unknown}")

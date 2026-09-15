@@ -1,10 +1,11 @@
 # ai-pricing
 
 Machine-readable AI model prices, one provider's block per key, published as one
-file at one URL:
+file at one URL, with its JSON Schema beside it:
 
 ```text
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
+https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
 Today that means two providers called directly — Mistral and OVH's AI Endpoints
@@ -122,7 +123,7 @@ show it to whoever is reading your number. Display it:
 
 | field | meaning |
 | --- | --- |
-| `schema_version` | A consumer that does not recognise this number must ignore the file and fall back, rather than misread it. Bumped on any breaking change. |
+| `schema_version` | A consumer that does not recognise this number must ignore the file and fall back, rather than misread it. Bumped on any breaking change. What a given version means is published as [`pricing.schema.json`](pricing.schema.json) -- see [The schema, as a file](#the-schema-as-a-file). |
 | `providers` | Keyed by provider id (`mistral`, `ovh`). Never flatten this: the same model name at two providers is two different prices, not a collision to resolve. |
 | `providers.<name>.checked_utc` | When that provider's scraper last **verified** its figures. "Confirmed unchanged today" is a much stronger statement than "last edited in May", which is why this is separate from `updated`. Each provider has its own -- they scrape on their own schedule. |
 | `providers.<name>.updated` | When that provider's figures last actually **changed**. |
@@ -304,6 +305,37 @@ were added this way, and so was the whole `providers` layer this file now has --
 when something must break in a way addition cannot cover, the version is bumped, as
 it was when `providers` arrived.
 
+## The schema, as a file
+
+`pricing.json` is fetched by projects this repository does not know about, and it
+declares a `schema_version` whose meaning has to be findable without reading Python.
+So the schema is published as an artifact beside the file:
+
+```
+https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
+```
+
+**It is generated, never hand-written.** `scripts/pricing_validate.py` stays the
+authority; `scripts/build_schema.py` reads its constants -- the price fields, the
+per-unit plausible bounds, the date patterns, the allowed kinds -- and re-expresses
+them as JSON Schema. A test regenerates and compares, so the artifact cannot quietly
+fall behind the validator. Two hand-maintained descriptions of one contract drift,
+and a schema that has drifted lies to the consumer that trusted it.
+
+**What it proves, and what it does not.** Validating against it checks the shape, the
+units, and that every figure is inside the plausible range for its unit. It does not
+check three rules this repository also enforces, because none of them is a property
+of a single document:
+
+| rule | why the schema cannot state it |
+| --- | --- |
+| a figure may not move by more than a factor of 5 | compares against the **previous** published file |
+| `api_ids` must not repeat | across entries, not within one |
+| a block's currency matches its mapping | compares against a file consumers never see |
+
+That list is in the schema's own `description` too, so a consumer reading only the
+artifact is told the same thing. "It validates" is not "it is sane".
+
 ## Consuming it
 
 Ship a copy of the file with your package, so a machine with no network still has
@@ -470,6 +502,8 @@ scraper reads a public page and must never be given a credential.
 ```sh
 python3 -m unittest discover -s tests -v                          # the whole suite
 npx pyright                                                       # types, as CI checks them
+python3 scripts/build_schema.py                                   # regenerate pricing.schema.json
+python3 scripts/build_schema.py --check                           # ...or just say if it is stale
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live sources
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 
