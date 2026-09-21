@@ -1073,8 +1073,8 @@
       }
     },
     "huggingface": {
-      "checked_utc": "2026-09-14T21:03:54Z",
-      "updated": "2026-09-14",
+      "checked_utc": "2026-09-21T07:30:06Z",
+      "updated": "2026-09-21",
       "source": "https://router.huggingface.co/v1/models",
       "currency": "USD",
       "models": {
@@ -1119,8 +1119,9 @@
           "display_name": "Qwen/Qwen3.6-35B-A3B:scaleway"
         },
         "Qwen/Qwen3.8-27B:ovhcloud": {
-          "display_name": "Qwen/Qwen3.8-27B:ovhcloud",
-          "unpriced_since": "2026-09-14"
+          "in_per_mtok": 0.47,
+          "out_per_mtok": 3.19,
+          "display_name": "Qwen/Qwen3.8-27B:ovhcloud"
         },
         "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway": {
           "display_name": "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway",
