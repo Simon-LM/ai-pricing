@@ -2,8 +2,8 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-09-14T23:01:42Z",
-      "updated": "2026-08-19",
+      "checked_utc": "2026-09-21T04:13:02Z",
+      "updated": "2026-09-21",
       "source": "https://docs.mistral.ai/models",
       "sources": [
         "https://docs.mistral.ai/models",
@@ -262,6 +262,17 @@
           "display_name": "z.ai glm 5.2",
           "api_ids": [
             "zai-glm-5-2"
+          ]
+        },
+        "z.ai glm 5.3": {
+          "in_per_mtok": 1.4,
+          "out_per_mtok": 4.4,
+          "cache_read_per_mtok": 0.14,
+          "display_name": "z.ai glm 5.3",
+          "api_ids": [
+            "zai-glm-5-3",
+            "zai-glm-5",
+            "zai-glm-latest"
           ]
         }
       }
