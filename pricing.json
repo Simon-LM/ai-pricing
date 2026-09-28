@@ -2,8 +2,8 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-09-21T04:13:02Z",
-      "updated": "2026-09-21",
+      "checked_utc": "2026-09-28T04:13:29Z",
+      "updated": "2026-09-28",
       "source": "https://docs.mistral.ai/models",
       "sources": [
         "https://docs.mistral.ai/models",
@@ -229,7 +229,7 @@
           "display_name": "voxtral mini transcribe realtime",
           "api_ids": [
             "voxtral-mini-transcribe-realtime-2602",
-            "voxtral-mini-transcribe-realtime-latest"
+            "voxtral-mini-realtime-latest"
           ]
         },
         "voxtral small": {
