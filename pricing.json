@@ -377,8 +377,8 @@
       }
     },
     "edenai": {
-      "checked_utc": "2026-09-28T06:37:35Z",
-      "updated": "2026-09-28",
+      "checked_utc": "2026-10-05T06:40:23Z",
+      "updated": "2026-10-05",
       "source": "https://api.edenai.run/v3/models",
       "currency": "USD",
       "models": {
@@ -775,9 +775,9 @@
           "display_name": "sonar-reasoning-pro"
         },
         "scaleway/deepseek-v4-flash-0731": {
-          "in_per_mtok": 0.4561201055461925,
-          "out_per_mtok": 0.9122402110923848,
-          "cache_read_per_mtok": 0.09122402110923848,
+          "in_per_mtok": 0.448999796827592,
+          "out_per_mtok": 0.897999593655184,
+          "cache_read_per_mtok": 0.0897999593655184,
           "display_name": "deepseek-v4-flash-0731"
         },
         "scaleway/devstral-2-123b-instruct-2512": {
@@ -791,18 +791,18 @@
           "display_name": "gemma-3-27b-it"
         },
         "scaleway/gemma-4-26b-a4b-it": {
-          "in_per_mtok": 0.2850750659663703,
-          "out_per_mtok": 0.5701501319327404,
+          "in_per_mtok": 0.280624873017245,
+          "out_per_mtok": 0.56124974603449,
           "display_name": "gemma-4-26b-a4b-it"
         },
         "scaleway/glm-5.2": {
-          "in_per_mtok": 2.052540474957866,
-          "out_per_mtok": 6.271651451260146,
+          "in_per_mtok": 2.020499085724164,
+          "out_per_mtok": 6.17374720637939,
           "display_name": "glm-5.2"
         },
         "scaleway/gpt-oss-120b": {
-          "in_per_mtok": 0.17104503957982214,
-          "out_per_mtok": 0.6841801583192886,
+          "in_per_mtok": 0.168374923810347,
+          "out_per_mtok": 0.6734996952413879,
           "display_name": "gpt-oss-120b"
         },
         "scaleway/holo2-30b-a3b": {
@@ -811,49 +811,49 @@
           "display_name": "holo2-30b-a3b"
         },
         "scaleway/llama-3.3-70b-instruct": {
-          "in_per_mtok": 1.026270237478933,
-          "out_per_mtok": 1.026270237478933,
+          "in_per_mtok": 1.010249542862082,
+          "out_per_mtok": 1.010249542862082,
           "display_name": "llama-3.3-70b-instruct"
         },
         "scaleway/mistral-medium-3.5-128b": {
-          "in_per_mtok": 1.7104503957982218,
-          "out_per_mtok": 8.552251978991109,
+          "in_per_mtok": 1.68374923810347,
+          "out_per_mtok": 8.418746190517348,
           "display_name": "mistral-medium-3.5-128b"
         },
         "scaleway/mistral-small-3.2-24b-instruct-2506": {
-          "in_per_mtok": 0.17104503957982214,
-          "out_per_mtok": 0.39910509235291836,
+          "in_per_mtok": 0.168374923810347,
+          "out_per_mtok": 0.39287482222414294,
           "display_name": "mistral-small-3.2-24b-instruct-2506"
         },
         "scaleway/pixtral-12b-2409": {
-          "in_per_mtok": 0.22806005277309624,
-          "out_per_mtok": 0.22806005277309624,
+          "in_per_mtok": 0.224499898413796,
+          "out_per_mtok": 0.224499898413796,
           "display_name": "pixtral-12b-2409"
         },
         "scaleway/qwen3-235b-a22b-instruct-2507": {
-          "in_per_mtok": 0.8552251978991109,
-          "out_per_mtok": 2.565675593697332,
+          "in_per_mtok": 0.841874619051735,
+          "out_per_mtok": 2.5256238571552045,
           "display_name": "qwen3-235b-a22b-instruct-2507"
         },
         "scaleway/qwen3-coder-30b-a3b-instruct": {
-          "in_per_mtok": 0.22806005277309624,
-          "out_per_mtok": 0.9122402110923848,
+          "in_per_mtok": 0.224499898413796,
+          "out_per_mtok": 0.897999593655184,
           "display_name": "qwen3-coder-30b-a3b-instruct"
         },
         "scaleway/qwen3.5-397b-a17b": {
-          "in_per_mtok": 0.6841801583192886,
-          "out_per_mtok": 4.105080949915732,
+          "in_per_mtok": 0.6734996952413879,
+          "out_per_mtok": 4.040998171448328,
           "display_name": "qwen3.5-397b-a17b"
         },
         "scaleway/qwen3.6-35b-a3b": {
-          "in_per_mtok": 0.2850750659663703,
-          "out_per_mtok": 1.7104503957982218,
+          "in_per_mtok": 0.280624873017245,
+          "out_per_mtok": 1.68374923810347,
           "display_name": "qwen3.6-35b-a3b"
         },
         "scaleway/qwen3.8-27b": {
-          "in_per_mtok": 0.6841801583192886,
-          "out_per_mtok": 3.762990870756088,
-          "cache_read_per_mtok": 0.13683603166385777,
+          "in_per_mtok": 0.6734996952413879,
+          "out_per_mtok": 3.704248323827634,
+          "cache_read_per_mtok": 0.13469993904827762,
           "display_name": "qwen3.8-27b"
         },
         "scaleway/voxtral-small-24b-2507": {
