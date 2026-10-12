@@ -9,9 +9,10 @@ wrong one they cannot.
 
 Eden AI's source is a JSON API rather than a marketing page, so the failure modes
 worth testing are different from Mistral's and OVH's. There is no label to rename
-and no card to lose; what can go wrong is the payload changing shape, an
-unauthenticated read being quoted a discounted price, and per-token figures being
-scaled to per-million carelessly enough to publish floating-point noise.
+and no card to lose; what can go wrong is the payload changing shape, a list price
+and an effective price diverging for a reason the payload does not itself explain,
+and per-token figures being scaled to per-million carelessly enough to publish
+floating-point noise.
 
 Cross-file consistency checks -- does providers.edenai in the committed pricing.json
 actually match scripts/providers/edenai/mapping.json -- live here too: they are
@@ -26,6 +27,7 @@ import json
 import shutil
 import sys
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -327,8 +329,9 @@ class TestPriceFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, "xai/grok-4.5", "not a number")
 
     def test_a_discounted_read_is_refused(self) -> None:
-        """An unauthenticated read must never be quoted a rate only it can get: that
-        price would be wrong for every consumer of this file."""
+        """An unauthenticated read must never be trusted to a lower rate the response
+        does not itself explain: with no `discount` stated, the gap could be a price
+        only this caller can get, wrong for every consumer of this file."""
         payload = json.loads(self.models_ok)
         for entry in payload["data"]:
             if entry["id"] == "mistral/codestral-latest":
@@ -354,6 +357,135 @@ class TestPriceFailures(ScrapeTestCase):
                 entry["pricing"] = entry["list_pricing"]
         code, _, stderr = self.run_scrape(json.dumps(payload))
         self.assert_failed(code, stderr, "factor of", "Refusing to publish")
+
+
+class TestPublicDiscount(ScrapeTestCase):
+    """Eden can run a promotion and say so, per model, in the payload itself:
+    `"discount": 0.5`, with `pricing` holding the discounted figures. That is a price
+    every caller of the endpoint is offered, so it is the honest figure to publish --
+    where the old guard published the list price and stopped instead. What must still
+    stop the run: a divergence the response does not explain, or explains only in
+    part."""
+
+    # The two Mistral models Eden added on 2026-10-06 with a public 50%-off launch
+    # promotion, figures copied from the response.
+    LISTED = {
+        "cache_read_input_token_cost": 1.4e-07,
+        "input_cost_per_token": 1.36e-06,
+        "output_cost_per_token": 4.18e-06,
+    }
+    DISCOUNTED = {
+        "cache_read_input_token_cost": 7e-08,
+        "input_cost_per_token": 6.8e-07,
+        "output_cost_per_token": 2.09e-06,
+    }
+
+    def promoted_payload(self, model_ids: tuple[str, ...], priced: JSONDict, discount: object) -> str:
+        """The fixture, plus `model_ids` added as the endpoint served them: a stated
+        `discount` and `pricing` holding `priced`."""
+        payload = json.loads(self.models_ok)
+        template = next(e for e in payload["data"] if e["id"] == "mistral/codestral-latest")
+        for model_id in model_ids:
+            entry = dict(template)
+            entry.update(
+                {
+                    "id": model_id,
+                    "model_name": model_id.split("/", 1)[1],
+                    "discount": discount,
+                    "list_pricing": dict(self.LISTED),
+                    "pricing": dict(priced),
+                }
+            )
+            payload["data"].append(entry)
+        return json.dumps(payload)
+
+    def test_the_captured_launch_promotion_is_published_at_the_discounted_price(self) -> None:
+        body = self.promoted_payload(
+            ("mistral/mistral-large-4", "mistral/mistral-large-4-0"), self.DISCOUNTED, 0.5
+        )
+        code, stdout, _ = self.run_scrape(body)
+        self.assertEqual(code, 0)
+        self.assertIn("changed", stdout)
+        self.assertIn("+ mistral/mistral-large-4: added", stdout)
+        self.assertIn("+ mistral/mistral-large-4-0: added", stdout)
+
+        models = self.candidate_block("updated.json")["models"]
+        for model_id in ("mistral/mistral-large-4", "mistral/mistral-large-4-0"):
+            with self.subTest(model=model_id):
+                self.assertEqual(models[model_id]["in_per_mtok"], 0.68)
+                self.assertEqual(models[model_id]["out_per_mtok"], 2.09)
+                self.assertEqual(models[model_id]["cache_read_per_mtok"], 0.07)
+        # A model being added is not something to alert anyone about.
+        self.assertEqual(self.notes(), "")
+        self.assert_current_untouched()
+
+    def test_a_divergence_the_response_does_not_explain_is_refused(self) -> None:
+        half = {field: value * 0.5 for field, value in self.LISTED.items()}
+        partly = {**half, "output_cost_per_token": self.LISTED["output_cost_per_token"]}
+        cases = {
+            "no discount stated at all": (None, half, "no `discount`"),
+            "discount stated but applied to only some figures": (0.5, partly, "output_cost_per_token"),
+            "discount stated that does not match the figures": (0.3, half, "scaled by the"),
+            "a `discount` that is not a fraction": ("0.5", half, "not a fraction"),
+        }
+        for name, (discount, priced, fragment) in cases.items():
+            with self.subTest(case=name):
+                code, _, stderr = self.run_scrape(
+                    self.promoted_payload(("mistral/mistral-large-4",), priced, discount)
+                )
+                self.assert_failed(code, stderr, "list_pricing and pricing disagree", fragment)
+
+    def test_the_comparison_is_made_in_edens_arithmetic_not_a_decimal_one(self) -> None:
+        """35% off 1.5e-07 per token is 9.749999999999999e-08 in the response itself:
+        Eden scales in binary floating point, and a decimal re-derivation of the same
+        discount (9.75e-08) disagrees with Eden's own bytes. 61 of the 79 models it
+        served on 2026-10-12 were like this, so the guard must reproduce Eden's
+        multiplication rather than insist on one Eden did not perform."""
+        self.assertEqual(repr(1.5e-07 * (1 - 0.35)), "9.749999999999999e-08")
+        self.assertNotEqual(
+            Decimal(repr(1.5e-07)) * (Decimal(1) - Decimal("0.35")),
+            Decimal(repr(9.749999999999999e-08)),
+        )
+        self.assertIsNone(
+            scrape.unexplained_by_public_discount(
+                {"input_cost_per_token": 1.5e-07},
+                {"input_cost_per_token": 9.749999999999999e-08},
+                0.35,
+            )
+        )
+        # The exactness cuts both ways: the decimal ideal, which Eden did not compute,
+        # is refused.
+        self.assertIsNotNone(
+            scrape.unexplained_by_public_discount(
+                {"input_cost_per_token": 1.5e-07},
+                {"input_cost_per_token": 9.75e-08},
+                0.35,
+            )
+        )
+
+    def test_the_comparison_walks_into_the_nested_price_objects(self) -> None:
+        """Some mapped models carry `search_context_cost_per_query`, an object of three
+        figures rather than one number; the discount has to account for those too."""
+        listed = {
+            "input_cost_per_token": 1.5e-06,
+            "search_context_cost_per_query": {
+                "search_context_size_low": 0.028,
+                "search_context_size_medium": 0.028,
+                "search_context_size_high": 0.028,
+            },
+        }
+        effective = {
+            "input_cost_per_token": 7.5e-07,
+            "search_context_cost_per_query": {
+                "search_context_size_low": 0.014,
+                "search_context_size_medium": 0.014,
+                "search_context_size_high": 0.014,
+            },
+        }
+        self.assertIsNone(scrape.unexplained_by_public_discount(listed, effective, 0.5))
+        effective["search_context_cost_per_query"]["search_context_size_high"] = 0.02
+        reason = scrape.unexplained_by_public_discount(listed, effective, 0.5)
+        self.assertIn("search_context_size_high", reason or "")
 
 
 class TestPriceChange(ScrapeTestCase):

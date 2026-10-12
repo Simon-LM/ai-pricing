@@ -85,6 +85,71 @@ def per_million(raw: float) -> float:
     return float(Decimal(repr(raw)) * TOKENS_PER_MTOK)
 
 
+def _not_scaled_by(listed: Any, effective: Any, factor: float, path: str = "") -> str | None:
+    """Walk two price objects in step and describe the first leaf the scaling misses.
+
+    Numbers must be `listed * factor`; objects must state the same fields and are
+    walked key by key; anything else -- a list, a string, a null -- is not something
+    a discount scales, so it must arrive unchanged (Eden's tiered arrays stop the run
+    through that branch rather than being vouched for leaf by leaf: they also carry
+    `range` bounds a discount does not touch, so "which numbers does it multiply"
+    has no safe answer inside one). Returns the description, or None when `effective`
+    is `listed` scaled by `factor` throughout.
+    """
+    where = path or "pricing"
+    if isinstance(listed, dict):
+        if not isinstance(effective, dict):
+            return f"{where}: pricing holds {effective!r} where list_pricing holds an object"
+        if set(listed) != set(effective):
+            return f"{where}: pricing and list_pricing do not state the same fields"
+        for key in sorted(listed):
+            reason = _not_scaled_by(listed[key], effective[key], factor, f"{path}.{key}" if path else key)
+            if reason is not None:
+                return reason
+        return None
+    if isinstance(listed, bool) or not isinstance(listed, (int, float)):
+        if effective == listed:
+            return None
+        return (
+            f"{where}: pricing holds {effective!r} where list_pricing holds "
+            f"{listed!r}, which no discount scales"
+        )
+    scaled = listed * factor
+    if isinstance(effective, bool) or not isinstance(effective, (int, float)) or effective != scaled:
+        return (
+            f"{where}: pricing holds {effective!r}; list_pricing scaled by the "
+            f"stated discount gives {scaled!r} (from {listed!r})"
+        )
+    return None
+
+
+def unexplained_by_public_discount(listed: JSONDict, effective: Any, discount: Any) -> str | None:
+    """Why `pricing` is not `list_pricing` under the entry's own public discount, or None.
+
+    None means the divergence is fully explained: `pricing` is `list_pricing` with
+    exactly the stated discount taken off, figure for figure -- an unauthenticated
+    read being quoted a promotion the response itself declares, which every consumer
+    of this file gets. Anything else comes back as a description of what does not
+    add up.
+
+    "Exactly" is judged in Eden's arithmetic, not an idealised decimal one: Eden
+    computes the discounted figures in binary floating point (`1.5e-07` at 35% off
+    arrives as `9.749999999999999e-08`, not `9.75e-08`), and a decimal re-derivation
+    disagreed with its own bytes on 61 of the 79 discounted models it served on
+    2026-10-12. So the comparison reproduces plain floating-point multiplication by
+    `1 - discount`, and trusts that result -- and nothing else.
+    """
+    if effective == listed:
+        return None
+    if not isinstance(effective, dict):
+        return "the response states no `pricing` object to compare it with"
+    if discount is None:
+        return "the response states no `discount` that could account for the lower rate"
+    if isinstance(discount, bool) or not isinstance(discount, (int, float)) or not (0 < discount < 1):
+        return f"`discount` is {discount!r}, which is not a fraction between 0 and 1"
+    return _not_scaled_by(listed, effective, 1 - discount)
+
+
 def parse_model_list(body: str) -> dict[str, JSONDict]:
     """Parse the endpoint's response into {model id: model object}.
 
@@ -152,36 +217,44 @@ def extract_models(catalog: dict[str, JSONDict], mapping: JSONDict) -> dict[str,
     for model_id in offered:
         entry = catalog[model_id]
 
-        # `list_pricing` is the public list price; `pricing` is what the caller of the
-        # endpoint would actually pay, which can be lower when a discount applies to
-        # the account asking. This scraper is unauthenticated, so the two agree today
-        # -- but publishing the list price is the only figure that means the same
-        # thing to every consumer, so that is the one read, and a divergence is
-        # reported rather than silently resolved.
+        # `list_pricing` is the public list price; `pricing` is what this endpoint
+        # actually charges, and the two differ when Eden runs a promotion. A
+        # divergence used to stop the run, on the grounds that an unauthenticated
+        # read might be quoted a rate private to one account. Eden then produced the
+        # case that argument did not cover: a promotion it states itself, in a
+        # `discount` field of the same unauthenticated response -- a price every
+        # consumer of the endpoint gets, and the price they actually pay. So what is
+        # published is `pricing`, on one narrow condition: the stated public discount
+        # accounts for the whole gap, figure by figure, in Eden's own arithmetic
+        # (`unexplained_by_public_discount` checks that and explains why). Anything
+        # short of it stops the run, exactly as before.
         listed = entry.get("list_pricing")
-        effective = entry.get("pricing")
         if not isinstance(listed, dict):
             raise ScrapeError(f"{model_id}: no list_pricing object. The data shape has changed.")
         listed = cast(JSONDict, listed)
-        if effective != listed:
+
+        effective = entry.get("pricing")
+        unexplained = unexplained_by_public_discount(listed, effective, entry.get("discount"))
+        if unexplained is not None:
             raise ScrapeError(
-                f"{model_id}: list_pricing and pricing disagree, which means this "
-                f"unauthenticated read is being quoted a discounted rate. Publishing it "
-                f"would give consumers a price only this caller can get. Resolve by hand."
+                f"{model_id}: list_pricing and pricing disagree ({unexplained}). Publishing "
+                f"the lower figures needs a public discount in the same response that "
+                f"accounts for them. Resolve by hand."
             )
+        prices = cast(JSONDict, effective)
 
         result_entry: JSONDict = {}
 
         for field, field_spec in field_specs.items():
             api_field = field_spec["api_field"]
-            raw = listed.get(api_field)
+            raw = prices.get(api_field)
 
             if raw is None:
                 if field_spec.get("optional"):
                     continue
                 raise ScrapeError(
-                    f"{model_id}.{field}: no {api_field!r} in list_pricing. Fields present: "
-                    f"{sorted(listed)}. A model this file publishes must state this price."
+                    f"{model_id}.{field}: no {api_field!r} in pricing. Fields present: "
+                    f"{sorted(prices)}. A model this file publishes must state this price."
                 )
 
             if isinstance(raw, bool) or not isinstance(raw, (int, float)):
