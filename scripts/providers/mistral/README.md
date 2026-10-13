@@ -8,10 +8,12 @@ neither one is complete.
 | what | source | why it has to be that one |
 | --- | --- | --- |
 | the models | <https://docs.mistral.ai/models> | states a machine-readable price object and an `isRetired` flag per model, and lists models the pricing page does not |
-| the billable non-models | <https://mistral.ai/pricing/api> | the only place web search, code execution, images, libraries, data capture and the two classifiers are priced at all |
+| the billable non-models | <https://mistral.ai/pricing/api> | used to be the only place web search, code execution, images, libraries, data capture and the two classifiers were priced at all — since October 2026 it redirects to the docs site and states no product price, so those products are published `unpriced_since` with the last figures observed, and the page is still read every run so the figures resume if it prices again |
 
 Every model the docs index lists, plus the billable products the pricing page
 names. How many that is follows the sources; count them in `pricing.json`.
+The products currently carry `unpriced_since`: Mistral still sells them and
+states no price for them anywhere.
 
 ## Why two sources, and not just the pricing page
 
@@ -31,6 +33,32 @@ price — so this repository published a model that was on sale as withdrawn. **
 marketing page is not an inventory.** Exactly the same thing happened on OVH's
 catalog, which is why that provider has a coverage check; here the fix was to read
 the source that actually knows.
+
+## The products' page went quiet, and that is a state, not a failure
+
+In October 2026 `mistral.ai/pricing/api` began redirecting to the docs site, which
+prices models only; no page Mistral publishes states a product price any more. The
+products are still sold and still billed.
+
+The run for 2026-10-12 treated it as a layout failure, and the failure took every
+model price down with it: nothing in the block was republished, including figures
+Mistral had changed. That is the thing this design now forbids. A page with no cards
+is the state of the world, not a parse error: the products are published
+`unpriced_since` — a dated warning, not a withdrawal; `absent_since` would claim
+Mistral stopped offering them, which is false — with the last prices actually
+observed kept beside the marker, and the transition reported once.
+
+The page is still read on every run, best effort:
+
+- if it carries cards again, the figures publish themselves and the markers come
+  off, with no human in the loop;
+- if a page that carries cards is damaged, the strict rules still apply: duplicate
+  cards or broken price markup refuse the run rather than guess;
+- if the page cannot be fetched at all, the products land in the same unpriced
+  state, with a reason that says "this run" rather than "since when".
+
+None of the three can block the models. One half of a provider must never take the
+other down.
 
 ## The keys are names; the identifiers are a field of their own
 
@@ -125,10 +153,11 @@ can stand in for one.
 `per_1k_pages` and `per_1k_annotated_pages`. A consumer reading only the first
 understates the bill.
 
-**The pricing page still carries a card for every model, at prices of its own.** They
-are deliberately ignored; reading them too would give each model two sources of truth
-and let one silently win. A test moves the pricing page's own `codestral` figure and
-asserts nothing published changes.
+**The carded pricing page carried a card for every model too, at prices of its own**,
+and they were deliberately ignored; reading them too would give each model two
+sources of truth and let one silently win. A test moves that page's own `codestral`
+figure — on the last capture in which the page carried cards — and asserts nothing
+published changes.
 
 ## Running it yourself
 

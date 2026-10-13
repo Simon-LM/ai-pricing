@@ -44,8 +44,12 @@ There is no pricing endpoint in Mistral's API, and the one usage endpoint that r
 a `prices` field requires an *admin* API key that an ordinary user of an open-source
 tool does not have and should never be asked for. So Mistral's models are read from
 its documentation site, <https://docs.mistral.ai/models>, which does at least state a
-machine-readable price object per model; its billable non-models are read from
-<https://mistral.ai/pricing/api>, which is the only place they are priced. OVH's
+machine-readable price object per model; its billable non-models came from
+<https://mistral.ai/pricing/api>, the only place they were ever priced. Since October
+2026 that page redirects to the docs site and states no product price any more, so
+those entries carry `unpriced_since` with their last observed figures — see
+[Sold, with no price attached](#sold-with-no-price-attached) — and the page is still
+read every run, so the figures resume by themselves if it prices again. OVH's
 catalog is read the same way -- a Next.js app that embeds its model list and pricing
 as JSON inside the page.
 
@@ -94,7 +98,11 @@ show it to whoever is reading your number. Display it:
     "mistral": {
       "checked_utc": "2026-08-03T05:11:31Z",
       "updated": "2026-08-03",
-      "source": "https://mistral.ai/pricing/api",
+      "source": "https://docs.mistral.ai/models",
+      "sources": [
+        "https://docs.mistral.ai/models",
+        "https://mistral.ai/pricing/api"
+      ],
       "currency": "USD",
       "models": {
         "mistral medium 3.5": {
@@ -128,13 +136,13 @@ show it to whoever is reading your number. Display it:
 | `providers.<name>.checked_utc` | When that provider's scraper last **verified** its figures. "Confirmed unchanged today" is a much stronger statement than "last edited in May", which is why this is separate from `updated`. Each provider has its own -- they scrape on their own schedule. |
 | `providers.<name>.updated` | When that provider's figures last actually **changed**. |
 | `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. Always present. |
-| `providers.<name>.sources` | Present only where a block is built from more than one page, as `mistral` is: the full list, in the order read, and it always contains `source`. A provider that reads one page omits it. Read `source` if you want one url and `sources` if you want all of them. |
+| `providers.<name>.sources` | Present only where a block is built from more than one page, as `mistral` is: the full list, in the order read, and it always contains `source`. A provider that reads one page omits it. Read `source` if you want one url and `sources` if you want all of them. Mistral's second url states no price today; it stays listed because it is still read every run, and the last observed product figures were read from it. |
 | `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
 | `providers.<name>.models` | Keyed by **whatever identifies the entry at that source**, which is not the same thing at every provider -- see below. |
 | `display_name` | A human-readable label, kept only so that a diff is readable. Never use it for matching. |
 | `api_ids` | The strings you pass **as the model** when calling that provider, most specific first. Present only where the source states them. See below. |
 | `free` | Present, and always `true`, when the provider gives the model away. The entry then carries **no price field at all** -- see below. |
-| `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model: Mistral's web search, code execution and image generation are priced on the same page as its models. Filter on it if you are listing models to call. |
+| `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model: Mistral's web search, code execution and image generation are not models at all and are billed separately. Since October 2026 they also carry `unpriced_since`, so `kind` is what keeps them out of a list of models to call. |
 | `absent_since` | Absent on a model still on sale, which is the normal case. When present, the source has stopped offering this entry as of that day, and **every price beside it is the last one observed, not a current one**. See below. |
 | `unpriced_since` | Absent on a model the source prices, which is the normal case. When present, the source **still offers this entry and still calls it paid, and states no price** as of that day. Any price beside it is the last one observed; there may be none at all. See below. |
 
@@ -252,6 +260,13 @@ The cause is not always the source's. OVH sometimes prices a model in a unit thi
 repository has no field for; the model is real and on sale, and marking it *absent*
 would be a false statement about OVH that sends a reader looking at the wrong place.
 It is marked unpriced, and the run says which unit is missing from the mapping.
+
+**A whole page can go quiet too.** Mistral's products — web search, code execution,
+images, data capture, libraries, premium news, the two classifiers — all went unpriced
+in October 2026, when the page that priced them began redirecting to the docs site.
+They are published `unpriced_since` with their last observed figures kept beside the
+marker: still sold, still what they used to cost, and not to be called without
+checking the price first.
 
 **It clears itself.** The day the source quotes a price, the marker goes and the
 figures are live again — nothing to undo by hand.

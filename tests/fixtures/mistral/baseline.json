@@ -2,9 +2,13 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-08-17T00:00:00Z",
-      "updated": "2026-08-17",
+      "checked_utc": "2026-08-18T04:00:00Z",
+      "updated": "2026-08-18",
       "source": "https://docs.mistral.ai/models",
+      "sources": [
+        "https://docs.mistral.ai/models",
+        "https://mistral.ai/pricing/api"
+      ],
       "currency": "USD",
       "models": {
         "classifier api model (3b)": {
@@ -13,7 +17,8 @@
           "train_per_mtok": 1.0,
           "per_model_month": 2.0,
           "display_name": "classifier api model (3b)",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "classifier api model (8b)": {
           "in_per_mtok": 0.04,
@@ -21,12 +26,14 @@
           "train_per_mtok": 1.0,
           "per_model_month": 2.0,
           "display_name": "classifier api model (8b)",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "code execution": {
           "per_1k_calls": 30.0,
           "display_name": "code execution",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "codestral": {
           "in_per_mtok": 0.3,
@@ -48,12 +55,14 @@
         "data capture": {
           "per_mtok": 0.04,
           "display_name": "data capture",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "images": {
           "per_1k_images": 100.0,
           "display_name": "images",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "leanstral 1.5": {
           "free": true,
@@ -67,7 +76,8 @@
           "per_1k_pages": 3.0,
           "per_call": 0.01,
           "display_name": "libraries",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "ministral 3 14b": {
           "in_per_mtok": 0.2,
@@ -168,7 +178,8 @@
         "premium news": {
           "per_1k_calls": 50.0,
           "display_name": "premium news",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "voxtral mini transcribe 2": {
           "per_audio_minute": 0.003,
@@ -207,7 +218,8 @@
         "web search": {
           "per_1k_calls": 30.0,
           "display_name": "web search",
-          "kind": "product"
+          "kind": "product",
+          "unpriced_since": "2026-08-18"
         },
         "z.ai glm 5.2": {
           "in_per_mtok": 1.4,
