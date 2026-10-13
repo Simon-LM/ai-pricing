@@ -2,13 +2,9 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-10-13T13:33:52Z",
+      "checked_utc": "2026-10-13T14:30:15Z",
       "updated": "2026-10-13",
       "source": "https://docs.mistral.ai/models",
-      "sources": [
-        "https://docs.mistral.ai/models",
-        "https://mistral.ai/pricing/api"
-      ],
       "currency": "USD",
       "models": {
         "classifier api model (3b)": {
