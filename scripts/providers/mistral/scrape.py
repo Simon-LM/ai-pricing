@@ -2,7 +2,7 @@
 """Read Mistral's public prices and work out what pricing.json's providers.mistral
 block should say.
 
-Standard library only. Reads two public pages and nothing else: it takes no API key,
+Standard library only. Reads one public page and nothing else: it takes no API key,
 must never be given one, and never touches anyone's Mistral account.
 
 This script DOES NOT WRITE pricing.json. It writes candidate files into an output
@@ -10,33 +10,30 @@ directory and reports which one, if any, the caller should promote. That is
 deliberate: "leave pricing.json untouched on every failure path" is then a property
 of the design rather than a branch of code somebody has to remember to get right.
 
-TWO SOURCES, because neither one is complete:
+ONE SOURCE: <https://docs.mistral.ai/models>. Its index lists the models currently
+offered, one card each, and every card links to a page carrying a machine-readable
+price object -- `{"price": 4, "denominator": "/1000 Pages"}` -- along with an
+`isRetired` flag. It is by far the better source: structured, with the unit stated
+per figure rather than implied by a label.
 
-  MODELS come from <https://docs.mistral.ai/models>. Its index lists the models
-  currently offered, one card each, and every card links to a page carrying a
-  machine-readable price object -- `{"price": 4, "denominator": "/1000 Pages"}` --
-  along with an `isRetired` flag. It is by far the better source: structured, with
-  the unit stated per figure rather than implied by a label.
-
-  PRODUCTS used to come from <https://mistral.ai/pricing/api>: web search, code
-  execution, image generation, libraries, data capture and the two classifier models
-  were priced there and documented nowhere else. They are not models -- there is
-  nothing to call -- and they carry `"kind": "product"`. Since October 2026 that page
-  redirects to the docs site and states no product price any more, and nothing else
-  states one either: the products are still sold, still billed, and priced nowhere.
-  They are published carrying the `unpriced` marker, which the runner turns into
-  `unpriced_since` with the last prices actually observed kept beside it, and the
-  transition reported once. The page is still read every run, best effort: if it
-  ever carries cards again the prices resume, and if it cannot be read at all the
-  products stay unpriced rather than stopping the models from being published.
+The products -- web search, code execution, image generation, libraries, data
+capture and the two classifier models -- used to come from
+<https://mistral.ai/pricing/api>, once the only page that priced them. There is
+nothing to call for any of them, and they carry `"kind": "product"`. Mistral
+retired that page in October 2026: it states no product price any more, and no
+replacement states one either. This scraper does not read it, nor any page, for
+them -- the mapping's `products` list is their whole inventory now, kept by hand,
+and every name in it is published sold-but-unpriced. The runner dates the
+transition, keeps the last prices actually observed beside the marker, and reports
+it once.
 
 Reading only the pricing page, as an earlier version did, silently missed four
-priced models the docs list and the pricing page does not: OCR 4.0, OCR 3, Leanstral
+priced models the docs list and the pricing page did not: OCR 4.0, OCR 3, Leanstral
 1.5, and Voxtral Mini Transcribe 2 -- the last of which the pricing page had dropped
 while Mistral was still selling it, so this repository published it as withdrawn.
 A marketing page is not an inventory.
 
-Entries are keyed by the NAME each source states -- "ocr 4.0", "web search" -- not by
+Entries are keyed by the NAME the source states -- "ocr 4.0", "web search" -- not by
 API model id. The docs pages do carry the ids, in a `names` array; publishing them is
 a separate decision and this file does not make it.
 
@@ -53,10 +50,8 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import re
 import sys
-from html.parser import HTMLParser
 from pathlib import Path
 from typing import cast
 
@@ -67,9 +62,6 @@ import nextjs_flight  # noqa: E402
 import provider_runner  # noqa: E402
 from provider_runner import Fetcher, ScrapeError  # noqa: E402
 from pricing_validate import JSONDict, check_price  # noqa: E402
-
-# A price row on the page: (label, {"priceUsd": ..., "suffix": ..., ...}).
-PriceRow = tuple[str, JSONDict]
 
 PROVIDER_ID = "mistral"
 
@@ -91,188 +83,6 @@ _INDEX_CARD = re.compile(
     r'.{0,400}?<img alt="(?P<name>[^"]*) icon"',
     re.S,
 )
-
-
-# --------------------------------------------------------------------------------------
-# Page parsing
-# --------------------------------------------------------------------------------------
-
-
-class PricingPageParser(HTMLParser):
-    """Extract the price rows of every model card on the pricing page.
-
-    The page marks each model as `<div class="model-item" data-name="...">` and each
-    price row inside it as a label paragraph followed by a `<mistral-atom-text-price>`
-    element carrying a JSON `data-prices` attribute. Rows are collected per card and
-    never globally: the "Libraries" card carries a row labelled "OCR (per 1K pages)"
-    that has nothing to do with the OCR model, and a global search for a label would
-    happily publish it.
-
-    Result: {card_name: [(label, prices_dict), ...]} in document order.
-    """
-
-    CARD_CLASS = "model-item"
-    LABEL_CLASS = "text-body-base"
-    PRICE_TAG = "mistral-atom-text-price"
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.cards: dict[str, list[PriceRow]] = {}
-        self.duplicate_cards: list[str] = []
-        self.malformed_prices: list[str] = []
-
-        self._card_name: str | None = None
-        self._div_depth = 0
-        self._card_div_depth = 0
-
-        self._label_parts: list[str] | None = None
-        self._label_depth = 0
-        self._last_label: str | None = None
-
-    # -- card and label boundaries ------------------------------------------------
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attr = {k: (v or "") for k, v in attrs}
-        classes = attr.get("class", "").split()
-
-        if tag == "div":
-            self._div_depth += 1
-
-            if self.CARD_CLASS in classes:
-                # A new card always ends the previous one, even if the markup nested
-                # or unbalanced its divs. Cards must never bleed into each other.
-                self._close_card()
-                name = attr.get("data-name", "").strip()
-                if name in self.cards:
-                    self.duplicate_cards.append(name)
-                else:
-                    self.cards[name] = []
-                self._card_name = name
-                self._card_div_depth = self._div_depth
-            return
-
-        if self._card_name is None:
-            return
-
-        if tag == "p":
-            if self._label_parts is not None:
-                self._label_depth += 1
-            elif self.LABEL_CLASS in classes:
-                self._label_parts = []
-                self._label_depth = 1
-            return
-
-        if tag == self.PRICE_TAG:
-            self._record_price(attr)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "p" and self._label_parts is not None:
-            self._label_depth -= 1
-            if self._label_depth <= 0:
-                self._last_label = " ".join("".join(self._label_parts).split())
-                self._label_parts = None
-            return
-
-        if tag == "div":
-            if self._card_name is not None and self._div_depth <= self._card_div_depth:
-                self._close_card()
-            self._div_depth = max(0, self._div_depth - 1)
-
-    def handle_data(self, data: str) -> None:
-        if self._label_parts is not None:
-            self._label_parts.append(data)
-
-    def close(self) -> None:  # noqa: D102
-        super().close()
-        self._close_card()
-
-    # -- helpers ------------------------------------------------------------------
-
-    def _close_card(self) -> None:
-        self._card_name = None
-        self._label_parts = None
-        self._label_depth = 0
-        self._last_label = None
-
-    def _record_price(self, attr: dict[str, str]) -> None:
-        raw = attr.get("data-prices")
-        if raw is None:
-            self.malformed_prices.append(f"{self._card_name}: price element without data-prices")
-            return
-        try:
-            prices = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            self.malformed_prices.append(f"{self._card_name}: data-prices is not JSON ({exc})")
-            return
-        if not isinstance(prices, dict):
-            self.malformed_prices.append(f"{self._card_name}: data-prices is not an object")
-            return
-        prices = cast(JSONDict, prices)
-
-        label = self._last_label
-        if label is None:
-            self.malformed_prices.append(f"{self._card_name}: price with no preceding label")
-            return
-
-        assert self._card_name is not None
-        self.cards[self._card_name].append((label, prices))
-        self._last_label = None
-
-
-def parse_cards(html_text: str) -> PricingPageParser:
-    """Run the page through the card parser, asserting nothing about what it found.
-
-    Raises only if the parser itself crashes, which is a layout failure like any
-    other. What the parser found -- no cards at all, duplicate cards, malformed
-    price markup -- is the caller's to judge: `parse_page` refuses anything short of
-    a clean carded page, and `extract_products` accepts a page with no cards as the
-    state of the world it has to publish.
-    """
-    parser = PricingPageParser()
-    try:
-        parser.feed(html_text)
-        parser.close()
-    except Exception as exc:  # a parser crash is a layout failure like any other
-        raise ScrapeError(f"the page could not be parsed at all: {exc}") from exc
-    return parser
-
-
-def reject_broken_cards(parser: PricingPageParser) -> None:
-    """Raise if a page that carries cards is too damaged to read confidently.
-
-    Called only when cards were found: duplicates and unreadable price markup are
-    layout failures exactly as they always were -- the cards are there, so a card
-    that cannot be read means something changed and refusing beats guessing. A page
-    with no cards at all is a different thing and is judged by the caller.
-    """
-    if parser.duplicate_cards:
-        raise ScrapeError(
-            f"the same model card appears more than once: {sorted(set(parser.duplicate_cards))}. "
-            "Refusing to guess which one carries the real price."
-        )
-
-    if parser.malformed_prices:
-        raise ScrapeError("malformed price markup: " + "; ".join(parser.malformed_prices[:5]))
-
-
-def parse_page(html_text: str) -> dict[str, list[PriceRow]]:
-    """Parse the page into cards, or raise ScrapeError if it no longer looks like one.
-
-    The strict reading, kept for the checks that need the page to still be a carded
-    page -- the fixtures in the test suite are parsed through here. The scraper's
-    own read of the products page is deliberately more forgiving; see
-    `extract_products`.
-    """
-    parser = parse_cards(html_text)
-
-    if not parser.cards:
-        raise ScrapeError(
-            "no model card found on the page. The layout has changed: this scraper "
-            "looks for <div class='model-item' data-name='...'> elements."
-        )
-
-    reject_broken_cards(parser)
-    return parser.cards
 
 
 # --------------------------------------------------------------------------------------
@@ -460,199 +270,58 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
 
 
 # --------------------------------------------------------------------------------------
-# mistral.ai/pricing/api -- the products
+# the products -- one hand-held list, published sold-but-unpriced
 # --------------------------------------------------------------------------------------
 
 
-def resolve_field(label: str, rows_table: JSONDict) -> tuple[str, JSONDict] | None:
-    """Find which price field a row label states, or None if this file cannot tell.
-
-    An exact match wins. Failing that, the longest table entry the label STARTS with
-    wins, because Mistral appends an explanatory sentence to some labels -- the storage
-    row reads "Storage cost (per month per model) Price per month per model for storage
-    (irrespective of model usage; models can be deleted any time)." Matching those in
-    full would tie this repository to prose Mistral rewrites at will, including a figure
-    ("minimum fee per fine-tuning job of $4") that is itself a price and will change.
-
-    The unit is always in the leading segment, which is what makes a prefix enough here:
-    "Training cost (/M tokens)" says per-million-tokens no matter what follows it.
-    """
-    exact = rows_table.get(label)
-    if exact is not None:
-        return label, exact
-
-    candidates = [key for key in rows_table if label.startswith(key)]
-    if not candidates:
-        return None
-    best = max(candidates, key=len)
-    return best, rows_table[best]
-
-
-def read_price(prices: JSONDict, spec: JSONDict) -> float | None:
-    """Return the USD figure for a row, or None if it cannot be read as stated.
-
-    Returning None rather than raising: one unreadable row is not a reason to withhold
-    every other price on the page, and the caller turns it into a reported note.
-    """
-    # The unit lives in the field name, so a change of unit on the page must never be
-    # absorbed silently: a suffix that used to read "/ 1000 pages" and now reads
-    # something else invalidates per_1k_pages entirely.
-    expected_suffix = spec.get("expect_suffix")
-    if expected_suffix is not None:
-        actual_suffix = (prices.get("suffix") or "").strip()
-        if actual_suffix != expected_suffix.strip():
-            return None
-
-    raw = prices.get("priceUsd")
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-        return None
-    return float(raw)
-
-
-# What the products' `unpriced` marker says when the page that used to carry their
-# prices has gone quiet, in the two ways it can. The runner folds whichever one is
-# set into the transition note it prints once, then drops it: what a consumer reads
-# in pricing.json is `unpriced_since`, not why the figure stopped.
-_NO_CARDS_REASON = (
+# What the products' `unpriced` marker says, now that no page states their price any
+# more. The runner folds it into the transition note it prints once, then drops it:
+# what a consumer reads in pricing.json is `unpriced_since`, not why the figure stopped.
+_NO_SOURCE_REASON = (
     "Mistral no longer states a price for this product: the page that used to carry "
-    "its price now redirects to the docs site, which prices models only"
-)
-_UNREADABLE_REASON = (
-    "the page that used to state this product's price could not be read this run"
+    "product prices was retired in October 2026, and this provider no longer reads it"
 )
 
 
-def products_without_prices(mapping: JSONDict, reason: str) -> dict[str, JSONDict]:
+def frozen_products(mapping: JSONDict) -> dict[str, JSONDict]:
     """Every product the mapping names, published as sold-but-unpriced, with the reason.
 
-    The reason is the whole of the marker: the runner copies the prices last actually
-    observed from the published entry and stamps the date. What this function may not
-    do is DROP a product instead -- an entry that is still sold must never be
-    published as one the source has withdrawn.
+    Nothing is read for these any more. The page that used to price them was retired
+    by Mistral in October 2026, no page states a product price, and the mapping's
+    `products` list is the inventory now -- the one place a human adds a name. The
+    reason is the whole of the marker: the runner copies the prices last actually
+    observed from the published entry, stamps the date of the transition, and reports
+    it once. What this function may not do is DROP a product instead -- an entry that
+    is still sold must never be published as one the source has withdrawn.
     """
     return {
-        name: {"kind": "product", "display_name": name, "unpriced": reason}
+        name: {"kind": "product", "display_name": name, "unpriced": _NO_SOURCE_REASON}
         for name in mapping["products"]
     }
 
 
-def extract_products(
-    html_text: str | None, mapping: JSONDict
-) -> tuple[dict[str, JSONDict], list[str]]:
-    """Read the billable non-models off the pricing page, or stand in for what it says.
-
-    Only the cards `mapping["products"]` names are read. Everything else on that page
-    is a model, and models come from the docs site, which prices them better and lists
-    more of them. A name in the list that matches no card while the page carries other
-    cards is not an error -- the card is simply gone, and the runner will date and keep
-    the entry like any other.
-
-    A page with no cards at all is not that. Since October 2026 this is where the page
-    stands: it redirects to the docs site, no page Mistral publishes states a product
-    price, and the products are still sold. Treating that as a layout failure is what
-    stopped every model price in this block from being republished on 2026-10-12;
-    treating it as what it is means every product is published carrying the `unpriced`
-    marker with the reason, for the runner to stamp and to keep the last observed
-    prices beside. `html_text` being None -- the page could not be fetched at all -- is
-    the same state arrived at a different way, and gets the same treatment.
-
-    The checks on a page that DOES carry cards stay exactly as strict as they ever
-    were: see `reject_broken_cards`. A resurrected page must not be read sloppily
-    either.
-    """
-    if html_text is None:
-        return products_without_prices(mapping, _UNREADABLE_REASON), []
-
-    parser = parse_cards(html_text)
-    if not parser.cards:
-        return products_without_prices(mapping, _NO_CARDS_REASON), []
-
-    reject_broken_cards(parser)
-    cards = parser.cards
-
-    wanted = mapping["products"]
-    rows_table: JSONDict = mapping["rows"]
-
-    products: dict[str, JSONDict] = {}
-    notes: list[str] = []
-
-    for card_name in wanted:
-        rows = cards.get(card_name)
-        if not rows:
-            continue
-
-        entry: JSONDict = {"kind": "product", "display_name": card_name}
-
-        for label, prices in rows:
-            resolved = resolve_field(label, rows_table)
-            if resolved is None:
-                notes.append(
-                    f"{card_name}: row {label!r} is priced at {prices.get('priceUsd')!r} USD, "
-                    f"and {DEFAULT_MAPPING.name} has no field for that label. The price is "
-                    f"not published. Add the label to the mapping's 'rows' table to publish it."
-                )
-                continue
-
-            matched_label, spec = resolved
-            value = read_price(prices, spec)
-            if value is None:
-                notes.append(
-                    f"{card_name}: row {label!r} (read as {spec['field']} via "
-                    f"{matched_label!r}) could not be read as stated -- the page now says "
-                    f"suffix {prices.get('suffix')!r} and price {prices.get('priceUsd')!r}. "
-                    f"The price is not published, because the field name would no longer "
-                    f"say what the figure means."
-                )
-                continue
-
-            field = spec["field"]
-            if field in entry:
-                raise ScrapeError(
-                    f"{card_name}.{field}: two rows map to it. Refusing to guess which one "
-                    f"is the real figure."
-                )
-            entry[field] = check_price(f"{PROVIDER_ID}/{card_name}", field, value)
-
-        if len(entry) == 2:  # kind and display_name only
-            entry["unpriced"] = "no price on this card could be published at all"
-        products[card_name] = entry
-
-    return products, notes
-
-
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs. Two sources, merged.
+    """The one callback provider_runner needs: the docs site, plus the frozen products.
 
-    The models half is read strictly, exactly as before. The products half is read
-    best effort on purpose: when its page cannot be read -- it no longer carries
-    cards, or it cannot be fetched at all -- the products are published in the
-    unpriced state they are in, and the models publish regardless. One half of a
-    provider must never be able to block the other, which is exactly what happened
-    here on 2026-10-12: the products page retired quietly, its layout error stopped
-    every model price from being republished, and each model that had moved since
-    was withheld with it.
+    The models half is read strictly, exactly as before. The products half reads
+    nothing: it republishes every name the mapping's `products` list holds, and the
+    runner dates the state, keeps the last prices actually observed beside the marker
+    and reports the transition once. The two halves are checked for a key claimed
+    twice, because one key cannot be both a model and a product.
     """
     models, notes = extract_docs_models(fetch, mapping)
 
-    # Best effort by design; see the docstring. A fetch failure is not a reason to
-    # stop the run either -- it is one of the ways the products' prices can be
-    # unavailable, and the exception's own text is dropped on purpose: what gets
-    # published is the state the products are in, not this run's transport weather.
-    try:
-        products_html: str | None = fetch(mapping["products_source"])
-    except ScrapeError:
-        products_html = None
-
-    products, product_notes = extract_products(products_html, mapping)
+    products = frozen_products(mapping)
 
     clash = sorted(set(models) & set(products))
     if clash:
         raise ScrapeError(
             f"{clash} is published both as a model from the docs site and as a product "
-            f"from the pricing page. One key cannot be two things; resolve it by hand."
+            f"from mapping.json's products list. One key cannot be two things; resolve "
+            f"it by hand."
         )
 
-    return {**models, **products}, notes + product_notes
+    return {**models, **products}, notes
 
 
 def main(argv: list[str] | None = None) -> int:

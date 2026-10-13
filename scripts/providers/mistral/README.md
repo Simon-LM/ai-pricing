@@ -2,20 +2,20 @@
 
 # Mistral
 
-Publishes `providers.mistral` in `pricing.json` from **two** public sources, because
-neither one is complete.
+Publishes `providers.mistral` in `pricing.json` from **one** public source:
+Mistral's own documentation site.
 
 | what | source | why it has to be that one |
 | --- | --- | --- |
-| the models | <https://docs.mistral.ai/models> | states a machine-readable price object and an `isRetired` flag per model, and lists models the pricing page does not |
-| the billable non-models | <https://mistral.ai/pricing/api> | used to be the only place web search, code execution, images, libraries, data capture and the two classifiers were priced at all — since October 2026 it redirects to the docs site and states no product price, so those products are published `unpriced_since` with the last figures observed, and the page is still read every run so the figures resume if it prices again |
+| the models | <https://docs.mistral.ai/models> | states a machine-readable price object and an `isRetired` flag per model, and a unit per figure rather than implying one from a label |
+| the billable non-models | `mapping.json`'s `products` list | no page prices them any more — Mistral retired the one that did in October 2026 — so their inventory is held by hand, and every name in it is published sold-but-unpriced |
 
-Every model the docs index lists, plus the billable products the pricing page
-names. How many that is follows the sources; count them in `pricing.json`.
-The products currently carry `unpriced_since`: Mistral still sells them and
-states no price for them anywhere.
+Every model the docs index lists, plus the billable products the list names. How
+many that is follows the source and the list; count them in `pricing.json`. The
+products currently carry `unpriced_since`: Mistral still sells them and states no
+price for them anywhere.
 
-## Why two sources, and not just the pricing page
+## Why the docs site, and not just the pricing page
 
 An earlier version read only `mistral.ai/pricing/api`. It silently missed four priced
 models the docs site lists and that page does not:
@@ -32,37 +32,35 @@ Mistral was still selling it — the docs page says `isRetired: false` and state
 price — so this repository published a model that was on sale as withdrawn. **A
 marketing page is not an inventory.** Exactly the same thing happened on OVH's
 catalog, which is why that provider has a coverage check; here the fix was to read
-the source that actually knows.
+the source that actually knows. Mistral went on to retire the pricing page itself —
+in October 2026, it began redirecting to the docs site — and nothing of it is read
+any more.
 
-## The products' page went quiet, and that is a state, not a failure
+## The products' page was retired, and they stay published
 
 In October 2026 `mistral.ai/pricing/api` began redirecting to the docs site, which
 prices models only; no page Mistral publishes states a product price any more. The
-products are still sold and still billed.
-
-The run for 2026-10-12 treated it as a layout failure, and the failure took every
-model price down with it: nothing in the block was republished, including figures
-Mistral had changed. That is the thing this design now forbids. A page with no cards
-is the state of the world, not a parse error: the products are published
+products — web search, code execution, image generation, libraries, data capture,
+premium news and the two classifier models — are still sold and still billed, so
+they stay listed and are never dropped. `mapping.json`'s `products` is their whole
+inventory now, the one place a human adds a name, and every name in it is published
 `unpriced_since` — a dated warning, not a withdrawal; `absent_since` would claim
 Mistral stopped offering them, which is false — with the last prices actually
 observed kept beside the marker, and the transition reported once.
 
-The page is still read on every run, best effort:
+Nothing is read for them any more, not even as a control pass: the page is gone, and
+a weekly look to confirm it is still gone would only add a failure path with nothing
+to learn from. A name added to the list is published on the next run,
+sold-but-unpriced, and the run reports the addition once.
 
-- if it carries cards again, the figures publish themselves and the markers come
-  off, with no human in the loop;
-- if a page that carries cards is damaged, the strict rules still apply: duplicate
-  cards or broken price markup refuse the run rather than guess;
-- if the page cannot be fetched at all, the products land in the same unpriced
-  state, with a reason that says "this run" rather than "since when".
-
-None of the three can block the models. One half of a provider must never take the
-other down.
+The run for 2026-10-12 treated the retirement as a layout failure, and the failure
+took every model price down with it: nothing in the block was republished, including
+figures Mistral had changed. Nothing in this design can repeat that: the products
+half reads nothing, so there is no failure on it left to hold the models back.
 
 ## The keys are names; the identifiers are a field of their own
 
-**The keys are the names the sources state, lowercased**: `ocr 4.0`,
+**The keys are the names the source states, lowercased**: `ocr 4.0`,
 `mistral medium 3.5`, `web search`. Those are what a human reads on the page, and they
 are not what you call.
 
@@ -86,10 +84,10 @@ version and will keep costing what this file says. `mistral-ocr-latest` resolves
 whatever Mistral points it at next, at a different price, with no change anywhere in
 this file. Pin the first; treat the last as a convenience you cannot price.
 
-The products carry no `api_ids`: web search and image generation are billed, but
-there is nothing to call. A model whose page states no identifier is still published
-with its price, and the run reports it — a missing id is not a reason to withhold a
-correct figure, but a consumer has nothing to pass.
+The products carry `"kind": "product"` and no `api_ids`: web search and image
+generation are billed, but there is nothing to call. A model whose page states no
+identifier is still published with its price, and the run reports it — a missing id
+is not a reason to withhold a correct figure, but a consumer has nothing to pass.
 
 **Read from Mistral's own docs and from nowhere else.** Before these were first
 published they were sanity-checked by hand against Eden AI's model list, which
@@ -109,16 +107,18 @@ comes from the docs index alone. Eden still listing `mistral/<something>` that t
 file marks absent is not a contradiction anyone needs to reconcile: it is two
 different sellers, and only one of them is Mistral.
 
-That is structural rather than a promise. The offline test manifest serves 22 URLs,
+That is structural rather than a promise. The offline test manifest serves 21 URLs,
 every one of them Mistral's, and a run that asks for any URL it does not name fails
 instead of reaching the network — so a scraper here that started reading somebody
-else's catalogue would break the test suite rather than quietly publish from it.
+else's catalogue would break the test suite rather than quietly publish from it. It
+does not serve the retired products page, so that page cannot slip back into a run
+by accident either.
 
 ## What the mapping still holds
 
 No model list, and there must not be one — the docs index says which models exist,
-every week. What `mapping.json` holds is the translation for the two things the
-sources state in prose rather than in data.
+every week. What `mapping.json` holds is the translation for the things the source
+states in prose rather than in data, plus the one list no page states any more.
 
 **`denominators`** — the docs state a unit per figure, split into `input` and
 `output`:
@@ -131,17 +131,17 @@ sources state in prose rather than in data.
 `labels` overrides it when a row names itself: GLM 5.2 states two input figures both
 denominated `/M Tokens`, ordinary and `Cached input`, which would otherwise collide.
 
-**`rows`** — the same idea for the pricing page's products, which put their unit in a
-row label. A label is matched exactly first; failing that, the longest entry it
-*starts with* wins. That prefix rule exists for two rows only, where Mistral appends
-an explanatory sentence to the label — one of which quotes a fee that will itself
-change.
+**`products`** — the inventory of the billable non-models, held by hand since the
+page that priced them was retired. Adding a name is what publishes a new product:
+sold-but-unpriced, reported once, on the next run. Do not rename an entry — a rename
+would publish a new product and freeze the old one, and the name is the key a
+consumer already reads.
 
 A denominator or label missing from those tables is **not guessed at**: the unit is
 part of the field name and there is no honest field for an unrecognised figure. That
 one figure is skipped, the run reports it by email, and every other price publishes.
 
-## Three things worth knowing about the data
+## Two things worth knowing about the data
 
 **A figure of `0` means "this side is not billed", not "free".** Voxtral TTS charges
 for the audio it generates and nothing for the text it is given. This source states
@@ -153,16 +153,10 @@ can stand in for one.
 `per_1k_pages` and `per_1k_annotated_pages`. A consumer reading only the first
 understates the bill.
 
-**The carded pricing page carried a card for every model too, at prices of its own**,
-and they were deliberately ignored; reading them too would give each model two
-sources of truth and let one silently win. A test moves that page's own `codestral`
-figure — on the last capture in which the page carried cards — and asserts nothing
-published changes.
-
 ## Running it yourself
 
 ```sh
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live, ~22 fetches
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live, ~21 fetches
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 ```
 

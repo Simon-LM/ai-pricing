@@ -44,19 +44,21 @@ There is no pricing endpoint in Mistral's API, and the one usage endpoint that r
 a `prices` field requires an *admin* API key that an ordinary user of an open-source
 tool does not have and should never be asked for. So Mistral's models are read from
 its documentation site, <https://docs.mistral.ai/models>, which does at least state a
-machine-readable price object per model; its billable non-models came from
-<https://mistral.ai/pricing/api>, the only place they were ever priced. Since October
-2026 that page redirects to the docs site and states no product price any more, so
-those entries carry `unpriced_since` with their last observed figures — see
-[Sold, with no price attached](#sold-with-no-price-attached) — and the page is still
-read every run, so the figures resume by themselves if it prices again. OVH's
+machine-readable price object per model; its billable non-models used to come from
+<https://mistral.ai/pricing/api>, the only place they were ever priced — Mistral
+retired that page in October 2026 and nothing states a product price any more, so
+those entries carry `unpriced_since` with their last observed figures (see
+[Sold, with no price attached](#sold-with-no-price-attached)), and their inventory is
+kept by hand in the provider's own mapping. OVH's
 catalog is read the same way -- a Next.js app that embeds its model list and pricing
 as JSON inside the page.
 
-**One provider, two sources, on purpose.** Mistral's pricing page had dropped Voxtral
-Mini Transcribe 2 while Mistral was still selling it, and this file published it as
-withdrawn until the documentation site was read alongside. A marketing page is not an
-inventory. See [scripts/providers/mistral/README.md](scripts/providers/mistral/README.md).
+**Mistral is read from its documentation site and from nothing else.** The pricing
+page it had long been read alongside dropped Voxtral Mini Transcribe 2 while Mistral
+was still selling it, and this file published it as withdrawn until the docs site was
+read instead; Mistral retired that page in October 2026, which leaves the docs site
+the one page worth reading. A marketing page is not an inventory. See
+[scripts/providers/mistral/README.md](scripts/providers/mistral/README.md).
 
 Eden AI is the exception and the sturdiest source here: a real public JSON API,
 <https://api.edenai.run/v3/models>, stating an input and an output price per model
@@ -99,10 +101,6 @@ show it to whoever is reading your number. Display it:
       "checked_utc": "2026-08-03T05:11:31Z",
       "updated": "2026-08-03",
       "source": "https://docs.mistral.ai/models",
-      "sources": [
-        "https://docs.mistral.ai/models",
-        "https://mistral.ai/pricing/api"
-      ],
       "currency": "USD",
       "models": {
         "mistral medium 3.5": {
@@ -136,7 +134,7 @@ show it to whoever is reading your number. Display it:
 | `providers.<name>.checked_utc` | When that provider's scraper last **verified** its figures. "Confirmed unchanged today" is a much stronger statement than "last edited in May", which is why this is separate from `updated`. Each provider has its own -- they scrape on their own schedule. |
 | `providers.<name>.updated` | When that provider's figures last actually **changed**. |
 | `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. Always present. |
-| `providers.<name>.sources` | Present only where a block is built from more than one page, as `mistral` is: the full list, in the order read, and it always contains `source`. A provider that reads one page omits it. Read `source` if you want one url and `sources` if you want all of them. Mistral's second url states no price today; it stays listed because it is still read every run, and the last observed product figures were read from it. |
+| `providers.<name>.sources` | Present only where a block is built from more than one page. No provider is today: `mistral` was the only one, and its second url -- the page that priced its products -- was retired by Mistral in October 2026, so that block publishes `source` alone. The property stays allowed under this schema version, so a copy of the file that still carries it validates; read `source`. |
 | `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
 | `providers.<name>.models` | Keyed by **whatever identifies the entry at that source**, which is not the same thing at every provider -- see below. |
 | `display_name` | A human-readable label, kept only so that a diff is readable. Never use it for matching. |
@@ -156,7 +154,7 @@ convention because there is no single source:
 | `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
-Mistral is the odd one: its sources name things for people, not for callers. So its
+Mistral is the odd one: its source names things for people, not for callers. So its
 entries carry `api_ids` as well -- see the next section.
 
 ### `api_ids` -- what to actually call
@@ -263,13 +261,16 @@ It is marked unpriced, and the run says which unit is missing from the mapping.
 
 **A whole page can go quiet too.** Mistral's products — web search, code execution,
 images, data capture, libraries, premium news, the two classifiers — all went unpriced
-in October 2026, when the page that priced them began redirecting to the docs site.
-They are published `unpriced_since` with their last observed figures kept beside the
-marker: still sold, still what they used to cost, and not to be called without
-checking the price first.
+in October 2026, when Mistral retired the page that priced them. They are published
+`unpriced_since` with their last observed figures kept beside the marker: still sold,
+still what they used to cost, and not to be called without checking the price first.
+Their inventory now lives in the provider's own mapping, where adding a name is what
+publishes a new product — sold-but-unpriced, exactly like these.
 
-**It clears itself.** The day the source quotes a price, the marker goes and the
-figures are live again — nothing to undo by hand.
+**It clears itself -- where a page still quotes prices.** The day a figure comes
+back, the marker goes and the figures are live again, nothing to undo by hand.
+Mistral's products are the exception: no page prices them any more, so their marker
+clears only if a page does again, and a scraper is pointed at it.
 
 **It is reported once.** The run that first observes it sends one email; while it stays
 unpriced, later runs say nothing, and the day it is priced again sends one more. The
@@ -371,13 +372,16 @@ resolves to one model, tomorrow to a different one at a different price. Eden AI
 that shows up as a price change on an unchanged key -- which is exactly what it is.
 Nothing here can warn you that the model behind an alias is not the one you tested.
 
-Each provider's `mapping.json` still holds one hand-written thing, and it is worth
+Each provider's `mapping.json` still holds hand-written things, and it is worth
 knowing which: **not a list of models** -- those are read from the source every week --
 but a translation table for the things the source states in prose rather than in data.
-OVH's maps `million_input_tokens` to `in_per_mtok`; Mistral's maps the row label
-`Input (/M tokens)` to the same field. A unit or a label the table does not recognise
-is reported and its figure left unpublished, never guessed at, because the unit is
-part of the field name and there is no honest field to put an unrecognised figure in.
+OVH's maps `million_input_tokens` to `in_per_mtok`; Mistral's maps the docs unit
+strings its pages state to price fields. Mistral's also holds its products list, the
+one inventory no source states any more (see
+[Sold, with no price attached](#sold-with-no-price-attached)). A unit or a label the
+table does not recognise is reported and its figure left unpublished, never guessed at,
+because the unit is part of the field name and there is no honest field to put an
+unrecognised figure in.
 
 Those tables are assumptions a human wrote down, and they are the thing most likely to
 be quietly wrong. They are written down explicitly so that they *can* be checked.
@@ -414,7 +418,7 @@ outcomes, the run()/main() control flow -- is written once, in
 provider's own `scrape.py`. A provider's own file supplies only what is genuinely
 its own: how to fetch and parse its page. Compare
 [`scripts/providers/mistral/scrape.py`](scripts/providers/mistral/scrape.py) (reads
-server-rendered card markup) against
+the docs index, then one page per model) against
 [`scripts/providers/ovh/scrape.py`](scripts/providers/ovh/scrape.py) (reads a
 framework's embedded JSON data chunk) for how differently "read the page" can look
 between two providers, and how little of either file is about anything else.
@@ -519,7 +523,7 @@ python3 -m unittest discover -s tests -v                          # the whole su
 npx pyright                                                       # types, as CI checks them
 python3 scripts/build_schema.py                                   # regenerate pricing.schema.json
 python3 scripts/build_schema.py --check                           # ...or just say if it is stale
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live sources
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live source
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 
 python3 scripts/providers/ovh/scrape.py --out-dir .ci-out         # read the live catalog
@@ -553,9 +557,8 @@ What still needs a human is a source stating something the file has no way to ex
    rather than left to find out on a Monday morning.
 2. **A new way of naming that unit at one source.** Add it to that provider's
    `mapping.json`: OVH's `units` maps a catalog `price_unit` to a field, Mistral's
-   `denominators` maps a docs unit string to one and its `rows` maps a pricing-page row
-   label, Eden AI's and Hugging Face's `fields` map an API field name. Copy the string
-   byte-for-byte from the source.
+   `denominators` maps a docs unit string to one, Eden AI's and Hugging Face's `fields`
+   map an API field name. Copy the string byte-for-byte from the source.
 3. Re-capture that provider's fixtures (Mistral's are under `tests/fixtures/mistral/`,
    listed by `offline.json`; OVH's is `tests/fixtures/ovh/catalog_ok.html`) so they
    contain the new shape, and regenerate its `baseline.json` from them.
@@ -573,9 +576,10 @@ touches anyone's account at any provider.
 ## Adding a provider
 
 Confirm the real pricing source first -- read it yourself, work out whether it is
-scrapeable card markup (like Mistral's) or embedded framework data (like OVH's),
-confirm the currency, check whether the catalog resells third-party models under
-a name that could be confused with theirs. Never guess at any of this.
+scrapeable card markup, a per-model documentation site (like Mistral's) or embedded
+framework data (like OVH's), confirm the currency, check whether the catalog resells
+third-party models under a name that could be confused with theirs. Never guess at any
+of this.
 
 Then mirror whichever of the two existing providers reads more like your new
 one -- [`scripts/providers/mistral/scrape.py`](scripts/providers/mistral/scrape.py)
