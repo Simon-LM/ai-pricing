@@ -7,16 +7,13 @@ pricing.json is byte-for-byte what it was. That is the property the whole design
 exists to protect -- a stale price whose date the user can see is far better than a
 wrong one they cannot.
 
-This provider reads TWO sources, and the split is the thing most worth testing.
-Models come from docs.mistral.ai, which states a machine-readable price object and an
-isRetired flag per model. The billable non-models used to come from
-mistral.ai/pricing/api, which was once the only place they were priced; since October
-2026 that page redirects to the docs site and states no product price any more, and
-no page Mistral publishes states one. The products are therefore published
-`unpriced_since` with the last prices observed, and the page is still read every run
-so the prices resume if it ever carries cards again -- which is why the half of this
-file that reads a carded page still exists, exercised against the last capture in
-which the page carried any.
+This provider reads ONE source. Models come from docs.mistral.ai, which states a
+machine-readable price object and an isRetired flag per model. The billable
+non-models used to come from mistral.ai/pricing/api, once the only place they were
+priced; Mistral retired that page in October 2026 and nothing states a product price
+any more. The products stay published from the mapping's hand-held `products` list,
+sold-but-unpriced, with the last prices observed kept beside the marker -- and the
+scraper does not read any page for them at all.
 
 Every scenario runs against committed fixtures through `--offline`, which serves each
 URL from disk and refuses any URL the manifest does not name. A test that forgets a
@@ -136,16 +133,6 @@ class ScrapeTestCase(unittest.TestCase):
         self.assertEqual(len(kept), len(text.splitlines()) - 1, f"{slug} is not one line of the index")
         index.write_text("\n".join(kept) + "\n", encoding="utf-8")
 
-    def use_last_carded_page(self) -> None:
-        """Serve the pricing page as a page that carries model cards.
-
-        The committed fixture for that url is what it answers today: the docs site,
-        no cards at all. The tests about READING a carded page -- and about the day
-        the page carries prices again -- restore the last capture that had them, so
-        that logic stays exercised rather than decaying behind the redirect.
-        """
-        shutil.copy2(FIXTURES / "pricing_page_with_cards.html", self.path_for(PRICING_PAGE))
-
     def without_markers(self) -> None:
         """Rewind the products to the state they were in before their page retired.
 
@@ -214,7 +201,7 @@ class ScrapeTestCase(unittest.TestCase):
 
 
 class TestUnchanged(ScrapeTestCase):
-    def test_unchanged_sources_stamp_and_publish_nothing_new(self) -> None:
+    def test_unchanged_stamps_the_block_and_publishes_nothing_new(self) -> None:
         code, stdout, _ = self.run_scrape()
 
         self.assertEqual(code, 0)
@@ -231,7 +218,7 @@ class TestUnchanged(ScrapeTestCase):
 
     def test_the_source_field_names_the_docs_site(self) -> None:
         """Consumers follow `source` to check a figure by hand, so it has to point at
-        where the models actually come from -- not at the page the products come from."""
+        where the figures actually come from."""
         self.run_scrape()
         self.assertEqual(self.candidate_block("stamped.json")["source"], DOCS_INDEX)
 
@@ -243,8 +230,8 @@ class TestUnchanged(ScrapeTestCase):
         self.assertNotIn("kind", models["mistral medium 3.5"], "a model is not a product")
 
     def test_the_models_the_pricing_page_omits_are_published(self) -> None:
-        """The reason this provider reads two sources at all. The pricing page shows no
-        card for any of these three, and Mistral sells all of them."""
+        """The reason this provider reads the docs site and not the pricing page: that
+        page showed no card for any of these three, and Mistral sells all of them."""
         models = self.models("stamped.json") if not self.run_scrape()[0] else {}
         self.assertEqual(models["ocr 4.0"]["per_1k_pages"], 4.0)
         self.assertEqual(models["ocr 3"]["per_1k_pages"], 2.0)
@@ -328,55 +315,15 @@ class TestUnchanged(ScrapeTestCase):
         self.assertIn("no callable identifier", self.notes())
 
     def test_the_products_are_published_unpriced_with_the_prices_last_observed(self) -> None:
-        """The page that used to state these figures retired in 2026-10. The figures
-        beside the marker are the last ones actually observed: kept so a consumer has
-        something to reason with, and marked because the source no longer stands
-        behind them."""
+        """The page that used to state these figures was retired in 2026-10 and is not
+        read any more. The figures beside the marker are the last ones actually
+        observed: kept so a consumer has something to reason with, and marked because
+        the source no longer stands behind them."""
         self.run_scrape()
         entry = self.models("stamped.json")["web search"]
         self.assertEqual(entry["per_1k_calls"], 30.0)
         self.assertEqual(entry["kind"], "product")
         self.assertEqual(entry["unpriced_since"], FIXED_NOW[:10])
-
-    def test_the_pricing_pages_own_model_cards_are_ignored(self) -> None:
-        """That page still carries a card for every model, at prices of its own. Reading
-        them too would give each model two sources of truth, and one of them would
-        silently win -- which is how a model the pricing page had dropped came to be
-        published as withdrawn while Mistral was still selling it.
-
-        Moving the figure on the pricing page's own 'codestral' card must therefore
-        change nothing: that model's price comes from the docs site. The committed
-        capture of that url answers with the docs site today, so the carded page read
-        here is the last capture that had any -- exercised rather than left to decay
-        behind the redirect."""
-        self.use_last_carded_page()
-        page = self.path_for(PRICING_PAGE)
-        text = page.read_text(encoding="utf-8")
-        start, end = scrape_card_span(text, "codestral")
-        card = text[start:end].replace("&quot;priceUsd&quot;:0.3", "&quot;priceUsd&quot;:9.9")
-        self.assertNotEqual(card, text[start:end], "fixture drift: the codestral card no longer reads 0.3")
-        page.write_text(text[:start] + card + text[end:], encoding="utf-8")
-
-        code, stdout, _ = self.run_scrape()
-        self.assertEqual(code, 0)
-
-        # The run itself is a changed one: serving the last carded capture prices the
-        # products again, so their markers come off. What must not move is codestral --
-        # the page is read for the products the mapping names, and for nothing else.
-        self.assertNotIn("codestral", stdout, "the pricing page's own card leaked into the figures")
-        self.assertEqual(self.models()["codestral"]["in_per_mtok"], 0.3)
-        self.assert_current_untouched()
-
-    def test_the_libraries_ocr_row_is_not_the_ocr_models_price(self) -> None:
-        """The decoy: 'libraries' carries a row labelled 'OCR (per 1K pages)' at $3,
-        which is not the OCR model's own $4. Read from the last capture in which the
-        page carried cards -- the live page carries none today -- the two must still
-        not be confused."""
-        self.use_last_carded_page()
-        self.run_scrape()
-        models = self.models()
-        self.assertEqual(models["libraries"]["per_1k_pages"], 3.0)
-        self.assertEqual(models["ocr 4.1"]["per_1k_pages"], 4.0)
 
     def test_every_current_model_on_the_index_reaches_the_output(self) -> None:
         """There is no list to reconcile: every model the index lists and prices is
@@ -443,27 +390,6 @@ class TestPriceChange(ScrapeTestCase):
         # The stamp is still produced: the keepalive commit happens on every run.
         stamped = self.candidate_block("stamped.json")
         self.assertEqual(stamped["models"], json.loads(self.current_bytes)["providers"]["mistral"]["models"])
-        self.assert_current_untouched()
-
-    def test_a_product_price_change_on_a_carded_page_is_picked_up_again(self) -> None:
-        """Both sources are live inputs; neither is a fallback for the other. The url
-        answers with the docs site today, so this reads the last capture that carried
-        cards: the day the figures come back, they must publish themselves and the
-        markers must come off -- without a human editing anything."""
-        self.use_last_carded_page()
-        page = self.path_for(PRICING_PAGE).read_text(encoding="utf-8")
-        start, end = scrape_card_span(page, "web search")
-        card = page[start:end].replace("&quot;priceUsd&quot;:30", "&quot;priceUsd&quot;:45")
-        self.assertNotEqual(card, page[start:end], "fixture drift: the web search card no longer reads 30")
-        self.path_for(PRICING_PAGE).write_text(page[:start] + card + page[end:], encoding="utf-8")
-
-        code, stdout, _ = self.run_scrape()
-        self.assertEqual(code, 0)
-        self.assertIn("web search.per_1k_calls", stdout)
-        entry = self.models()["web search"]
-        self.assertEqual(entry["per_1k_calls"], 45.0)
-        self.assertNotIn("unpriced_since", entry, "the figures are live again")
-        self.assertIn("priced again by the source", self.notes())
         self.assert_current_untouched()
 
     def test_a_price_going_down_is_also_a_change(self) -> None:
@@ -588,31 +514,29 @@ class TestWithdrawnModel(ScrapeTestCase):
 
 
 # ======================================================================================
-# A products page that went quiet
+# The products, frozen: no page prices them any more
 # ======================================================================================
 
 
-class TestProductsPageRetired(ScrapeTestCase):
-    """The page that used to price the products stopped carrying prices in October 2026
-    -- the failure of 2026-10-12 read as a design case, because back then it raised,
-    and the raise took every model price down with it.
+class TestFrozenProducts(ScrapeTestCase):
+    """The page that used to price the products was retired by Mistral in October 2026,
+    and this provider does not read it -- nor any other page -- for them. The products
+    are still sold, so they stay published sold-but-unpriced from the mapping's
+    `products` list, with the last figures observed kept beside the marker.
 
-    What must hold now: the run succeeds, the last observed figures are kept and dated,
-    the transition is reported once, and the models -- which never lived on that page --
-    publish regardless. A page with no cards is the state of the world it is, never an
-    excuse to withhold the other half.
+    What must hold: the run succeeds and the models publish; the products keep their
+    last figures and their date; the transition is reported once, and only once; and a
+    name a human adds to the list is published and reported like any other transition,
+    with no human editing pricing.json.
     """
 
-    def test_a_carded_page_whose_cards_stop_matching_leaves_the_products_unpriced(self) -> None:
-        """Mistral renames the card markup tomorrow: the cards are still there, none of
-        them match. Same state arrived at a different way, and the same treatment --
-        the products stay, marked, with their last figures; nothing fails."""
-        self.use_last_carded_page()
-        self.edit(PRICING_PAGE, 'class="model-item', 'class="product-tile', expected_count=None)
-
+    def test_the_products_stay_published_unpriced_and_the_models_are_not_held_back(self) -> None:
+        """The steady state: the figures are frozen, nothing is reported, and the
+        models -- which never lived on that page -- publish regardless."""
         code, stdout, _ = self.run_scrape()
         self.assertEqual(code, 0)
         self.assertIn("unchanged", stdout)
+        self.assertEqual(self.notes(), "")
         models = self.models("stamped.json")
         self.assertEqual(models["web search"]["per_1k_calls"], 30.0)
         self.assertEqual(models["web search"]["unpriced_since"], FIXED_NOW[:10])
@@ -655,25 +579,40 @@ class TestProductsPageRetired(ScrapeTestCase):
         code, stdout, _ = self.run_scrape(now="2026-08-25T04:00:00Z")
         self.assertEqual(code, 0)
         self.assertIn("unchanged", stdout)
-        self.assertEqual(self.notes(), "", "the same retirement was reported twice")
+        self.assertEqual(self.notes(), "", "the same transition was reported twice")
 
-    def test_a_fetch_that_fails_marks_the_products_without_touching_the_models(self) -> None:
-        """The other way to know nothing this run: the page could not be read at all.
-        Same outcome for the products -- kept, marked -- with a reason that says 'this
-        run', because a transport failure says nothing about whether Mistral still
-        prices them. The models publish regardless: one half must never take the other
-        down, which is the whole lesson of 2026-10-12."""
-        self.without_markers()
-        del self.manifest[PRICING_PAGE]
-        (self.sources / "offline.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+    def test_a_name_added_to_the_list_is_published_unpriced(self) -> None:
+        """The one way a product appears now. No page lists them, so a human adds the
+        name to the mapping, and the next run must publish it -- sold-but-unpriced,
+        dated, reported once -- rather than ignore a name the mapping states."""
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        mapping["products"] = mapping["products"] + ["fine-tuning"]
+        patched = self.tmp / "mapping.json"
+        patched.write_text(json.dumps(mapping), encoding="utf-8")
 
-        code, _, _ = self.run_scrape()
-        self.assertEqual(code, 0)
-        entry = self.models()["web search"]
-        self.assertEqual(entry["per_1k_calls"], 30.0)
+        argv = [
+            "--out-dir", str(self.out_dir), "--current", str(self.current),
+            "--mapping", str(patched), "--offline", str(self.sources / "offline.json"),
+            "--now", FIXED_NOW,
+        ]
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = scrape.main(argv)
+
+        self.assertEqual(code, 0, err.getvalue())
+        entry = self.models()["fine-tuning"]
+        self.assertEqual(entry["kind"], "product")
         self.assertEqual(entry["unpriced_since"], FIXED_NOW[:10])
-        self.assertIn("could not be read this run", self.notes())
-        self.assertEqual(self.models()["mistral medium 3.5"]["in_per_mtok"], 1.5)
+        self.assertEqual(
+            self.notes().count("Marked unpriced_since="), 1,
+            "exactly one note, for the added name",
+        )
+        self.assertIn("fine-tuning", self.notes())
+        self.assertIn("no longer states a price for this product", self.notes())
+        self.assertEqual(
+            self.models()["web search"]["unpriced_since"], "2026-08-18",
+            "an entry already unpriced was re-stamped",
+        )
         self.assert_current_untouched()
 
 
@@ -699,25 +638,6 @@ class TestLayoutFailures(ScrapeTestCase):
         self.edit(DOCS_INDEX, 'href="/models/ocr-4-1"', 'href="/models/ocr-9-9"')
         code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "which no fixture serves")
-
-    def test_pricing_page_price_markup_replaced_by_plain_text(self) -> None:
-        """A page that DOES carry cards is still read strictly: losing the price markup
-        is a layout failure, not a state to publish around. The carded capture is
-        served because the live page carries no cards left to damage."""
-        self.use_last_carded_page()
-        self.edit(PRICING_PAGE, " data-prices=", " data-figures=", expected_count=None)
-        code, _, stderr = self.run_scrape()
-        self.assert_failed(code, stderr, "without data-prices")
-
-    def test_pricing_page_unparseable_price_json(self) -> None:
-        self.use_last_carded_page()
-        self.edit(
-            PRICING_PAGE,
-            "&quot;priceEur&quot;:1.25,&quot;priceUsd&quot;:1.5",
-            "&quot;priceEur&quot;:1.25 &quot;priceUsd&quot;:1.5",
-        )
-        code, _, stderr = self.run_scrape()
-        self.assert_failed(code, stderr, "not JSON")
 
 
 class TestUnreadableFigures(ScrapeTestCase):
@@ -752,20 +672,6 @@ class TestUnreadableFigures(ScrapeTestCase):
         self.assertEqual(entry["unpriced_since"], FIXED_NOW[:10])
         self.assertNotIn("absent_since", entry, "Mistral still offers it")
 
-    def test_an_unrecognised_product_row_label_is_reported(self) -> None:
-        """Drift inside a carded page: the label under a figure changed, so that price
-        cannot be published -- but a label this file cannot place says nothing about
-        the other rows or the other cards, and it must not withhold them."""
-        self.use_last_carded_page()
-        self.edit(PRICING_PAGE, "Price (per 1K calls)", "Cost (per 1K calls)", expected_count=None)
-        code, _, _ = self.run_scrape()
-        self.assertEqual(code, 0)
-        self.assertIn("Cost (per 1K calls)", self.notes())
-        self.assertIn("has no field for that label", self.notes())
-        entry = self.models()["web search"]
-        self.assertEqual(entry["unpriced_since"], FIXED_NOW[:10])
-        self.assertNotIn("absent_since", entry, "the pricing page still lists it")
-
 
 class TestSanityBounds(ScrapeTestCase):
     def test_out_of_bounds_figure_is_refused(self) -> None:
@@ -787,18 +693,12 @@ class TestSanityBounds(ScrapeTestCase):
         self.assert_current_untouched()
 
     def test_a_key_claimed_by_both_sources_is_refused(self) -> None:
-        """One key cannot be two things, and nothing here can tell which source is
-        right, so the run stops rather than letting one silently win.
+        """One key cannot be two things, and nothing here can tell which one is right,
+        so the run stops rather than letting one silently win.
 
-        Reaching this needs the mapping to call a card that is also a model a product,
-        which is why it is set up by hand: the committed mapping does not, and a test
-        that could not construct the collision would not be testing the guard."""
-        # Renamed to a docs model the pricing page has no card of its own for, so that
-        # the collision under test is the cross-source one and not a duplicate card.
-        # The carded capture is served because the live page carries no cards at all.
-        self.use_last_carded_page()
-        self.edit(PRICING_PAGE, 'data-name="libraries"', 'data-name="ocr 4.0"')
-
+        Reaching this needs the mapping's products list to name something that is also
+        a model, which is why it is set up by hand: the committed mapping does not, and
+        a test that could not construct the collision would not be testing the guard."""
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
         mapping["products"] = ["ocr 4.0"]
         patched = self.tmp / "mapping.json"
@@ -935,7 +835,7 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
     def test_the_committed_file_matches_the_mapping(self) -> None:
         """There is no model list to agree with, so what is checked is what the mapping
         still decides: where the figures come from, what currency they are in, and which
-        price fields its two translation tables can produce."""
+        price fields its translation table can produce."""
         published = self.mistral_block()
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 
@@ -945,22 +845,23 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
         producible = set(mapping["labels"].values())
         for side in mapping["denominators"].values():
             producible |= set(side.values())
-        producible |= {spec["field"] for spec in mapping["rows"].values()}
 
-        assert_price_fields_are_producible(self, published["models"], producible)
+        # The products are excluded deliberately: their figures are the last ones
+        # observed, kept exactly as they stand, and the table above could not produce
+        # them -- they used to be translated from the pricing page's row labels, which
+        # this provider no longer reads. The models are where the mapping is authority.
+        models = {k: v for k, v in published["models"].items() if v.get("kind") != "product"}
+        assert_price_fields_are_producible(self, models, producible)
 
-    def test_the_published_source_list_names_both_pages_actually_read(self) -> None:
-        """Mistral is the only provider built from two pages, and `source` alone sends
-        someone checking a product price to the docs site, which does not price
-        products at all. The list must stay equal to the two urls this scraper really
-        reads, in the order it reads them: the products page is still read on every
-        run -- best effort, its last figures kept traceable and resuming if it ever
-        prices again -- so a third page added later and not listed here would put the
-        file back to under-documenting itself."""
+    def test_the_mapping_names_one_page_and_one_page_only(self) -> None:
+        """Mistral's figures come from one page now: the docs site. The page that used
+        to price the products was retired and is not read any more, so a second url in
+        the mapping would be a page some future edit could quietly start reading
+        again."""
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(
-            mapping["sources"], [mapping["source"], mapping["products_source"]]
-        )
+        self.assertNotIn("sources", mapping)
+        self.assertNotIn("products_source", mapping)
+        self.assertEqual(mapping["source"], DOCS_INDEX)
 
     def test_the_docs_site_is_declared_a_page(self) -> None:
         """Mistral's figures come out of rendered pages, so the page floor is the
@@ -976,8 +877,8 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
                 self.assertEqual(entry["kind"], "product", model_id)
                 self.assertIn(model_id, products, model_id)
 
-    def test_every_key_is_a_name_a_source_states(self) -> None:
-        """The keys are names the sources state, deliberately not API model ids. An
+    def test_every_key_is_a_name_the_source_states(self) -> None:
+        """The keys are names the source states, deliberately not API model ids. An
         API-shaped key creeping back in would mean somebody had started translating
         names by hand again, which is the thing that made this block need a human every
         week."""
@@ -1021,24 +922,29 @@ class TestMapping(unittest.TestCase):
         that back without anything else in the tests noticing."""
         self.assertNotIn("models", self.mapping())
 
-    def test_the_two_sources_are_distinct(self) -> None:
+    def test_one_page_only(self) -> None:
+        """The mapping names one page, because one page is what is read: the docs
+        site. The page that used to price the products was retired by Mistral and is
+        not replaced, and the products are inventoried by the `products` list alone --
+        no page, no row table."""
         mapping = self.mapping()
-        self.assertNotEqual(mapping["source"], mapping["products_source"])
+        self.assertNotIn("sources", mapping)
+        self.assertNotIn("products_source", mapping)
+        self.assertNotIn("rows", mapping)
 
-    def test_both_sources_are_mistrals_own(self) -> None:
+    def test_the_source_is_mistrals_own(self) -> None:
         """This block must be built from Mistral and from nothing else. A reseller can
         confirm that a string is a real Mistral id, since it sells against that id, but
         never that Mistral still offers it: resellers lag a retirement by however long
         their own catalogue takes to notice, and can hold a contract that keeps a model
-        callable through them for months after it has left the public API. Taking either
-        the inventory or the ids from one would date a withdrawal late, or never."""
+        callable through them for months after it has left the public API. Taking the
+        inventory or the ids from one would date a withdrawal late, or never."""
         mapping = self.mapping()
-        for key in ("source", "products_source"):
-            host = urlsplit(mapping[key]).netloc
-            self.assertTrue(
-                host == "mistral.ai" or host.endswith(".mistral.ai"),
-                f"{key} points at {host!r}, which is not Mistral's own site.",
-            )
+        host = urlsplit(mapping["source"]).netloc
+        self.assertTrue(
+            host == "mistral.ai" or host.endswith(".mistral.ai"),
+            f"source points at {host!r}, which is not Mistral's own site.",
+        )
 
     def test_the_offline_manifest_serves_only_mistral(self) -> None:
         """Makes the rule above structural rather than a promise. An offline run refuses
@@ -1052,6 +958,21 @@ class TestMapping(unittest.TestCase):
                 f"the manifest serves {url}, which is not Mistral's own site.",
             )
 
+    def test_the_offline_manifest_no_longer_serves_the_products_page(self) -> None:
+        """Nothing reads the retired page any more, so no fixture serves it: a url
+        left in the manifest would be a page some future edit could quietly revive."""
+        manifest = json.loads((FIXTURES / "offline.json").read_text(encoding="utf-8"))
+        self.assertNotIn(PRICING_PAGE, manifest)
+
+    def test_every_product_the_list_names_is_published(self) -> None:
+        """The list is the products' whole inventory now. A name in it that the
+        published file does not carry would silently drop a product Mistral still
+        sells, which is the one failure this design cannot have."""
+        published = json.loads(PRICING_JSON.read_text(encoding="utf-8"))["providers"]["mistral"]["models"]
+        for name in self.mapping()["products"]:
+            self.assertIn(name, published, name)
+            self.assertEqual(published[name].get("kind"), "product", name)
+
     def test_every_mapped_denominator_names_a_known_price_field(self) -> None:
         for side, table in self.mapping()["denominators"].items():
             for denominator, field in table.items():
@@ -1063,10 +984,6 @@ class TestMapping(unittest.TestCase):
         for side, table in self.mapping()["denominators"].items():
             fields = list(table.values())
             self.assertEqual(len(fields), len(set(fields)), side)
-
-    def test_every_mapped_row_names_a_known_price_field(self) -> None:
-        for label, spec in self.mapping()["rows"].items():
-            self.assertIn(spec["field"], validate.KNOWN_PRICE_FIELDS, label)
 
     def test_every_denominator_the_docs_state_is_mapped(self) -> None:
         """Catches the gap on the day the fixtures are re-captured rather than on the
@@ -1090,40 +1007,6 @@ class TestMapping(unittest.TestCase):
                 if row.get("price") == 0:
                     continue
                 self.assertIn(row.get("denominator"), known, f"{url}: {row}")
-
-    def test_the_redirected_fixture_carries_no_cards(self) -> None:
-        """The committed capture of the products page is the live truth of October 2026:
-        the url answers with the docs site and shows no model card at all. The day this
-        fixture carries cards again, the products are being priced once more and every
-        test that assumes otherwise must fail loudly rather than drift."""
-        html = (FIXTURES / "pricing_page_redirected.html").read_text(encoding="utf-8", errors="replace")
-        self.assertEqual(scrape.parse_cards(html).cards, {})
-
-    def test_every_product_row_label_on_the_page_is_mapped(self) -> None:
-        """Checked against the last capture that carried cards: the figures are not
-        published from it today, but they resume from it the day it prices again, and
-        the row table must already be able to read it."""
-        mapping = self.mapping()
-        cards = scrape.parse_page((FIXTURES / "pricing_page_with_cards.html").read_text(encoding="utf-8"))
-        for card_name in mapping["products"]:
-            for label, _ in cards.get(card_name, []):
-                self.assertIsNotNone(
-                    scrape.resolve_field(label, mapping["rows"]), f"{card_name}: {label!r}"
-                )
-
-    def test_products_are_card_names_that_exist_on_the_pricing_page(self) -> None:
-        """The list gates which cards are read, so a stale name in it silently stops
-        publishing that product."""
-        cards = set(scrape.parse_page((FIXTURES / "pricing_page_with_cards.html").read_text(encoding="utf-8")))
-        self.assertLessEqual(set(self.mapping()["products"]), cards)
-
-
-def scrape_card_span(source: str, data_name: str) -> tuple[int, int]:
-    """The exact character range one pricing-page model card occupies."""
-    anchor = source.index(f'data-name="{data_name}"')
-    start = source.rindex('<div class="model-item', 0, anchor)
-    end = source.index("</mistral-block-card-model>", start) + len("</mistral-block-card-model>")
-    return start, source.index("</div>", end) + len("</div>")
 
 
 if __name__ == "__main__":

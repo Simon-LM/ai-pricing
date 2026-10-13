@@ -1,30 +1,30 @@
 {
   "_comment": [
-    "What to read out of Mistral's two public price sources.",
+    "What to read out of Mistral's one public price source.",
     "",
     "MODELS come from `source`, https://docs.mistral.ai/models. Its index lists the",
     "models currently offered as cards, and each card's page carries a machine-readable",
-    "price object with the unit stated per figure. PRODUCTS used to come from",
-    "`products_source`, https://mistral.ai/pricing/api -- web search, code execution,",
-    "image generation, libraries, data capture and the two classifier models were",
-    "priced there and nowhere else. Since October 2026 that page redirects to the docs",
-    "site and states no product price any more, and no other page states one either:",
-    "the products are still sold, still billed, and priced nowhere. They are published",
-    "`unpriced_since`, with the last prices actually observed beside the marker, and",
-    "the page is still read on every run, best effort -- the figures resume the day it",
-    "carries cards again, and a run that cannot read it leaves the products in exactly",
-    "that state rather than withholding the models.",
+    "price object with the unit stated per figure. That is the only page read.",
     "",
-    "Neither source alone is complete, which is why both are read. An earlier version",
-    "read only the pricing page and silently missed four priced models: OCR 4.0, OCR 3,",
-    "Leanstral 1.5, and Voxtral Mini Transcribe 2 -- the last of which the pricing page",
-    "had dropped while Mistral was still selling it, so this repository published it as",
-    "withdrawn. A marketing page is not an inventory.",
+    "PRODUCTS used to come from https://mistral.ai/pricing/api -- web search, code",
+    "execution, image generation, libraries, data capture and the two classifier models",
+    "were priced there and nowhere else. Mistral retired that page in October 2026: it",
+    "redirects to the docs site, and no page Mistral publishes states a product price",
+    "any more. The products are still sold and still billed, so they stay published,",
+    "sold-but-unpriced -- `unpriced_since`, with the last prices actually observed kept",
+    "beside the marker -- from the `products` list below, which is their whole inventory",
+    "now and the one thing in this file a human adds to. Adding a name publishes it",
+    "unpriced on the next run and reports the addition once; nothing is guessed at.",
     "",
-    "Neither half names a model. Which models exist is read from the docs index every",
-    "week; a model Mistral adds is published on the next run, one it retires keeps its",
-    "last observed prices under an 'absent_since' stamp. There is no hand-written model",
-    "list and there must not be one.",
+    "An earlier version read only the pricing page and silently missed four priced",
+    "models: OCR 4.0, OCR 3, Leanstral 1.5, and Voxtral Mini Transcribe 2 -- the last",
+    "of which the pricing page had dropped while Mistral was still selling it, so this",
+    "repository published it as withdrawn. A marketing page is not an inventory.",
+    "",
+    "Models are not listed by hand. Which models exist is read from the docs index",
+    "every week; a model Mistral adds is published on the next run, one it retires",
+    "keeps its last observed prices under an 'absent_since' stamp. There is no",
+    "hand-written model list and there must not be one.",
     "",
     "KEYS ARE THE NAMES EACH SOURCE STATES, lowercased: 'ocr 4.0', 'mistral medium 3.5',",
     "'web search'. Not API model ids. Those are published beside them in 'api_ids',",
@@ -57,36 +57,29 @@
     "generates and nothing for the text it is given."
   ],
 
-  "_comment_rows": [
-    "'rows' is the same idea for the pricing page's products, which state their unit in",
-    "a row label instead. A label is matched exactly first; failing that, the longest",
-    "entry below that the label STARTS with wins. The prefix rule exists for two rows",
-    "only -- training cost and storage cost -- where Mistral appends an explanatory",
-    "sentence to the label, one of which quotes a fee that will itself change.",
+  "_comment_products": [
+    "'products' is the inventory of Mistral's billable non-models -- web search, code",
+    "execution, image generation, libraries, data capture, the two classifier models.",
+    "It is kept by hand because it is the only inventory left: the page that used to",
+    "list them with prices was retired by Mistral in October 2026, and no page states",
+    "a product price any more. The scraper reads no page for these: it publishes every",
+    "name below sold-but-unpriced, and the runner dates the state, keeps the last",
+    "prices actually observed beside it, and reports the transition once.",
     "",
-    "'products' lists the cards to read off that page. Everything else on it is a model,",
-    "and models come from the docs site. A name here that matches no card is not an",
-    "error: the card is simply gone, and the entry is dated and kept like any other.",
-    "A page carrying NO cards at all is the same state: every product listed here is",
-    "published unpriced, for the runner to stamp, rather than the run failing over a",
-    "page that stopped being what this file reads."
+    "A name added here is published on the next run and reported once. Do not rename",
+    "an entry: a rename would publish a new product and freeze the old one, and the",
+    "name is the key a consumer already reads."
   ],
 
   "_comment_currency": [
-    "priceUsd is read and USD is published. Both sources also state EUR, and the two",
-    "are genuinely different prices rather than a conversion of one another -- 1.25 EUR",
-    "against 1.50 USD. No conversion is performed anywhere in this repository."
+    "priceUsd is read and USD is published. The source also states EUR, and the two",
+    "figures are genuinely different prices rather than a conversion of one another --",
+    "1.25 EUR against 1.50 USD. No conversion is performed anywhere in this repository."
   ],
 
   "source": "https://docs.mistral.ai/models",
   "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
   "format": "html",
-  "products_source": "https://mistral.ai/pricing/api",
-  "_comment_sources": "Published as providers.mistral.sources: both pages, in the order read. Must stay equal to [source, products_source] -- a test in this provider's own file enforces that. The products page is still read on every run, best effort: it is where the last observed product figures came from, and those figures resume the day it prices again.",
-  "sources": [
-    "https://docs.mistral.ai/models",
-    "https://mistral.ai/pricing/api"
-  ],
   "currency": "USD",
 
   "denominators": {
@@ -105,19 +98,6 @@
 
   "labels": {
     "Cached input": "cache_read_per_mtok"
-  },
-
-  "rows": {
-    "Input (/M tokens)": { "field": "in_per_mtok" },
-    "Output (/M tokens)": { "field": "out_per_mtok" },
-    "Training cost (/M tokens)": { "field": "train_per_mtok" },
-    "Storage cost (per month per model)": { "field": "per_model_month" },
-    "OCR (per 1K pages)": { "field": "per_1k_pages" },
-    "Indexing (per M tokens)": { "field": "index_per_mtok" },
-    "Call (per call)": { "field": "per_call" },
-    "Price (per M tokens)": { "field": "per_mtok" },
-    "Price (per 1K calls)": { "field": "per_1k_calls" },
-    "Price (per 1K images)": { "field": "per_1k_images" }
   },
 
   "products": [

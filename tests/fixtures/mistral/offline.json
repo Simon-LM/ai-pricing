@@ -1,6 +1,5 @@
 {
   "https://docs.mistral.ai/models": "docs_index.html",
-  "https://mistral.ai/pricing/api": "pricing_page_redirected.html",
   "https://docs.mistral.ai/models/codestral-25-08": "docs/codestral-25-08.html",
   "https://docs.mistral.ai/models/codestral-embed-25-05": "docs/codestral-embed-25-05.html",
   "https://docs.mistral.ai/models/leanstral-1-5": "docs/leanstral-1-5.html",
