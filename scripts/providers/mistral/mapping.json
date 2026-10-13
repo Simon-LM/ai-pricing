@@ -4,10 +4,16 @@
     "",
     "MODELS come from `source`, https://docs.mistral.ai/models. Its index lists the",
     "models currently offered as cards, and each card's page carries a machine-readable",
-    "price object with the unit stated per figure. PRODUCTS come from",
-    "`products_source`, https://mistral.ai/pricing/api, which is the only place web",
-    "search, code execution, image generation, libraries, data capture and the two",
-    "classifier models are priced at all.",
+    "price object with the unit stated per figure. PRODUCTS used to come from",
+    "`products_source`, https://mistral.ai/pricing/api -- web search, code execution,",
+    "image generation, libraries, data capture and the two classifier models were",
+    "priced there and nowhere else. Since October 2026 that page redirects to the docs",
+    "site and states no product price any more, and no other page states one either:",
+    "the products are still sold, still billed, and priced nowhere. They are published",
+    "`unpriced_since`, with the last prices actually observed beside the marker, and",
+    "the page is still read on every run, best effort -- the figures resume the day it",
+    "carries cards again, and a run that cannot read it leaves the products in exactly",
+    "that state rather than withholding the models.",
     "",
     "Neither source alone is complete, which is why both are read. An earlier version",
     "read only the pricing page and silently missed four priced models: OCR 4.0, OCR 3,",
@@ -60,7 +66,10 @@
     "",
     "'products' lists the cards to read off that page. Everything else on it is a model,",
     "and models come from the docs site. A name here that matches no card is not an",
-    "error: the card is simply gone, and the entry is dated and kept like any other."
+    "error: the card is simply gone, and the entry is dated and kept like any other.",
+    "A page carrying NO cards at all is the same state: every product listed here is",
+    "published unpriced, for the runner to stamp, rather than the run failing over a",
+    "page that stopped being what this file reads."
   ],
 
   "_comment_currency": [
@@ -73,7 +82,7 @@
   "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
   "format": "html",
   "products_source": "https://mistral.ai/pricing/api",
-  "_comment_sources": "Published as providers.mistral.sources: both pages, in the order read. Must stay equal to [source, products_source] -- a test in this provider's own file enforces that, because a reader clicking through to check a product price must not land on the docs site, which does not price products at all.",
+  "_comment_sources": "Published as providers.mistral.sources: both pages, in the order read. Must stay equal to [source, products_source] -- a test in this provider's own file enforces that. The products page is still read on every run, best effort: it is where the last observed product figures came from, and those figures resume the day it prices again.",
   "sources": [
     "https://docs.mistral.ai/models",
     "https://mistral.ai/pricing/api"

@@ -18,10 +18,17 @@ TWO SOURCES, because neither one is complete:
   along with an `isRetired` flag. It is by far the better source: structured, with
   the unit stated per figure rather than implied by a label.
 
-  PRODUCTS come from <https://mistral.ai/pricing/api>. Web search, code execution,
-  image generation, libraries, data capture and the two classifier models are billed
-  there and documented nowhere else. They are not models -- there is nothing to call
-  -- and they carry `"kind": "product"`.
+  PRODUCTS used to come from <https://mistral.ai/pricing/api>: web search, code
+  execution, image generation, libraries, data capture and the two classifier models
+  were priced there and documented nowhere else. They are not models -- there is
+  nothing to call -- and they carry `"kind": "product"`. Since October 2026 that page
+  redirects to the docs site and states no product price any more, and nothing else
+  states one either: the products are still sold, still billed, and priced nowhere.
+  They are published carrying the `unpriced` marker, which the runner turns into
+  `unpriced_since` with the last prices actually observed kept beside it, and the
+  transition reported once. The page is still read every run, best effort: if it
+  ever carries cards again the prices resume, and if it cannot be read at all the
+  products stay unpriced rather than stopping the models from being published.
 
 Reading only the pricing page, as an earlier version did, silently missed four
 priced models the docs list and the pricing page does not: OCR 4.0, OCR 3, Leanstral
@@ -212,21 +219,32 @@ class PricingPageParser(HTMLParser):
         self._last_label = None
 
 
-def parse_page(html_text: str) -> dict[str, list[PriceRow]]:
-    """Parse the page into cards, or raise ScrapeError if it no longer looks like one."""
+def parse_cards(html_text: str) -> PricingPageParser:
+    """Run the page through the card parser, asserting nothing about what it found.
+
+    Raises only if the parser itself crashes, which is a layout failure like any
+    other. What the parser found -- no cards at all, duplicate cards, malformed
+    price markup -- is the caller's to judge: `parse_page` refuses anything short of
+    a clean carded page, and `extract_products` accepts a page with no cards as the
+    state of the world it has to publish.
+    """
     parser = PricingPageParser()
     try:
         parser.feed(html_text)
         parser.close()
     except Exception as exc:  # a parser crash is a layout failure like any other
         raise ScrapeError(f"the page could not be parsed at all: {exc}") from exc
+    return parser
 
-    if not parser.cards:
-        raise ScrapeError(
-            "no model card found on the page. The layout has changed: this scraper "
-            "looks for <div class='model-item' data-name='...'> elements."
-        )
 
+def reject_broken_cards(parser: PricingPageParser) -> None:
+    """Raise if a page that carries cards is too damaged to read confidently.
+
+    Called only when cards were found: duplicates and unreadable price markup are
+    layout failures exactly as they always were -- the cards are there, so a card
+    that cannot be read means something changed and refusing beats guessing. A page
+    with no cards at all is a different thing and is judged by the caller.
+    """
     if parser.duplicate_cards:
         raise ScrapeError(
             f"the same model card appears more than once: {sorted(set(parser.duplicate_cards))}. "
@@ -236,6 +254,24 @@ def parse_page(html_text: str) -> dict[str, list[PriceRow]]:
     if parser.malformed_prices:
         raise ScrapeError("malformed price markup: " + "; ".join(parser.malformed_prices[:5]))
 
+
+def parse_page(html_text: str) -> dict[str, list[PriceRow]]:
+    """Parse the page into cards, or raise ScrapeError if it no longer looks like one.
+
+    The strict reading, kept for the checks that need the page to still be a carded
+    page -- the fixtures in the test suite are parsed through here. The scraper's
+    own read of the products page is deliberately more forgiving; see
+    `extract_products`.
+    """
+    parser = parse_cards(html_text)
+
+    if not parser.cards:
+        raise ScrapeError(
+            "no model card found on the page. The layout has changed: this scraper "
+            "looks for <div class='model-item' data-name='...'> elements."
+        )
+
+    reject_broken_cards(parser)
     return parser.cards
 
 
@@ -473,16 +509,67 @@ def read_price(prices: JSONDict, spec: JSONDict) -> float | None:
     return float(raw)
 
 
+# What the products' `unpriced` marker says when the page that used to carry their
+# prices has gone quiet, in the two ways it can. The runner folds whichever one is
+# set into the transition note it prints once, then drops it: what a consumer reads
+# in pricing.json is `unpriced_since`, not why the figure stopped.
+_NO_CARDS_REASON = (
+    "Mistral no longer states a price for this product: the page that used to carry "
+    "its price now redirects to the docs site, which prices models only"
+)
+_UNREADABLE_REASON = (
+    "the page that used to state this product's price could not be read this run"
+)
+
+
+def products_without_prices(mapping: JSONDict, reason: str) -> dict[str, JSONDict]:
+    """Every product the mapping names, published as sold-but-unpriced, with the reason.
+
+    The reason is the whole of the marker: the runner copies the prices last actually
+    observed from the published entry and stamps the date. What this function may not
+    do is DROP a product instead -- an entry that is still sold must never be
+    published as one the source has withdrawn.
+    """
+    return {
+        name: {"kind": "product", "display_name": name, "unpriced": reason}
+        for name in mapping["products"]
+    }
+
+
 def extract_products(
-    cards: dict[str, list[PriceRow]], mapping: JSONDict
+    html_text: str | None, mapping: JSONDict
 ) -> tuple[dict[str, JSONDict], list[str]]:
-    """Read the billable non-models off the pricing page.
+    """Read the billable non-models off the pricing page, or stand in for what it says.
 
     Only the cards `mapping["products"]` names are read. Everything else on that page
     is a model, and models come from the docs site, which prices them better and lists
-    more of them. A name in the list that matches no card is not an error -- the card
-    is simply gone, and the runner will date and keep the entry like any other.
+    more of them. A name in the list that matches no card while the page carries other
+    cards is not an error -- the card is simply gone, and the runner will date and keep
+    the entry like any other.
+
+    A page with no cards at all is not that. Since October 2026 this is where the page
+    stands: it redirects to the docs site, no page Mistral publishes states a product
+    price, and the products are still sold. Treating that as a layout failure is what
+    stopped every model price in this block from being republished on 2026-10-12;
+    treating it as what it is means every product is published carrying the `unpriced`
+    marker with the reason, for the runner to stamp and to keep the last observed
+    prices beside. `html_text` being None -- the page could not be fetched at all -- is
+    the same state arrived at a different way, and gets the same treatment.
+
+    The checks on a page that DOES carry cards stay exactly as strict as they ever
+    were: see `reject_broken_cards`. A resurrected page must not be read sloppily
+    either.
     """
+    if html_text is None:
+        return products_without_prices(mapping, _UNREADABLE_REASON), []
+
+    parser = parse_cards(html_text)
+    if not parser.cards:
+        return products_without_prices(mapping, _NO_CARDS_REASON), []
+
+    reject_broken_cards(parser)
+    cards = parser.cards
+
     wanted = mapping["products"]
     rows_table: JSONDict = mapping["rows"]
 
@@ -534,9 +621,29 @@ def extract_products(
 
 
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs. Two sources, merged."""
+    """The one callback provider_runner needs. Two sources, merged.
+
+    The models half is read strictly, exactly as before. The products half is read
+    best effort on purpose: when its page cannot be read -- it no longer carries
+    cards, or it cannot be fetched at all -- the products are published in the
+    unpriced state they are in, and the models publish regardless. One half of a
+    provider must never be able to block the other, which is exactly what happened
+    here on 2026-10-12: the products page retired quietly, its layout error stopped
+    every model price from being republished, and each model that had moved since
+    was withheld with it.
+    """
     models, notes = extract_docs_models(fetch, mapping)
-    products, product_notes = extract_products(parse_page(fetch(mapping["products_source"])), mapping)
+
+    # Best effort by design; see the docstring. A fetch failure is not a reason to
+    # stop the run either -- it is one of the ways the products' prices can be
+    # unavailable, and the exception's own text is dropped on purpose: what gets
+    # published is the state the products are in, not this run's transport weather.
+    try:
+        products_html: str | None = fetch(mapping["products_source"])
+    except ScrapeError:
+        products_html = None
+
+    products, product_notes = extract_products(products_html, mapping)
 
     clash = sorted(set(models) & set(products))
     if clash:
