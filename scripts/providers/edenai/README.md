@@ -46,14 +46,27 @@ published on the next run, one it drops keeps its last observed prices under an
 `absent_since` stamp, and the disappearance sends one email rather than stopping
 everything.
 
-## `list_pricing`, not `pricing`
+## `list_pricing`, `pricing`, and the public `discount`
 
 Each model carries both. `list_pricing` is the public list price; `pricing` is what
-the caller of the endpoint would actually pay, which is lower when a discount
-applies to the account asking. This scraper is unauthenticated, so the two agree
-today -- but only the list price means the same thing to every consumer of this
-file, so that is the one read, and a divergence stops the run rather than being
-silently resolved.
+the endpoint actually charges, and it is lower when Eden runs a promotion, which it
+states per model in a `discount` field (`"discount": 0.5`). Until October 2026 this
+scraper published the list price and stopped on any divergence, on the grounds that
+an unauthenticated read might be quoted a rate private to one account. Eden then
+served the case that argument did not cover: a promotion declared in the same
+unauthenticated response, on every figure at once -- a price every consumer of the
+endpoint gets, and the price they actually pay.
+
+What is published is now that effective price (`pricing`), on one narrow condition:
+every figure in it is exactly `list_pricing` scaled by the discount the response
+itself states. "Exactly" is judged in Eden's arithmetic, plain floating-point
+multiplication by `1 - discount`: Eden computes the figures that way (`1.5e-07` at
+35% off arrives as `9.749999999999999e-08`, not `9.75e-08`), and a decimal
+re-derivation disagreed with its own bytes on 61 of the 79 discounted models served
+on 2026-10-12. A divergence with no `discount`, a discount that does not account
+for the difference figure by figure, or a shape the comparison cannot vouch for (a
+tiered array) stops the run, as before. When the two objects are equal, nothing
+changes.
 
 ## Currency
 
