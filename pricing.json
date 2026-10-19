@@ -1122,7 +1122,7 @@
       }
     },
     "huggingface": {
-      "checked_utc": "2026-10-12T07:47:09Z",
+      "checked_utc": "2026-10-19T07:34:32Z",
       "updated": "2026-09-21",
       "source": "https://router.huggingface.co/v1/models",
       "currency": "USD",
