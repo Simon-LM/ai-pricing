@@ -1180,8 +1180,8 @@
       }
     },
     "huggingface": {
-      "checked_utc": "2026-10-19T07:34:32Z",
-      "updated": "2026-09-21",
+      "checked_utc": "2026-10-26T07:36:15Z",
+      "updated": "2026-10-26",
       "source": "https://router.huggingface.co/v1/models",
       "currency": "USD",
       "models": {
@@ -1198,7 +1198,8 @@
         "Qwen/Qwen3-Coder-30B-A3B-Instruct:scaleway": {
           "in_per_mtok": 0.228,
           "out_per_mtok": 0.912,
-          "display_name": "Qwen/Qwen3-Coder-30B-A3B-Instruct:scaleway"
+          "display_name": "Qwen/Qwen3-Coder-30B-A3B-Instruct:scaleway",
+          "absent_since": "2026-10-26"
         },
         "Qwen/Qwen3.5-397B-A17B:ovhcloud": {
           "in_per_mtok": 0.71,
