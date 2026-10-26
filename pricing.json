@@ -2,8 +2,8 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-10-19T04:12:06Z",
-      "updated": "2026-10-13",
+      "checked_utc": "2026-10-26T04:13:07Z",
+      "updated": "2026-10-26",
       "source": "https://docs.mistral.ai/models",
       "currency": "USD",
       "models": {
@@ -145,9 +145,9 @@
           ]
         },
         "mistral large 4": {
-          "in_per_mtok": 0.68,
-          "out_per_mtok": 2.09,
-          "cache_read_per_mtok": 0.07,
+          "in_per_mtok": 1.36,
+          "out_per_mtok": 4.18,
+          "cache_read_per_mtok": 0.14,
           "display_name": "mistral large 4",
           "api_ids": [
             "mistral-large-4",
@@ -239,12 +239,30 @@
             "voxtral-mini-latest"
           ]
         },
+        "voxtral mini transcribe 3": {
+          "per_audio_minute": 0.0035,
+          "display_name": "voxtral mini transcribe 3",
+          "api_ids": [
+            "voxtral-mini-transcribe-3-0",
+            "voxtral-mini-transcribe-3",
+            "voxtral-mini-transcribe-latest"
+          ]
+        },
         "voxtral mini transcribe realtime": {
           "per_audio_minute": 0.006,
           "display_name": "voxtral mini transcribe realtime",
           "api_ids": [
             "voxtral-mini-transcribe-realtime-2602",
             "voxtral-mini-realtime-latest"
+          ]
+        },
+        "voxtral mini transcribe realtime 3": {
+          "per_audio_minute": 0.008,
+          "display_name": "voxtral mini transcribe realtime 3",
+          "api_ids": [
+            "voxtral-mini-transcribe-realtime-3-0",
+            "voxtral-mini-transcribe-realtime-3",
+            "voxtral-mini-transcribe-realtime-latest"
           ]
         },
         "voxtral small": {
@@ -257,12 +275,33 @@
             "voxtral-small-latest"
           ]
         },
+        "voxtral small transcribe 3": {
+          "per_audio_minute": 0.004,
+          "display_name": "voxtral small transcribe 3",
+          "api_ids": [
+            "voxtral-small-transcribe-3-0",
+            "voxtral-small-transcribe-3",
+            "voxtral-small-transcribe-latest"
+          ]
+        },
         "voxtral tts": {
           "per_mchars": 16.0,
           "display_name": "voxtral tts",
           "api_ids": [
             "voxtral-mini-tts-2603",
             "voxtral-mini-tts-latest"
+          ]
+        },
+        "voxtral tts 3": {
+          "per_mchars": 13.0,
+          "display_name": "voxtral tts 3",
+          "api_ids": [
+            "voxtral-mini-tts-3-0",
+            "voxtral-mini-tts-3",
+            "voxtral-mini-tts-latest",
+            "voxtral-mini-tts-realtime-3-0",
+            "voxtral-mini-tts-realtime-3",
+            "voxtral-mini-tts-realtime-latest"
           ]
         },
         "web search": {
@@ -290,6 +329,15 @@
             "zai-glm-5-3",
             "zai-glm-5",
             "zai-glm-latest"
+          ]
+        },
+        "z.ai glm 5.3 flash": {
+          "in_per_mtok": 0.15,
+          "out_per_mtok": 0.5,
+          "cache_read_per_mtok": 0.03,
+          "display_name": "z.ai glm 5.3 flash",
+          "api_ids": [
+            "zai-glm-5-3-flash"
           ]
         }
       }
