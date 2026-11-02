@@ -2,8 +2,8 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-10-26T04:13:07Z",
-      "updated": "2026-10-26",
+      "checked_utc": "2026-11-02T04:08:13Z",
+      "updated": "2026-11-02",
       "source": "https://docs.mistral.ai/models",
       "currency": "USD",
       "models": {
@@ -53,6 +53,15 @@
           "display_name": "data capture",
           "kind": "product",
           "unpriced_since": "2026-10-13"
+        },
+        "deepseek v4.1 flash 1017": {
+          "in_per_mtok": 0.3,
+          "out_per_mtok": 1.2,
+          "cache_read_per_mtok": 0.007,
+          "display_name": "deepseek v4.1 flash 1017",
+          "api_ids": [
+            "deepseek-v4-1-flash-1017"
+          ]
         },
         "devstral 2": {
           "in_per_mtok": 0.4,
@@ -142,12 +151,13 @@
           "api_ids": [
             "mistral-large-2512",
             "mistral-large-latest"
-          ]
+          ],
+          "absent_since": "2026-11-02"
         },
         "mistral large 4": {
-          "in_per_mtok": 1.36,
-          "out_per_mtok": 4.18,
-          "cache_read_per_mtok": 0.14,
+          "in_per_mtok": 0.7,
+          "out_per_mtok": 2.1,
+          "cache_read_per_mtok": 0.07,
           "display_name": "mistral large 4",
           "api_ids": [
             "mistral-large-4",
@@ -162,7 +172,8 @@
             "mistral-medium-3-5",
             "mistral-medium-3",
             "mistral-medium-latest"
-          ]
+          ],
+          "absent_since": "2026-11-02"
         },
         "mistral moderation 2": {
           "free": true,
@@ -237,7 +248,8 @@
           "api_ids": [
             "voxtral-mini-2602",
             "voxtral-mini-latest"
-          ]
+          ],
+          "absent_since": "2026-11-02"
         },
         "voxtral mini transcribe 3": {
           "per_audio_minute": 0.0035,
@@ -254,7 +266,8 @@
           "api_ids": [
             "voxtral-mini-transcribe-realtime-2602",
             "voxtral-mini-realtime-latest"
-          ]
+          ],
+          "absent_since": "2026-11-02"
         },
         "voxtral mini transcribe realtime 3": {
           "per_audio_minute": 0.008,
@@ -290,7 +303,8 @@
           "api_ids": [
             "voxtral-mini-tts-2603",
             "voxtral-mini-tts-latest"
-          ]
+          ],
+          "absent_since": "2026-11-02"
         },
         "voxtral tts 3": {
           "per_mchars": 13.0,
