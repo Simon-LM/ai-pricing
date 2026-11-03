@@ -23,6 +23,7 @@ on:
       - "Refresh prices (Hugging Face)"
       - "Refresh prices (Mistral)"
       - "Refresh prices (OVH)"
+      - "Refresh prices (Scaleway)"
     types: [completed]
   workflow_dispatch:
 
