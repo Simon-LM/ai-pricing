@@ -8,11 +8,11 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
-Today that means two providers called directly — Mistral and OVH's AI Endpoints
-catalog — and two aggregators that resell them and others, Eden AI and Hugging Face's
-Inference Providers router. That is exactly why prices are grouped by **provider**,
-not just by model: the same model is a different bill depending on who you actually
-paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
+Today that means three providers called directly — Mistral, OVH's AI Endpoints
+catalog and Scaleway's Generative APIs — and two aggregators that resell them and
+others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
+prices are grouped by **provider**, not just by model: the same model is a different
+bill depending on who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
 `Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
 those numbers is in this file.
 
@@ -20,6 +20,7 @@ those numbers is in this file.
 | --- | --- | --- |
 | `mistral` | USD | called directly |
 | `ovh` | EUR | called directly |
+| `scaleway` | EUR | called directly |
 | `edenai` | USD | resold, 5 upstreams |
 | `huggingface` | USD | routed, 2 partners |
 
@@ -34,12 +35,13 @@ and [Sold, with no price attached](#sold-with-no-price-attached).
 `huggingface` is keyed by `<model>:<partner>` rather than by model, because the router
 serves the same model through both covered partners at different prices —
 `gpt-oss-120b` is $0.09 per million input tokens via OVHcloud and $0.171 via Scaleway.
-`huggingface` covers those two partners; the other three providers are covered in
+`huggingface` covers those two partners; the other four providers are covered in
 full.
 
 ## Read this before you trust a number in it
 
-**Most of these figures are scraped from public web pages**, one scraper per provider.
+**Most of these figures are scraped from public web pages**, one scraper per provider,
+and the two that are not are read from a public JSON endpoint.
 There is no pricing endpoint in Mistral's API, and the one usage endpoint that returns
 a `prices` field requires an *admin* API key that an ordinary user of an open-source
 tool does not have and should never be asked for. So Mistral's models are read from
@@ -60,11 +62,16 @@ read instead; Mistral retired that page in October 2026, which leaves the docs s
 the one page worth reading. A marketing page is not an inventory. See
 [scripts/providers/mistral/README.md](scripts/providers/mistral/README.md).
 
-Eden AI is the exception and the sturdiest source here: a real public JSON API,
-<https://api.edenai.run/v3/models>, stating an input and an output price per model
-under explicit field names, with no label to string-match and no layout to latch
-onto. Being an aggregator, its prices are what **Eden** charges to forward a call,
-so they differ from the same model's price under `providers.mistral` or
+Eden AI and Scaleway are the two exceptions, and the sturdiest sources here: real
+public JSON APIs rather than pages —
+<https://api.edenai.run/v3/models>, and Scaleway's
+[product catalogue](https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=generative_apis&page_size=500)
+— each stating prices under explicit field names, with no label to string-match and no
+layout to latch onto. Scaleway does publish a pricing page, and it is what a customer
+is shown, but it answers a plain fetch with a 403 challenge: good reason to read the
+catalogue endpoint instead, and a good reason to look at the page when a figure here
+is surprising. Being an aggregator, Eden's prices are what **Eden** charges to forward
+a call, so they differ from the same model's price under `providers.mistral` or
 `providers.ovh` — by design, not by error.
 
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
@@ -134,7 +141,7 @@ show it to whoever is reading your number. Display it:
 | `providers.<name>.checked_utc` | When that provider's scraper last **verified** its figures. "Confirmed unchanged today" is a much stronger statement than "last edited in May", which is why this is separate from `updated`. Each provider has its own -- they scrape on their own schedule. |
 | `providers.<name>.updated` | When that provider's figures last actually **changed**. |
 | `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. Always present. |
-| `providers.<name>.sources` | Present only where a block is built from more than one page. No provider is today: `mistral` was the only one, and its second url -- the page that priced its products -- was retired by Mistral in October 2026, so that block publishes `source` alone. The property stays allowed under this schema version, so a copy of the file that still carries it validates; read `source`. |
+| `providers.<name>.sources` | Present only where a block is built from more than one page, and only `mistral` is today: its models come from the docs site, and its batch discount from a sentence on the batch API page. Read `source` for the page the prices come from; `sources` is every page the block is built from, `source` first. |
 | `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
 | `providers.<name>.models` | Keyed by **whatever identifies the entry at that source**, which is not the same thing at every provider -- see below. |
 | `display_name` | A human-readable label, kept only so that a diff is readable. Never use it for matching. |
@@ -143,6 +150,7 @@ show it to whoever is reading your number. Display it:
 | `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model: Mistral's web search, code execution and image generation are not models at all and are billed separately. Since October 2026 they also carry `unpriced_since`, so `kind` is what keeps them out of a list of models to call. |
 | `absent_since` | Absent on a model still on sale, which is the normal case. When present, the source has stopped offering this entry as of that day, and **every price beside it is the last one observed, not a current one**. See below. |
 | `unpriced_since` | Absent on a model the source prices, which is the normal case. When present, the source **still offers this entry and still calls it paid, and states no price** as of that day. Any price beside it is the last one observed; there may be none at all. See below. |
+| `batch_derived` | Present exactly when the entry carries at least one `_batch` figure this repository **worked out** rather than read, and absent otherwise. Its text says the rate it was worked out from. Read it before using a `_batch` figure -- see below. |
 
 **The key is whatever the source itself states, per provider.** There is no single
 convention because there is no single source:
@@ -152,6 +160,7 @@ convention because there is no single source:
 | `ovh` | the callable API model id, from the catalog's own `name` | `Qwen3.6-27B` |
 | `edenai` | Eden's model id, upstream prefix included | `mistral/codestral-latest` |
 | `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
+| `scaleway` | the callable API model id, from the catalogue's own `product` | `glm-5.3` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
 Mistral is the odd one: its source names things for people, not for callers. So its
@@ -176,7 +185,8 @@ first, and treat the last as a convenience you cannot price.
 The field is **absent** when there is nothing to publish for it, which means one of
 two different things -- tell them apart with `kind`:
 
-- on a model, absent means the key itself is the identifier. `ovh`, `edenai` and
+- on a model, absent means the key itself is the identifier. `ovh`, `scaleway`,
+  `edenai` and
   `huggingface` are all keyed by the exact string their API takes, so they carry no
   `api_ids` at all;
 - on a `"kind": "product"` entry, absent means there is nothing to call. Mistral's web
@@ -208,6 +218,32 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `per_image` | per image |
 | `per_mchars` | per million input characters |
 | `per_model_month` | per month, per stored model |
+
+**A `_batch` suffix is a second rate for the same unit.** A source that sells a model
+both served immediately and deferred at a discount states both, and both are
+published: `in_per_mtok_batch` is per million input tokens, in batch. The suffix keeps
+the unit in the key name -- there is deliberately no generic `batch` field. Half is the
+usual discount but not a rule: 31 of the 32 batch rates Scaleway stated on 2026-11-03
+were exactly half, and `glm-5.2`'s output token was 5.50 realtime against 2.70 in batch.
+
+**Check `batch_derived` before you use a `_batch` figure.** Scaleway states a batch rate
+per model and those are read off it. Mistral states no batch rate beside any model at
+all -- only one sentence, "We offer a 50% discount on batch API" -- so its batch figures
+are **worked out** from that sentence, and every entry carrying one says so:
+
+```json
+"in_per_mtok": 0.3,
+"in_per_mtok_batch": 0.15,
+"batch_derived": "50% off the stated rate, as Mistral's batch API documentation states"
+```
+
+The marker is the whole of the distinction, so do not read it as decoration: the figure
+beside it is this repository's arithmetic on a rate Mistral stated, not a rate Mistral
+printed. The percentage is parsed from the page on every run rather than written down
+here, so it follows Mistral if it changes and the run fails if the sentence goes --
+rather than republishing last week's rate as though it were still stated. No `_batch`
+figure without the marker has been derived, and a source that states no batch rate at
+all publishes no `_batch` field.
 
 **A free model is `"free": true`, never a price of `0`.** Zero is also exactly what a
 broken parser reads off a page whose layout moved, and this repository refuses a
@@ -433,7 +469,11 @@ later at 05:00, and
 [`.github/workflows/refresh-edenai.yml`](.github/workflows/refresh-edenai.yml) at
 06:00 and
 [`.github/workflows/refresh-huggingface.yml`](.github/workflows/refresh-huggingface.yml)
-at 07:00 -- offset on purpose so the scheduled runs don't land in the same minute and
+at 07:00 --
+[`.github/workflows/refresh-scaleway.yml`](.github/workflows/refresh-scaleway.yml) runs
+at 03:00, an hour before Mistral's, because it has to be inside the same morning
+sequence as the rest rather than after the 08:00 report that reads its stamp -- and
+all five are offset on purpose so the scheduled runs don't land in the same minute and
 immediately queue behind each other every single week. All also run on demand. Every
 provider's workflow has three outcomes and never a fourth:
 
@@ -475,7 +515,7 @@ the repository.
 | --- | --- |
 | a scrape fails | an issue per outage, per provider, commented on rather than duplicated on repeated failure. `pricing.json` untouched. |
 | a source's inventory changes | an issue naming what appeared, disappeared or was dropped after a year. Raised **once**, by the run that observes it, never repeated while the entry sits there marked. Nothing is broken and nothing needs fixing; it is a notification. |
-| every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers refreshed and which did not. Closed automatically when all four did. |
+| every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers refreshed and which did not. Closed automatically when all five did. |
 
 The weekly report exists because the other two report by exception, and no exception
 can be raised by a workflow that never ran -- disabled by GitHub after 60 idle days,
@@ -483,10 +523,10 @@ broken by a bad edit to its own YAML, or silently skipped. `pricing.json` would 
 stop moving while looking exactly as it always did. A receipt that arrives every Monday
 is worth more than silence, because a receipt that *doesn't* arrive is itself the
 alarm, and that is the one alarm no code in this repository could raise.
-[`scripts/weekly_report.py`](scripts/weekly_report.py) reads the four `checked_utc`
+[`scripts/weekly_report.py`](scripts/weekly_report.py) reads the five `checked_utc`
 stamps and nothing else; it writes no file and has no permission to.
 
-All four providers' workflows share one `concurrency` group, `pricing-json-writes`,
+All five providers' workflows share one `concurrency` group, `pricing-json-writes`,
 since they all commit to the same file: a second provider's run queues behind the first
 rather than racing it. The weekly report is deliberately not in that group -- it writes
 nothing, so it has no reason to queue behind a scrape and every reason to still run if
@@ -528,6 +568,9 @@ python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fi
 
 python3 scripts/providers/ovh/scrape.py --out-dir .ci-out         # read the live catalog
 python3 scripts/providers/ovh/scrape.py --out-dir .ci-out --html tests/fixtures/ovh/catalog_ok.html
+
+python3 scripts/providers/scaleway/scrape.py --out-dir .ci-out    # read the live catalogue API
+python3 scripts/providers/scaleway/scrape.py --out-dir .ci-out --html tests/fixtures/scaleway/catalog_ok.json
 ```
 
 A provider's `scrape.py` **never writes `pricing.json`.** It writes candidates into
@@ -558,10 +601,12 @@ What still needs a human is a source stating something the file has no way to ex
 2. **A new way of naming that unit at one source.** Add it to that provider's
    `mapping.json`: OVH's `units` maps a catalog `price_unit` to a field, Mistral's
    `denominators` maps a docs unit string to one, Eden AI's and Hugging Face's `fields`
-   map an API field name. Copy the string byte-for-byte from the source.
+   map an API field name, Scaleway's `fields` map a `(unit, size, token type,
+   consumption mode)` descriptor to one. Copy the string byte-for-byte from the source.
 3. Re-capture that provider's fixtures (Mistral's are under `tests/fixtures/mistral/`,
-   listed by `offline.json`; OVH's is `tests/fixtures/ovh/catalog_ok.html`) so they
-   contain the new shape, and regenerate its `baseline.json` from them.
+   listed by `offline.json`; OVH's is `tests/fixtures/ovh/catalog_ok.html`; Scaleway's
+   is `tests/fixtures/scaleway/catalog_ok.json`) so they contain the new shape, and
+   regenerate its `baseline.json` from them.
 4. Run the tests. `tests/test_pricing_validate.py` checks the shared schema,
    `tests/test_provider_runner.py` the reconciliation every provider shares,
    `tests/test_nextjs_flight.py` the payload reader the two Next.js sources share, and each
@@ -581,10 +626,10 @@ framework data (like OVH's), confirm the currency, check whether the catalog res
 third-party models under a name that could be confused with theirs. Never guess at any
 of this.
 
-Then mirror whichever of the two existing providers reads more like your new
-one -- [`scripts/providers/mistral/scrape.py`](scripts/providers/mistral/scrape.py)
-or [`scripts/providers/ovh/scrape.py`](scripts/providers/ovh/scrape.py) -- for the
-page-reading half, and use [`scripts/provider_runner.py`](scripts/provider_runner.py)
+Then mirror whichever existing provider reads more like your new one -- Mistral's
+[`scrape.py`](scripts/providers/mistral/scrape.py) for a documentation site, OVH's for
+a page with embedded framework data, or Scaleway's for a plain JSON endpoint -- for the
+source-reading half, and use [`scripts/provider_runner.py`](scripts/provider_runner.py)
 for everything else: it already handles reading, merging, writing, the three outcomes,
 and keeping withdrawn entries for a year. It only needs a provider id and an
 `extract_new_models(fetch, mapping)` callback returning `(models, notes)` -- `fetch`

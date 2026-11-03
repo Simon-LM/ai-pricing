@@ -83,6 +83,8 @@ def build() -> dict[str, Any]:
     priced_or_unpriced = [{"required": [f]} for f in validate.KNOWN_PRICE_FIELDS]
     priced_or_unpriced.append({"required": ["unpriced_since"]})
 
+    batch_fields = [f for f in validate.KNOWN_PRICE_FIELDS if f.endswith("_batch")]
+
     entry: dict[str, Any] = {
         "type": "object",
         "required": ["display_name"],
@@ -136,6 +138,17 @@ def build() -> dict[str, Any]:
                     "no endpoints."
                 ),
             },
+            "batch_derived": {
+                "type": "string",
+                "minLength": 1,
+                "description": (
+                    "Present when the '_batch' fields beside it were WORKED OUT from a rule "
+                    "the source states in words, not read off the source as figures. Names "
+                    "the rule and the rate it was applied at. Absent -- the common case -- "
+                    "means every '_batch' figure was read as the provider stated it, so a "
+                    "consumer can tell the two kinds of claim apart."
+                ),
+            },
             **{field: _price_property(field) for field in validate.KNOWN_PRICE_FIELDS},
         },
         # Two cross-field rules, and the same list answers both: a free entry may carry
@@ -158,6 +171,16 @@ def build() -> dict[str, Any]:
                     "description": (
                         "An entry that is not free states a price, or says with "
                         "unpriced_since why it cannot."
+                    ),
+                },
+            },
+            {
+                "if": {"required": ["batch_derived"]},
+                "then": {
+                    "anyOf": [{"required": [f]} for f in batch_fields],
+                    "description": (
+                        "batch_derived explains a derived '_batch' figure, so an entry "
+                        "carrying it carries at least one."
                     ),
                 },
             },

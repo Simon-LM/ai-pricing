@@ -37,9 +37,10 @@ PROVIDER_MODULES = {
     "huggingface": ["tests.scraper_tests.test_huggingface"],
     "mistral": ["tests.scraper_tests.test_mistral"],
     "ovh": ["tests.scraper_tests.test_ovh", "tests.scraper_tests.test_ovh_coverage"],
+    "scaleway": ["tests.scraper_tests.test_scaleway"],
 }
 
-# Run by every refresh, because they cover the plumbing all four share.
+# Run by every refresh, because they cover the plumbing all five share.
 SHARED_MODULES = [
     "tests.test_pricing_validate",
     "tests.test_provider_runner",

@@ -117,6 +117,11 @@
           },
           "description": "The strings to pass AS THE MODEL when calling that provider, most specific first. A model identifier, never a URL: this file publishes no endpoints."
         },
+        "batch_derived": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present when the '_batch' fields beside it were WORKED OUT from a rule the source states in words, not read off the source as figures. Names the rule and the rate it was applied at. Absent -- the common case -- means every '_batch' figure was read as the provider stated it, so a consumer can tell the two kinds of claim apart."
+        },
         "in_per_mtok": {
           "type": "number",
           "minimum": 0.001,
@@ -159,6 +164,24 @@
           "maximum": 1000.0,
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
+        "in_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "out_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "cache_read_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
         "per_1k_pages": {
           "type": "number",
           "minimum": 0.001,
@@ -177,6 +200,18 @@
           "maximum": 1000.0,
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
+        "per_1k_pages_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "per_1k_annotated_pages_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
         "per_audio_minute": {
           "type": "number",
           "minimum": 0.0001,
@@ -188,6 +223,12 @@
           "minimum": 1e-06,
           "maximum": 1000.0,
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [1e-06, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "per_audio_minute_batch": {
+          "type": "number",
+          "minimum": 0.0001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.0001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
         "per_call": {
           "type": "number",
@@ -267,6 +308,21 @@
                 },
                 {
                   "required": [
+                    "in_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "out_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "cache_read_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
                     "per_1k_pages"
                   ]
                 },
@@ -282,12 +338,27 @@
                 },
                 {
                   "required": [
+                    "per_1k_pages_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "per_1k_annotated_pages_batch"
+                  ]
+                },
+                {
+                  "required": [
                     "per_audio_minute"
                   ]
                 },
                 {
                   "required": [
                     "per_audio_second"
+                  ]
+                },
+                {
+                  "required": [
+                    "per_audio_minute_batch"
                   ]
                 },
                 {
@@ -363,6 +434,21 @@
               },
               {
                 "required": [
+                  "in_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "out_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "cache_read_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
                   "per_1k_pages"
                 ]
               },
@@ -378,12 +464,27 @@
               },
               {
                 "required": [
+                  "per_1k_pages_batch"
+                ]
+              },
+              {
+                "required": [
+                  "per_1k_annotated_pages_batch"
+                ]
+              },
+              {
+                "required": [
                   "per_audio_minute"
                 ]
               },
               {
                 "required": [
                   "per_audio_second"
+                ]
+              },
+              {
+                "required": [
+                  "per_audio_minute_batch"
                 ]
               },
               {
@@ -418,6 +519,48 @@
               }
             ],
             "description": "An entry that is not free states a price, or says with unpriced_since why it cannot."
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "batch_derived"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "in_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "out_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "cache_read_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "per_1k_pages_batch"
+                ]
+              },
+              {
+                "required": [
+                  "per_1k_annotated_pages_batch"
+                ]
+              },
+              {
+                "required": [
+                  "per_audio_minute_batch"
+                ]
+              }
+            ],
+            "description": "batch_derived explains a derived '_batch' figure, so an entry carrying it carries at least one."
           }
         }
       ]

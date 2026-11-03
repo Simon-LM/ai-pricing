@@ -10,11 +10,22 @@ directory and reports which one, if any, the caller should promote. That is
 deliberate: "leave pricing.json untouched on every failure path" is then a property
 of the design rather than a branch of code somebody has to remember to get right.
 
-ONE SOURCE: <https://docs.mistral.ai/models>. Its index lists the models currently
-offered, one card each, and every card links to a page carrying a machine-readable
-price object -- `{"price": 4, "denominator": "/1000 Pages"}` -- along with an
-`isRetired` flag. It is by far the better source: structured, with the unit stated
-per figure rather than implied by a label.
+ONE SOURCE FOR THE PRICES: <https://docs.mistral.ai/models>. Its index lists the
+models currently offered, one card each, and every card links to a page carrying a
+machine-readable price object -- `{"price": 4, "denominator": "/1000 Pages"}` --
+along with an `isRetired` flag. It is by far the better source: structured, with the
+unit stated per figure rather than implied by a label.
+
+A SECOND PAGE IS READ FOR ONE SENTENCE: the batch API documentation,
+<https://docs.mistral.ai/studio/batch-processing>, which states that batch API is
+available for all models and offers a 50% discount on it. Mistral states that
+discount as words, not as a figure beside each price, so the batch figures this
+block publishes are WORKED OUT rather than read -- and every entry carrying one says
+so, in `batch_derived`, so a consumer can tell the two kinds of claim apart. Which
+units the discount may be applied to is decided in mapping.json's `batch` block, not
+here, and the percentage is parsed rather than written down: the day Mistral says
+30%, this block follows, and the day the sentence goes, the run fails instead of
+republishing last week's rate as though it were still stated.
 
 The products -- web search, code execution, image generation, libraries, data
 capture and the two classifier models -- used to come from
@@ -52,6 +63,7 @@ from __future__ import annotations
 
 import re
 import sys
+from decimal import Decimal
 from pathlib import Path
 from typing import cast
 
@@ -83,6 +95,12 @@ _INDEX_CARD = re.compile(
     r'.{0,400}?<img alt="(?P<name>[^"]*) icon"',
     re.S,
 )
+
+# How the batch discount is stated on the batch API page: "at a 50% discount", "We
+# offer a 50% discount on batch API". Matched loosely on the number so that a change
+# from 50 to 30 is followed rather than ignored, and never matched on the sentence
+# around it, which is marketing copy and gets rewritten.
+_BATCH_DISCOUNT = re.compile(r"(\d+(?:\.\d+)?)\s*%\s*discount", re.I)
 
 
 # --------------------------------------------------------------------------------------
@@ -217,8 +235,96 @@ def docs_entry(model_id: str, pricing: JSONDict, mapping: JSONDict) -> tuple[JSO
     return entry, notes
 
 
+def parse_batch_discount(html_text: str, url: str) -> Decimal:
+    """The batch discount Mistral states on that page, as a fraction: 0.5 for 50%.
+
+    The page states it in prose, twice, and the two must agree. Reading it rather than
+    writing it down is what makes a change to it a change here instead of a silent
+    disagreement, and refusing when it cannot be read is what stops last week's rate
+    being republished as though Mistral still stated it.
+    """
+    found = {Decimal(m.group(1)) for m in _BATCH_DISCOUNT.finditer(html_text)}
+    if not found:
+        raise ScrapeError(
+            f"{url} no longer states a batch discount in the form '<n>% discount'. The "
+            f"batch figures this block publishes are worked out from that sentence and "
+            f"from nothing else, so the run stops rather than republishing the last rate "
+            f"observed as though it were still stated."
+        )
+    if len(found) > 1:
+        raise ScrapeError(
+            f"{url} states more than one batch discount "
+            f"({', '.join(f'{d:g}%' for d in sorted(found))}). Which applies to which "
+            f"unit is not stated anywhere, so this must be resolved by hand."
+        )
+
+    percent = found.pop()
+    if not 0 < percent < 100:
+        raise ScrapeError(
+            f"{url} states a batch discount of {percent:g}%, which is not a discount. "
+            f"The figure is read as a percentage off, so this is a misread rather than a "
+            f"price."
+        )
+    return percent / 100
+
+
+def derive_batch(
+    model_id: str, entry: JSONDict, fields: list[str], discount: Decimal
+) -> None:
+    """Add the discounted figure of every unit the mapping says is batched, in place.
+
+    In place, on an entry that already carries the rates the source states, because the
+    two are read side by side: `in_per_mtok` is what Mistral writes and
+    `in_per_mtok_batch` is the discount off it, and a consumer that cannot tell them
+    apart would apply the wrong one to a batch run.
+
+    Decimal throughout, for the reason the Scaleway scraper gives: a 30% discount on
+    0.7 is 0.48999999999999994 as a float multiply, and that noise would publish a
+    wrong figure and churn in a diff a human reads for real price movements.
+
+    The marker is written once for the entry rather than per field. It says the same
+    thing about all of them, and a consumer that finds one `_batch` figure in an entry
+    carrying it knows to treat all of them the same way.
+
+    Nothing is reported. This runs for every priced model every week, and a note
+    repeating a fact nobody can act on is how a channel that has to still work the day
+    something real happens gets muted. The marker is the record; a change to the rate
+    shows up in the diff as the figures and the marker moving together.
+    """
+    derived = [field for field in fields if field in entry and f"{field}_batch" not in entry]
+    if not derived:
+        return
+
+    # Written as a whole number of percent rather than as the fraction it is derived
+    # from: "50%", not "50.0%", so that the marker reads the way the page states it.
+    percent = (discount * 100).normalize()
+
+    for field in derived:
+        discounted = Decimal(repr(entry[field])) * (Decimal(1) - discount)
+        entry[f"{field}_batch"] = check_price(
+            f"{PROVIDER_ID}/{model_id}", f"{field}_batch", float(discounted)
+        )
+
+    entry["batch_derived"] = (
+        f"{percent:f}% off the stated rate, as Mistral's batch API documentation states"
+    )
+
+
 def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     """Read every model the docs index currently lists, and price it."""
+    batch = mapping.get("batch")
+    if not isinstance(batch, dict) or not batch.get("source") or not batch.get("fields"):
+        raise ScrapeError(
+            f"{DEFAULT_MAPPING.name} declares no usable 'batch' block. The batch figures "
+            f"published for this provider are derived from the sentence that block names "
+            f"the source of; without it there is nothing to derive them from, and "
+            f"publishing the model prices alone would drop figures the file already "
+            f"carries."
+        )
+    batch_source = cast(str, batch["source"])
+    batch_fields = cast("list[str]", batch["fields"])
+    discount = parse_batch_discount(fetch(batch_source), batch_source)
+
     index = parse_index(fetch(mapping["source"]))
     base = mapping["source"].split("/models", 1)[0]
 
@@ -250,6 +356,11 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
             # this happened, and reports the transition once instead of every week.
             unpriced: JSONDict = {"unpriced": "no price on this page could be published at all"}
             entry = unpriced
+        else:
+            # Only where there is a rate to take a percentage off. A model the page
+            # marks free arrives here too and derives nothing, which is the same
+            # outcome by the same route: no rate, no figure.
+            derive_batch(model_id, entry, batch_fields, discount)
         entry["display_name"] = model_id
         if api_ids:
             entry["api_ids"] = api_ids

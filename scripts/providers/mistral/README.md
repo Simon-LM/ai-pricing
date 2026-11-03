@@ -2,12 +2,13 @@
 
 # Mistral
 
-Publishes `providers.mistral` in `pricing.json` from **one** public source:
-Mistral's own documentation site.
+Publishes `providers.mistral` in `pricing.json` from Mistral's own site, and from
+nothing else. Two pages are read every run:
 
 | what | source | why it has to be that one |
 | --- | --- | --- |
 | the models | <https://docs.mistral.ai/models> | states a machine-readable price object and an `isRetired` flag per model, and a unit per figure rather than implying one from a label |
+| the batch discount | <https://docs.mistral.ai/studio/batch-processing> | read for one sentence — the discount Mistral states on batch calls — and for nothing else |
 | the billable non-models | `mapping.json`'s `products` list | no page prices them any more — Mistral retired the one that did in October 2026 — so their inventory is held by hand, and every name in it is published sold-but-unpriced |
 
 Every model the docs index lists, plus the billable products the list names. How
@@ -114,6 +115,38 @@ else's catalogue would break the test suite rather than quietly publish from it.
 does not serve the retired products page, so that page cannot slip back into a run
 by accident either.
 
+## The batch figures are worked out, and each one says so
+
+Mistral states its batch discount as a sentence and not as a figure beside each model:
+*"We offer a 50% discount on batch API"*, twice on the batch API page. That sentence is
+the whole of the evidence for the `_batch` figures this block publishes, so they are
+**derived** rather than read — and every entry carrying one says so:
+
+```json
+"in_per_mtok": 0.3,
+"in_per_mtok_batch": 0.15,
+"batch_derived": "50% off the stated rate, as Mistral's batch API documentation states"
+```
+
+The percentage is parsed out of the page on every run, never written down in the
+mapping, so the day Mistral says 30% the figures and the marker follow on their own —
+and the day the sentence goes, the run fails rather than republishing last week's rate
+as though it were still stated. Two different rates on the page is also a failure:
+which applies to which unit is stated nowhere, so there is nothing to read the answer
+off and nothing to guess at.
+
+Which units the discount is applied to is decided in `mapping.json`'s `batch` block,
+one line per unit, and it is deliberately a short list: `in_per_mtok`, `out_per_mtok`,
+`per_1k_pages` and `per_1k_annotated_pages`. A unit belongs there only where Mistral's
+own batch documentation names an endpoint for it **and** every entry carrying the unit
+is an API model. `per_audio_minute` is left out because two of the models carrying it
+are realtime transcription models and a realtime model is not batchable;
+`cache_read_per_mtok` because a cached input token already carries a discount of its own
+and nothing states that the two stack; `per_mchars` because speech generation is not in
+the endpoint list. Everything a product is billed for is out for the same reason: the
+batch API is an inference endpoint. A missing figure is a gap; a wrong one is a wrong
+bill, so the list stays short.
+
 ## What the mapping still holds
 
 No model list, and there must not be one — the docs index says which models exist,
@@ -141,6 +174,10 @@ A denominator or label missing from those tables is **not guessed at**: the unit
 part of the field name and there is no honest field for an unrecognised figure. That
 one figure is skipped, the run reports it by email, and every other price publishes.
 
+**`batch`** — the page the discount sentence is read from, and the units it may be
+applied to. See the section above; it is the one part of this file that decides what is
+derived rather than what is translated.
+
 ## Two things worth knowing about the data
 
 **A figure of `0` means "this side is not billed", not "free".** Voxtral TTS charges
@@ -156,7 +193,7 @@ understates the bill.
 ## Running it yourself
 
 ```sh
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live, ~21 fetches
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live, ~22 fetches
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 ```
 

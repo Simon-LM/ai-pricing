@@ -56,6 +56,24 @@ MAX_CHANGE_FACTOR = 5.0
 # its own key (`index_per_mtok`, `train_per_mtok`) -- rather than being folded into
 # `in_per_mtok`, which would quietly make "input tokens" mean four different things
 # depending on the entry.
+#
+# A `_batch` suffix marks the same unit sold in a deferred, discounted consumption
+# mode: `in_per_mtok_batch` is per million input tokens, in batch. It is its own key
+# for the reason `per_1k_annotated_pages` is: an entry carries one of each field, and
+# the two are genuinely different prices for the same unit, so folding them together
+# would leave a consumer applying the realtime rate to a batch run, or the reverse.
+# The suffix is written out per unit rather than grouped into a `batch` object so
+# that every existing rule -- the unit is part of the key name, one plausible range
+# per unit, one change factor per field -- keeps working unchanged.
+#
+# A source that states a batch rate gets one, read like any other figure. A source
+# that states only a rule -- Mistral says "we offer a 50% discount on batch API" and
+# states no rate per model -- gets one too, but then the entry says so in
+# `batch_derived`, because a consumer must be able to tell a number the provider wrote
+# from one this repository worked out. What no source gets is a figure halved on a
+# hunch: Scaleway's own catalogue halves 31 of its 32 batch rates and leaves the 32nd
+# at 5.50 -> 2.70, so "batch is always half" is false at the one provider that states
+# the rates at all.
 KNOWN_PRICE_FIELDS = (
     # token prices
     "in_per_mtok",
@@ -65,6 +83,10 @@ KNOWN_PRICE_FIELDS = (
     "index_per_mtok",
     "train_per_mtok",
     "per_mchars",
+    # token prices, batch
+    "in_per_mtok_batch",
+    "out_per_mtok_batch",
+    "cache_read_per_mtok_batch",
     # document prices
     "per_1k_pages",
     # Mistral's OCR models bill a second, higher rate for pages it also annotates.
@@ -72,9 +94,13 @@ KNOWN_PRICE_FIELDS = (
     # field and the two are genuinely different prices for the same thousand pages.
     "per_1k_annotated_pages",
     "per_1k_chars",
+    # document prices, batch
+    "per_1k_pages_batch",
+    "per_1k_annotated_pages_batch",
     # audio prices
     "per_audio_minute",
     "per_audio_second",
+    "per_audio_minute_batch",
     # per-operation prices
     "per_call",
     "per_1k_calls",
@@ -92,8 +118,14 @@ KNOWN_PRICE_FIELDS = (
 #
 # Only floors are relaxed here. The ceiling stays where the specification put it:
 # raising it would let a real misparse through, which is the failure that matters.
+#
+# A batch key is a different key, so it needs its own entry: the floor it would
+# otherwise inherit is a per-million-token one, which is far above a discounted audio
+# rate -- Scaleway's whisper-large-v3 batch rate is 0.0015 per minute, which the
+# default floor would pass by a factor of 1.5 and then refuse the next ordinary cut.
 PRICE_BOUNDS = {
     "per_audio_minute": (0.0001, MAX_PLAUSIBLE),
+    "per_audio_minute_batch": (0.0001, MAX_PLAUSIBLE),
     # A second is roughly 1/60th of a minute, so its floor is lower again: OVH's
     # whisper-large-v3-turbo prices at ~0.0000128 per second, which the
     # per_audio_minute floor above would already reject outright.
@@ -116,6 +148,7 @@ NON_PRICE_ENTRY_FIELDS = (
     "absent_since",
     "unpriced_since",
     "api_ids",
+    "batch_derived",
 )
 
 # An entry whose source no longer offers it is NOT deleted on the spot. It keeps the
@@ -366,6 +399,28 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
         ]
         if unknown:
             raise ValidationError(f"{full_id}: unknown field(s) {unknown}")
+
+        # A `_batch` figure is normally one the source states, read like any other. When
+        # it is not -- when the source states the discount as a sentence rather than a
+        # figure per model -- the entry says so, and names the rule it was worked out
+        # from. Absent means every `_batch` field beside it was read as stated, which is
+        # the common case and stays unannotated. A consumer must be able to tell a number
+        # a provider wrote from one this repository derived; the two are not the same
+        # kind of claim and must never be silently interchangeable.
+        if "batch_derived" in entry:
+            derived = entry["batch_derived"]
+            if not isinstance(derived, str) or not derived.strip():
+                raise ValidationError(
+                    f"{full_id}: batch_derived must be a non-empty string naming the rule "
+                    f"and the rate, got {derived!r}. An entry whose batch figures were read "
+                    f"as stated omits the field; true and null are ways of writing "
+                    f"something it cannot mean."
+                )
+            if not [k for k in prices if k.endswith("_batch")]:
+                raise ValidationError(
+                    f"{full_id}: batch_derived is set but no '_batch' price field is. The "
+                    f"marker explains a derived figure, and there is none here to explain."
+                )
 
         if "price" in entry:
             raise ValidationError(

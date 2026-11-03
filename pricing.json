@@ -5,6 +5,10 @@
       "checked_utc": "2026-11-02T04:08:13Z",
       "updated": "2026-11-02",
       "source": "https://docs.mistral.ai/models",
+      "sources": [
+        "https://docs.mistral.ai/models",
+        "https://docs.mistral.ai/studio/batch-processing"
+      ],
       "currency": "USD",
       "models": {
         "classifier api model (3b)": {
@@ -34,6 +38,9 @@
         "codestral": {
           "in_per_mtok": 0.3,
           "out_per_mtok": 0.9,
+          "in_per_mtok_batch": 0.15,
+          "out_per_mtok_batch": 0.45,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "codestral",
           "api_ids": [
             "codestral-2508",
@@ -42,6 +49,8 @@
         },
         "codestral embed": {
           "in_per_mtok": 0.15,
+          "in_per_mtok_batch": 0.075,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "codestral embed",
           "api_ids": [
             "codestral-embed-2505",
@@ -58,6 +67,9 @@
           "in_per_mtok": 0.3,
           "out_per_mtok": 1.2,
           "cache_read_per_mtok": 0.007,
+          "in_per_mtok_batch": 0.15,
+          "out_per_mtok_batch": 0.6,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "deepseek v4.1 flash 1017",
           "api_ids": [
             "deepseek-v4-1-flash-1017"
@@ -112,6 +124,9 @@
         "ministral 3 14b": {
           "in_per_mtok": 0.2,
           "out_per_mtok": 0.2,
+          "in_per_mtok_batch": 0.1,
+          "out_per_mtok_batch": 0.1,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "ministral 3 14b",
           "api_ids": [
             "ministral-14b-2512",
@@ -121,6 +136,9 @@
         "ministral 3 3b": {
           "in_per_mtok": 0.1,
           "out_per_mtok": 0.1,
+          "in_per_mtok_batch": 0.05,
+          "out_per_mtok_batch": 0.05,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "ministral 3 3b",
           "api_ids": [
             "ministral-3b-2512",
@@ -130,6 +148,9 @@
         "ministral 3 8b": {
           "in_per_mtok": 0.15,
           "out_per_mtok": 0.15,
+          "in_per_mtok_batch": 0.075,
+          "out_per_mtok_batch": 0.075,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "ministral 3 8b",
           "api_ids": [
             "ministral-8b-2512",
@@ -138,6 +159,8 @@
         },
         "mistral embed": {
           "in_per_mtok": 0.1,
+          "in_per_mtok_batch": 0.05,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "mistral embed",
           "api_ids": [
             "mistral-embed-2312",
@@ -158,6 +181,9 @@
           "in_per_mtok": 0.7,
           "out_per_mtok": 2.1,
           "cache_read_per_mtok": 0.07,
+          "in_per_mtok_batch": 0.35,
+          "out_per_mtok_batch": 1.05,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "mistral large 4",
           "api_ids": [
             "mistral-large-4",
@@ -191,6 +217,9 @@
         "mistral small 4": {
           "in_per_mtok": 0.15,
           "out_per_mtok": 0.6,
+          "in_per_mtok_batch": 0.075,
+          "out_per_mtok_batch": 0.3,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "mistral small 4",
           "api_ids": [
             "mistral-small-2603",
@@ -212,6 +241,9 @@
         "ocr 3": {
           "per_1k_pages": 2.0,
           "per_1k_annotated_pages": 3.0,
+          "per_1k_pages_batch": 1.0,
+          "per_1k_annotated_pages_batch": 1.5,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "ocr 3",
           "api_ids": [
             "mistral-ocr-2512"
@@ -229,6 +261,9 @@
         "ocr 4.1": {
           "per_1k_pages": 4.0,
           "per_1k_annotated_pages": 5.0,
+          "per_1k_pages_batch": 2.0,
+          "per_1k_annotated_pages_batch": 2.5,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "ocr 4.1",
           "api_ids": [
             "mistral-ocr-4-1",
@@ -281,7 +316,10 @@
         "voxtral small": {
           "in_per_mtok": 0.1,
           "out_per_mtok": 0.4,
+          "in_per_mtok_batch": 0.05,
+          "out_per_mtok_batch": 0.2,
           "per_audio_minute": 0.004,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "voxtral small",
           "api_ids": [
             "voxtral-small-2507",
@@ -338,6 +376,9 @@
           "in_per_mtok": 1.4,
           "out_per_mtok": 4.4,
           "cache_read_per_mtok": 0.14,
+          "in_per_mtok_batch": 0.7,
+          "out_per_mtok_batch": 2.2,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "z.ai glm 5.3",
           "api_ids": [
             "zai-glm-5-3",
@@ -349,6 +390,9 @@
           "in_per_mtok": 0.15,
           "out_per_mtok": 0.5,
           "cache_read_per_mtok": 0.03,
+          "in_per_mtok_batch": 0.075,
+          "out_per_mtok_batch": 0.25,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "z.ai glm 5.3 flash",
           "api_ids": [
             "zai-glm-5-3-flash"
@@ -1295,6 +1339,131 @@
         "zai-org/GLM-5.3:scaleway": {
           "display_name": "zai-org/GLM-5.3:scaleway",
           "unpriced_since": "2026-11-02"
+        }
+      }
+    },
+    "scaleway": {
+      "checked_utc": "2026-11-03T11:06:15Z",
+      "updated": "2026-11-03",
+      "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=generative_apis&page_size=500",
+      "currency": "EUR",
+      "models": {
+        "bge-multilingual-gemma2": {
+          "in_per_mtok": 0.1,
+          "in_per_mtok_batch": 0.05,
+          "display_name": "bge-multilingual-gemma2"
+        },
+        "deepseek-v4-flash-0731": {
+          "in_per_mtok": 0.4,
+          "out_per_mtok": 0.8,
+          "cache_read_per_mtok": 0.08,
+          "in_per_mtok_batch": 0.2,
+          "out_per_mtok_batch": 0.4,
+          "cache_read_per_mtok_batch": 0.04,
+          "display_name": "deepseek-v4-flash-0731"
+        },
+        "deepseek-v4.1-flash-1017": {
+          "in_per_mtok": 0.6,
+          "out_per_mtok": 1.8,
+          "cache_read_per_mtok": 0.12,
+          "in_per_mtok_batch": 0.3,
+          "out_per_mtok_batch": 0.9,
+          "cache_read_per_mtok_batch": 0.06,
+          "display_name": "deepseek-v4.1-flash-1017"
+        },
+        "gemma-4-26b-a4b-it": {
+          "in_per_mtok": 0.25,
+          "out_per_mtok": 0.5,
+          "in_per_mtok_batch": 0.125,
+          "out_per_mtok_batch": 0.25,
+          "display_name": "gemma-4-26b-a4b-it"
+        },
+        "glm-5.2": {
+          "in_per_mtok": 1.8,
+          "out_per_mtok": 5.5,
+          "in_per_mtok_batch": 0.9,
+          "out_per_mtok_batch": 2.7,
+          "display_name": "glm-5.2"
+        },
+        "glm-5.3": {
+          "in_per_mtok": 1.8,
+          "out_per_mtok": 5.5,
+          "in_per_mtok_batch": 0.9,
+          "out_per_mtok_batch": 2.75,
+          "display_name": "glm-5.3"
+        },
+        "gpt-oss-120b": {
+          "in_per_mtok": 0.15,
+          "out_per_mtok": 0.6,
+          "in_per_mtok_batch": 0.075,
+          "out_per_mtok_batch": 0.3,
+          "display_name": "gpt-oss-120b"
+        },
+        "lightonocr-3-0.8b": {
+          "in_per_mtok": 2.2,
+          "in_per_mtok_batch": 1.1,
+          "display_name": "lightonocr-3-0.8b"
+        },
+        "llama-3.3-70b-instruct": {
+          "in_per_mtok": 0.9,
+          "out_per_mtok": 0.9,
+          "in_per_mtok_batch": 0.45,
+          "out_per_mtok_batch": 0.45,
+          "display_name": "llama-3.3-70b-instruct"
+        },
+        "mistral-medium-3.5-128b": {
+          "in_per_mtok": 1.5,
+          "out_per_mtok": 7.5,
+          "in_per_mtok_batch": 0.75,
+          "out_per_mtok_batch": 3.75,
+          "display_name": "mistral-medium-3.5-128b"
+        },
+        "mistral-small-3.2-24b-instruct-2506": {
+          "in_per_mtok": 0.15,
+          "out_per_mtok": 0.35,
+          "in_per_mtok_batch": 0.075,
+          "out_per_mtok_batch": 0.175,
+          "display_name": "mistral-small-3.2-24b-instruct-2506"
+        },
+        "qwen3-235b-a22b-instruct-2507": {
+          "in_per_mtok": 0.75,
+          "out_per_mtok": 2.25,
+          "in_per_mtok_batch": 0.375,
+          "out_per_mtok_batch": 1.125,
+          "display_name": "qwen3-235b-a22b-instruct-2507"
+        },
+        "qwen3-embedding-8b": {
+          "in_per_mtok": 0.1,
+          "in_per_mtok_batch": 0.05,
+          "display_name": "qwen3-embedding-8b"
+        },
+        "qwen3.5-397b-a17b": {
+          "in_per_mtok": 0.6,
+          "out_per_mtok": 3.6,
+          "in_per_mtok_batch": 0.3,
+          "out_per_mtok_batch": 1.8,
+          "display_name": "qwen3.5-397b-a17b"
+        },
+        "qwen3.6-35b-a3b": {
+          "in_per_mtok": 0.25,
+          "out_per_mtok": 1.5,
+          "in_per_mtok_batch": 0.125,
+          "out_per_mtok_batch": 0.75,
+          "display_name": "qwen3.6-35b-a3b"
+        },
+        "qwen3.8-27b": {
+          "in_per_mtok": 0.6,
+          "out_per_mtok": 3.3,
+          "cache_read_per_mtok": 0.12,
+          "in_per_mtok_batch": 0.3,
+          "out_per_mtok_batch": 1.65,
+          "cache_read_per_mtok_batch": 0.06,
+          "display_name": "qwen3.8-27b"
+        },
+        "whisper-large-v3": {
+          "per_audio_minute": 0.003,
+          "per_audio_minute_batch": 0.0015,
+          "display_name": "whisper-large-v3"
         }
       }
     }

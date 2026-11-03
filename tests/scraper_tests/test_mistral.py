@@ -7,13 +7,15 @@ pricing.json is byte-for-byte what it was. That is the property the whole design
 exists to protect -- a stale price whose date the user can see is far better than a
 wrong one they cannot.
 
-This provider reads ONE source. Models come from docs.mistral.ai, which states a
-machine-readable price object and an isRetired flag per model. The billable
-non-models used to come from mistral.ai/pricing/api, once the only place they were
-priced; Mistral retired that page in October 2026 and nothing states a product price
-any more. The products stay published from the mapping's hand-held `products` list,
-sold-but-unpriced, with the last prices observed kept beside the marker -- and the
-scraper does not read any page for them at all.
+This provider reads TWO PAGES. Models come from docs.mistral.ai, which states a
+machine-readable price object and an isRetired flag per model. The batch API page is
+read for one sentence -- the discount Mistral states on batch calls -- and the batch
+figures every entry carries are worked out from it rather than read off it, which each
+entry says in `batch_derived`. The billable non-models used to come from
+mistral.ai/pricing/api, once the only place they were priced; Mistral retired that page
+in October 2026 and nothing states a product price any more. The products stay published
+from the mapping's hand-held `products` list, sold-but-unpriced, with the last prices
+observed kept beside the marker -- and the scraper does not read any page for them at all.
 
 Every scenario runs against committed fixtures through `--offline`, which serves each
 URL from disk and refuses any URL the manifest does not name. A test that forgets a
@@ -26,6 +28,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import re
 import shutil
 import sys
 import unittest
@@ -69,6 +72,14 @@ FIXED_NOW = "2026-08-18T04:00:00Z"
 
 DOCS_INDEX = "https://docs.mistral.ai/models"
 PRICING_PAGE = "https://mistral.ai/pricing/api"
+
+# The batch API page, read for one sentence: the discount every `_batch` figure in the
+# block is worked out from. Nothing else on it is read, and nothing else is read for it.
+BATCH_DOCS = "https://docs.mistral.ai/studio/batch-processing"
+
+# What an entry's `batch_derived` says. Matched as a pattern rather than compared to a
+# literal so that the rate is read from the figure and not from the wording.
+BATCH_MARKER = re.compile(r"^(?P<percent>\d+(?:\.\d+)?)% off the stated rate, as Mistral's batch API documentation states$")
 
 
 def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> str:
@@ -617,6 +628,137 @@ class TestFrozenProducts(ScrapeTestCase):
 
 
 # ======================================================================================
+# The batch figures: worked out from a sentence, and marked as such
+# ======================================================================================
+
+
+class TestBatchFigures(ScrapeTestCase):
+    """The batch figures are the one place this block publishes a number Mistral never
+    wrote beside a model. What is checked here is that the arithmetic is right, that it
+    stops where the mapping says it stops, that every entry carrying one says it is
+    derived -- and that the whole thing stops when the sentence it comes from is gone."""
+
+    def stated_pairs(self, models: JSONDict) -> list[tuple[str, str, float, float]]:
+        """Every (model, batch field, derived figure, stated figure) in a block."""
+        pairs = []
+        for model_id, entry in models.items():
+            for field, value in entry.items():
+                if field.endswith("_batch"):
+                    pairs.append((model_id, field, value, entry[field[: -len("_batch")]]))
+        return pairs
+
+    def test_every_batch_figure_is_half_the_stated_one(self) -> None:
+        self.run_scrape()
+        models = self.models("stamped.json")
+        pairs = self.stated_pairs(models)
+
+        self.assertTrue(pairs, "no batch figure was published at all")
+        for model_id, field, derived, stated in pairs:
+            with self.subTest(model=model_id, field=field):
+                self.assertEqual(derived, stated / 2)
+
+    def test_every_entry_carrying_a_batch_figure_says_they_are_derived(self) -> None:
+        """Without the marker a consumer cannot tell a figure Mistral stated from one
+        this repository worked out, and would bill against the wrong one."""
+        self.run_scrape()
+        models = self.models("stamped.json")
+
+        for model_id, entry in models.items():
+            batch = {k for k in entry if k.endswith("_batch")}
+            with self.subTest(model=model_id):
+                if not batch:
+                    self.assertNotIn(
+                        "batch_derived", entry, "an entry marks itself derived with nothing derived"
+                    )
+                    continue
+                self.assertIn("batch_derived", entry, model_id)
+                marker = BATCH_MARKER.match(entry["batch_derived"])
+                if marker is None:
+                    self.fail(f"{model_id}: {entry['batch_derived']!r} is not the marker written here")
+                self.assertEqual(float(marker.group("percent")), 50.0, model_id)
+
+    def test_a_unit_the_mapping_leaves_out_is_not_derived(self) -> None:
+        """`cache_read_per_mtok` is the one batched-looking unit that appears beside a
+        batched one on the same entry, so it is where a change from a whitelist to "every
+        figure in the entry" would show up first."""
+        self.run_scrape()
+        models = self.models("stamped.json")
+
+        for model_id, entry in models.items():
+            with self.subTest(model=model_id):
+                for excluded in ("cache_read_per_mtok_batch", "per_audio_minute_batch", "per_mchars_batch"):
+                    self.assertNotIn(excluded, entry)
+
+    def test_the_products_are_not_derived_from(self) -> None:
+        """A product's figures are the last ones observed, carried beside
+        `unpriced_since`, not a rate Mistral states today. Discounting one would publish
+        a batch price for an endpoint the batch API does not have."""
+        self.run_scrape()
+        for model_id, entry in self.models("stamped.json").items():
+            if entry.get("kind") != "product":
+                continue
+            with self.subTest(model=model_id):
+                self.assertNotIn("batch_derived", entry)
+                self.assertFalse({k for k in entry if k.endswith("_batch")}, model_id)
+
+    def test_a_discount_stated_differently_is_followed(self) -> None:
+        """The rate is read, never written down here. The day Mistral says 30% the
+        figures and the marker follow on their own, which is the whole point of parsing
+        the sentence rather than hard-coding the halving."""
+        self.edit(BATCH_DOCS, "50% discount", "30% discount", 2)
+        code, stdout, _ = self.run_scrape()
+
+        self.assertEqual(code, 0)
+        self.assertIn("changed", stdout)
+        models = self.models()
+        pairs = self.stated_pairs(models)
+
+        self.assertTrue(pairs, "a 30% discount produced no batch figure at all")
+        for model_id, field, derived, stated in pairs:
+            with self.subTest(model=model_id, field=field):
+                self.assertAlmostEqual(derived, stated * 0.7, places=10)
+        self.assertEqual(
+            models["codestral"]["batch_derived"],
+            "30% off the stated rate, as Mistral's batch API documentation states",
+        )
+
+    def test_a_page_that_stops_stating_a_discount_fails_the_run(self) -> None:
+        """The figures cannot be worked out without the sentence, and republishing last
+        week's rate as though Mistral still stated it is the failure this refuses."""
+        self.edit(BATCH_DOCS, "50% discount", "no discount", 2)
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "no longer states a batch discount")
+
+    def test_a_page_stating_two_discounts_fails_the_run(self) -> None:
+        """Which rate applies to which unit is stated nowhere, so there is nothing to
+        read the answer off and nothing to guess at. Only one of the page's two
+        statements is moved, so the two genuinely disagree."""
+        self.edit(BATCH_DOCS, "at a 50% discount", "at a 30% discount")
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "more than one batch discount")
+
+    def test_a_discount_that_is_not_a_discount_fails_the_run(self) -> None:
+        self.edit(BATCH_DOCS, "50% discount", "0% discount", 2)
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "which is not a discount")
+
+    def test_the_marker_survives_into_the_published_block(self) -> None:
+        """It is the only record that the figures beside it are worked out, so a block
+        builder that dropped it would publish derived numbers as stated ones."""
+        self.run_scrape()
+        published = json.loads(self.current_bytes)["providers"]["mistral"]["models"]
+        stamped = self.models("stamped.json")
+
+        marked = sorted(k for k, v in published.items() if "batch_derived" in v)
+        self.assertTrue(marked, "the file under test carries no derived entry to check")
+        for model_id in marked:
+            with self.subTest(model=model_id):
+                self.assertEqual(
+                    stamped[model_id]["batch_derived"], published[model_id]["batch_derived"]
+                )
+
+
+# ======================================================================================
 # Outcome 3: fetch or parse failed
 # ======================================================================================
 
@@ -840,11 +982,15 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 
         self.assertEqual(published["source"], mapping["source"])
+        self.assertEqual(published["sources"], mapping["sources"])
         self.assertEqual(published["currency"], mapping["currency"])
 
         producible = set(mapping["labels"].values())
         for side in mapping["denominators"].values():
             producible |= set(side.values())
+        # The batch figures are not translated from a denominator: they are the same
+        # units discounted, so the table above could not produce them on its own.
+        producible |= {f"{field}_batch" for field in mapping["batch"]["fields"]}
 
         # The products are excluded deliberately: their figures are the last ones
         # observed, kept exactly as they stand, and the table above could not produce
@@ -853,15 +999,15 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
         models = {k: v for k, v in published["models"].items() if v.get("kind") != "product"}
         assert_price_fields_are_producible(self, models, producible)
 
-    def test_the_mapping_names_one_page_and_one_page_only(self) -> None:
-        """Mistral's figures come from one page now: the docs site. The page that used
-        to price the products was retired and is not read any more, so a second url in
-        the mapping would be a page some future edit could quietly start reading
-        again."""
+    def test_the_mapping_names_the_pages_that_are_read(self) -> None:
+        """Mistral's figures come from the docs site, and the batch discount from the
+        batch API page: two pages, both read every run. The page that used to price the
+        products was retired and is not read any more, so a third url here would be a
+        page some future edit could quietly start reading again."""
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertNotIn("sources", mapping)
-        self.assertNotIn("products_source", mapping)
+        self.assertEqual(mapping["sources"], [DOCS_INDEX, BATCH_DOCS])
         self.assertEqual(mapping["source"], DOCS_INDEX)
+        self.assertNotIn("products_source", mapping)
 
     def test_the_docs_site_is_declared_a_page(self) -> None:
         """Mistral's figures come out of rendered pages, so the page floor is the
@@ -922,17 +1068,21 @@ class TestMapping(unittest.TestCase):
         that back without anything else in the tests noticing."""
         self.assertNotIn("models", self.mapping())
 
-    def test_one_page_only(self) -> None:
-        """The mapping names one page, because one page is what is read: the docs
-        site. The page that used to price the products was retired by Mistral and is
-        not replaced, and the products are inventoried by the `products` list alone --
-        no page, no row table."""
+    def test_two_pages_are_named_and_no_more(self) -> None:
+        """The mapping names exactly the two pages that are read every run: the docs
+        site for the prices, and the batch API page for the one sentence the batch
+        figures are worked out from. The page that used to price the products was
+        retired by Mistral and is not replaced, and the products are inventoried by the
+        `products` list alone -- no page, no row table. A third url here would be a page
+        some future edit could quietly start reading again."""
         mapping = self.mapping()
-        self.assertNotIn("sources", mapping)
+        self.assertEqual(mapping["sources"], [DOCS_INDEX, BATCH_DOCS])
+        self.assertEqual(mapping["source"], DOCS_INDEX)
+        self.assertEqual(mapping["batch"]["source"], BATCH_DOCS)
         self.assertNotIn("products_source", mapping)
         self.assertNotIn("rows", mapping)
 
-    def test_the_source_is_mistrals_own(self) -> None:
+    def test_every_page_named_is_mistrals_own(self) -> None:
         """This block must be built from Mistral and from nothing else. A reseller can
         confirm that a string is a real Mistral id, since it sells against that id, but
         never that Mistral still offers it: resellers lag a retirement by however long
@@ -940,11 +1090,12 @@ class TestMapping(unittest.TestCase):
         callable through them for months after it has left the public API. Taking the
         inventory or the ids from one would date a withdrawal late, or never."""
         mapping = self.mapping()
-        host = urlsplit(mapping["source"]).netloc
-        self.assertTrue(
-            host == "mistral.ai" or host.endswith(".mistral.ai"),
-            f"source points at {host!r}, which is not Mistral's own site.",
-        )
+        for url in mapping["sources"]:
+            host = urlsplit(url).netloc
+            self.assertTrue(
+                host == "mistral.ai" or host.endswith(".mistral.ai"),
+                f"source points at {host!r}, which is not Mistral's own site.",
+            )
 
     def test_the_offline_manifest_serves_only_mistral(self) -> None:
         """Makes the rule above structural rather than a promise. An offline run refuses

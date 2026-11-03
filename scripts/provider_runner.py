@@ -83,7 +83,10 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
     all, `absent_since` marks one the source has stopped offering, and `unpriced_since`
     marks one it still offers, still calls paid, and declines to put a figure on. In
     both of those last two cases any price beside the marker is the last one observed
-    rather than today's.
+    rather than today's. `batch_derived` sits beside the price fields it explains, and
+    says they were worked out from a rule the source states in words rather than read
+    off it -- so it must travel with them, or a consumer would take a derived figure for
+    a stated one.
     """
     ordered_models: dict[str, JSONDict] = {}
     for model_id in sorted(models):
@@ -92,6 +95,8 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
         for field in KNOWN_PRICE_FIELDS:
             if field in entry:
                 ordered[field] = entry[field]
+        if "batch_derived" in entry:
+            ordered["batch_derived"] = entry["batch_derived"]
         if entry.get("free") is True:
             ordered["free"] = True
         ordered["display_name"] = entry["display_name"]

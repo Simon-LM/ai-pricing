@@ -232,7 +232,7 @@ class TestASourceListIsPublishedOnlyWhenThereIsOne(unittest.TestCase):
         )
 
     def test_one_page_publishes_no_list(self) -> None:
-        """Three providers out of four read a single page; a one-element list there
+        """Four providers out of five read a single page; a one-element list there
         would be noise saying nothing `source` does not already say."""
         self.assertNotIn("sources", self.build())
 
@@ -252,6 +252,36 @@ class TestASourceListIsPublishedOnlyWhenThereIsOne(unittest.TestCase):
         """Key order is reviewed by humans in diffs, so it is fixed on purpose."""
         keys = list(self.build(sources=["https://example.test/a"]))
         self.assertEqual(keys, ["checked_utc", "updated", "source", "sources", "currency", "models"])
+
+
+class TestTheBatchMarkerTravelsWithItsFigures(unittest.TestCase):
+    """A block is rebuilt field by field from a fixed list, so a marker missing from
+    that list would be dropped silently -- and the figures beside it would then read as
+    rates the source stated. It travels with them, right after them."""
+
+    MAPPING = {"source": "https://example.test/a", "currency": "USD"}
+
+    def build(self, entry_: JSONDict) -> JSONDict:
+        return provider_runner.build_provider_block(
+            {"m": entry_}, "2026-08-17T04:00:00Z", "2026-08-17", self.MAPPING
+        )["models"]["m"]
+
+    def test_it_survives_and_sits_with_the_figures_it_explains(self) -> None:
+        built = self.build(
+            {
+                "in_per_mtok": 0.3,
+                "in_per_mtok_batch": 0.15,
+                "batch_derived": "50% off the stated rate",
+                "display_name": "M",
+            }
+        )
+        self.assertEqual(built["batch_derived"], "50% off the stated rate")
+        self.assertEqual(
+            list(built), ["in_per_mtok", "in_per_mtok_batch", "batch_derived", "display_name"]
+        )
+
+    def test_an_entry_without_one_does_not_gain_it(self) -> None:
+        self.assertNotIn("batch_derived", self.build(entry()))
 
 
 class TestHowASourceIsAskedFor(unittest.TestCase):

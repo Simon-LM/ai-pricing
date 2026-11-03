@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  Fixture: https://docs.mistral.ai/studio/batch-processing, captured 2026-11-03.
+
+  The whole page is about 1.1 MB, nearly all of it navigation and the two JSONL
+  examples for chat completions, structured outputs, embeddings, OCR, annotations and
+  transcriptions. What this scraper reads from it is one number, stated twice, so what
+  is kept verbatim below is exactly those two statements and nothing else:
+
+    1. the page's own opening sentence, as rendered;
+    2. the same figure again in the FAQ's answer, as it arrives inside the page's
+       Next.js flight payload -- the escaped form, not a re-typing of it.
+
+  Everything else is dropped, the way docs_index.html drops everything but the model
+  cards. So this fixture pins the two sentences and the shape they arrive in, which is
+  what the scraper's pattern is matched against; it does not pin the rest of the page.
+
+  The page also lists the endpoints the batch API covers -- chat completions,
+  structured outputs, embeddings, OCR, annotations and transcriptions -- which is what
+  mapping.json's `batch` block is decided from. That list is prose, is read by a human
+  and not by this script, and is therefore not captured here; see the `batch` block's
+  own comment for the decision it was used to make.
+-->
+<h1 data-slot="heading-title" data-type="heading">Batch Processing</h1>
+<p class="text-secondary-foreground/93">Batching allows you to run asynchronous inference on large inputs in parallel, reducing compute costs while running large workloads at a 50% discount.</p>
+<script>self.__next_f.push([1,"1c:[\"$\",\"div\",null,{\"className\":\"prose prose-neutral max-w-none dark:prose-invert prose-table:my-3 prose-th:text-left prose-td:align-top prose-p:leading-relaxed\",\"children\":[\"$\",\"p\",null,{\"className\":\"text-secondary-foreground/93\",\"children\":[\"We offer a 50% discount on batch API. Learn more about our \",[\"$\",\"$L63\",null,{\"className\":\"text-primary-soft hover:text-primary\",\"href\":\"/inference/pricing\",\"target\":\"$undefined\",\"rel\":\"$undefined\",\"children\":\"pricing\"}],\".\"]}]}]}]]}],[ \"$\",\"$Lc4\",null,{\"value\":\"does-the-batch-api-affe"]);
+</script>
+</body></html>

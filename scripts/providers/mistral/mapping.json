@@ -78,9 +78,61 @@
   ],
 
   "source": "https://docs.mistral.ai/models",
+  "sources": [
+    "https://docs.mistral.ai/models",
+    "https://docs.mistral.ai/studio/batch-processing"
+  ],
   "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
   "format": "html",
   "currency": "USD",
+
+  "_comment_batch": [
+    "Mistral states its batch discount as a SENTENCE, not as a figure beside each",
+    "price: the batch API documentation says 'Yes, batch API is available for all",
+    "models' and 'We offer a 50% discount on batch API'. That sentence is the whole of",
+    "the evidence for the batch figures this block publishes, which is why they are",
+    "derived rather than read, and why every entry carrying one says so in",
+    "'batch_derived'.",
+    "",
+    "'source' is the page the discount is read from EVERY WEEK. The percentage is",
+    "parsed out of it, never written down here, so the day Mistral says 30% this block",
+    "follows on its own -- and the day the sentence goes, the run fails rather than",
+    "republishing last week's rate as though it were still stated.",
+    "",
+    "'fields' names the units the discount is applied to. A unit is in this list only",
+    "where Mistral's own batch documentation names an endpoint for it AND every entry",
+    "carrying the unit is an API model. That is what makes the list safe to apply",
+    "blindly, model by model:",
+    "",
+    "  in_per_mtok, out_per_mtok   chat completions and embeddings",
+    "  per_1k_pages                OCR",
+    "  per_1k_annotated_pages      annotations",
+    "",
+    "Left out on purpose, though the same sentence would cover them:",
+    "",
+    "  * per_audio_minute. Transcriptions IS a documented batch endpoint, but two of",
+    "    the models carrying this unit are realtime transcription models, and a realtime",
+    "    model is not batchable. A missing figure is a gap; a wrong one is a wrong bill.",
+    "  * per_mchars. It is what Voxtral TTS bills for the text it is given, and speech",
+    "    generation is not in the batch endpoint list.",
+    "  * cache_read_per_mtok. A cached input token already carries a discount of its",
+    "    own; that the two stack is stated nowhere.",
+    "  * everything a product is billed for -- per_mtok, per_1k_calls, per_1k_images,",
+    "    per_call, index_per_mtok, train_per_mtok, per_model_month. None of them goes",
+    "    through an inference endpoint, and the batch API is an inference endpoint. The",
+    "    products are skipped by construction: their prices are frozen last-known ones,",
+    "    carried beside 'unpriced_since' rather than stated by any page.",
+    "",
+    "Do NOT add a unit here to 'cover more of the catalogue'. Every unit added is a",
+    "claim that Mistral batches it, and the source states one rate for the whole API,",
+    "not one per unit. Adding one that is not batchable publishes a price no one can",
+    "get, with no way for a reader to tell it apart from a real one."
+  ],
+
+  "batch": {
+    "source": "https://docs.mistral.ai/studio/batch-processing",
+    "fields": ["in_per_mtok", "out_per_mtok", "per_1k_pages", "per_1k_annotated_pages"]
+  },
 
   "denominators": {
     "input": {

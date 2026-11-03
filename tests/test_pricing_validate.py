@@ -218,6 +218,62 @@ class TestEntryKind(unittest.TestCase):
         self.assertNotIn("kind", doc["providers"]["acme"]["models"]["some-model"])
 
 
+class TestBatchDerived(unittest.TestCase):
+    """The marker that says a `_batch` figure was worked out rather than read.
+
+    It is the only thing separating a rate a source stated from this repository's
+    arithmetic on one, so the contract is checked here and not only in the provider
+    that currently writes it.
+    """
+
+    def document(self, entry: JSONDict) -> JSONDict:
+        return minimal_document(acme=minimal_provider_block(models={"m": entry}))
+
+    def test_a_marker_beside_a_batch_figure_is_accepted(self) -> None:
+        validate.validate_document(
+            self.document(
+                {
+                    "in_per_mtok": 0.3,
+                    "in_per_mtok_batch": 0.15,
+                    "batch_derived": "50% off the stated rate, as the provider's docs state",
+                    "display_name": "M",
+                }
+            )
+        )
+
+    def test_a_marker_with_no_batch_figure_is_refused(self) -> None:
+        """It explains a derived figure. On an entry with none it says nothing, and
+        would leave a consumer looking for the derivation it promises."""
+        with self.assertRaises(validate.ValidationError) as ctx:
+            validate.validate_document(
+                self.document({"in_per_mtok": 0.3, "batch_derived": "50% off", "display_name": "M"})
+            )
+        self.assertIn("batch_derived", str(ctx.exception))
+
+    def test_an_empty_marker_is_refused(self) -> None:
+        with self.assertRaises(validate.ValidationError) as ctx:
+            validate.validate_document(
+                self.document(
+                    {
+                        "in_per_mtok": 0.3,
+                        "in_per_mtok_batch": 0.15,
+                        "batch_derived": "",
+                        "display_name": "M",
+                    }
+                )
+            )
+        self.assertIn("non-empty", str(ctx.exception))
+
+    def test_a_batch_figure_without_a_marker_is_accepted(self) -> None:
+        """Absent means read off the source, which is the ordinary case: Scaleway states
+        a batch rate per model. Only the derived ones are marked."""
+        validate.validate_document(
+            self.document(
+                {"in_per_mtok": 0.3, "in_per_mtok_batch": 0.15, "display_name": "M"}
+            )
+        )
+
+
 class TestApiIds(unittest.TestCase):
     """The strings a caller passes as the model, where the source states them."""
 
@@ -333,7 +389,7 @@ class TestSources(unittest.TestCase):
         self.assertIn(fragment, str(caught.exception))
 
     def test_a_block_without_it_is_still_valid(self) -> None:
-        """Three of the four providers read exactly one page and say so with `source`
+        """Four of the five providers read exactly one page and say so with `source`
         alone. The field must stay optional or they all become invalid."""
         self.accepts()
 
