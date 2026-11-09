@@ -1343,7 +1343,7 @@
       }
     },
     "scaleway": {
-      "checked_utc": "2026-11-03T11:21:36Z",
+      "checked_utc": "2026-11-09T03:10:37Z",
       "updated": "2026-11-03",
       "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=generative_apis&page_size=500",
       "currency": "EUR",
