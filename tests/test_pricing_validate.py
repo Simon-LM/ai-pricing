@@ -218,6 +218,50 @@ class TestEntryKind(unittest.TestCase):
         self.assertNotIn("kind", doc["providers"]["acme"]["models"]["some-model"])
 
 
+class TestLongContext(unittest.TestCase):
+    """Prices past a prompt-size threshold, and the threshold they start at: each one
+    means nothing without the other."""
+
+    def document(self, entry: JSONDict) -> JSONDict:
+        return minimal_document(acme=minimal_provider_block(models={"m": entry}))
+
+    def refused(self, entry: JSONDict, fragment: str) -> None:
+        with self.assertRaises(validate.ValidationError) as ctx:
+            validate.validate_document(self.document(entry))
+        self.assertIn(fragment, str(ctx.exception))
+
+    def test_prices_with_their_threshold_are_accepted(self) -> None:
+        validate.validate_document(
+            self.document(
+                {
+                    "in_per_mtok": 1.0,
+                    "out_per_mtok": 2.0,
+                    "in_per_mtok_long_context": 2.0,
+                    "out_per_mtok_long_context": 4.0,
+                    "long_context_threshold": 128000,
+                    "display_name": "M",
+                }
+            )
+        )
+
+    def test_a_long_context_price_without_a_threshold_is_refused(self) -> None:
+        self.refused({"in_per_mtok": 1.0, "in_per_mtok_long_context": 2.0, "display_name": "M"},
+                     "need long_context_threshold")
+
+    def test_a_threshold_without_a_long_context_price_is_refused(self) -> None:
+        self.refused({"in_per_mtok": 1.0, "long_context_threshold": 128000, "display_name": "M"},
+                     "no '_long_context' price")
+
+    def test_a_threshold_that_is_not_a_positive_whole_number_is_refused(self) -> None:
+        for bad in (0, -5, 128000.5, "128000", True):
+            with self.subTest(threshold=bad):
+                self.refused(
+                    {"in_per_mtok": 1.0, "in_per_mtok_long_context": 2.0, "long_context_threshold": bad,
+                     "display_name": "M"},
+                    "positive whole number",
+                )
+
+
 class TestBatchDerived(unittest.TestCase):
     """The marker that says a `_batch` figure was worked out rather than read.
 

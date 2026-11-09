@@ -87,6 +87,12 @@ KNOWN_PRICE_FIELDS = (
     "in_per_mtok_batch",
     "out_per_mtok_batch",
     "cache_read_per_mtok_batch",
+    # token prices past a long-context threshold: once a request's prompt reaches
+    # `long_context_threshold` tokens, every token in it is billed at these rates
+    # instead (xAI states both, model by model, from 2026; Eden AI states some too).
+    "in_per_mtok_long_context",
+    "out_per_mtok_long_context",
+    "cache_read_per_mtok_long_context",
     # document prices
     "per_1k_pages",
     # Mistral's OCR models bill a second, higher rate for pages it also annotates.
@@ -150,7 +156,13 @@ NON_PRICE_ENTRY_FIELDS = (
     "disputed_since",
     "api_ids",
     "batch_derived",
+    "long_context_threshold",
 )
+
+# The prices that apply past the threshold. A `_long_context` price means nothing
+# without the size it starts at, and a threshold means nothing without a price for
+# past it, so each requires the other.
+LONG_CONTEXT_FIELDS = tuple(f for f in KNOWN_PRICE_FIELDS if f.endswith("_long_context"))
 
 # An entry whose source no longer offers it is NOT deleted on the spot. It keeps the
 # last prices that were actually observed, frozen, and gains `absent_since` -- the day
@@ -426,6 +438,25 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
                     f"{full_id}: batch_derived is set but no '_batch' price field is. The "
                     f"marker explains a derived figure, and there is none here to explain."
                 )
+
+        long_prices = [k for k in prices if k in LONG_CONTEXT_FIELDS]
+        if "long_context_threshold" in entry:
+            threshold = entry["long_context_threshold"]
+            if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 1:
+                raise ValidationError(
+                    f"{full_id}: long_context_threshold must be a positive whole number of "
+                    f"prompt tokens, got {threshold!r}."
+                )
+            if not long_prices:
+                raise ValidationError(
+                    f"{full_id}: long_context_threshold is set but no '_long_context' price "
+                    f"is. A threshold with nothing billed past it says nothing."
+                )
+        elif long_prices:
+            raise ValidationError(
+                f"{full_id}: {long_prices} need long_context_threshold. A long-context price "
+                f"without the prompt size it starts at cannot be applied to any request."
+            )
 
         if "price" in entry:
             raise ValidationError(

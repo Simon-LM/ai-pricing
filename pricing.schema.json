@@ -127,6 +127,11 @@
           "minLength": 1,
           "description": "Present when the '_batch' fields beside it were WORKED OUT from a rule the source states in words, not read off the source as figures. Names the rule and the rate it was applied at. Absent -- the common case -- means every '_batch' figure was read as the provider stated it, so a consumer can tell the two kinds of claim apart."
         },
+        "long_context_threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The prompt size, in tokens, from which every token of a request is billed at the '_long_context' prices beside it instead of the plain ones."
+        },
         "in_per_mtok": {
           "type": "number",
           "minimum": 0.001,
@@ -182,6 +187,24 @@
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
         "cache_read_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "in_per_mtok_long_context": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "out_per_mtok_long_context": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "cache_read_per_mtok_long_context": {
           "type": "number",
           "minimum": 0.001,
           "maximum": 1000.0,
@@ -266,6 +289,17 @@
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         }
       },
+      "dependentRequired": {
+        "in_per_mtok_long_context": [
+          "long_context_threshold"
+        ],
+        "out_per_mtok_long_context": [
+          "long_context_threshold"
+        ],
+        "cache_read_per_mtok_long_context": [
+          "long_context_threshold"
+        ]
+      },
       "allOf": [
         {
           "if": {
@@ -324,6 +358,21 @@
                 {
                   "required": [
                     "cache_read_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "in_per_mtok_long_context"
+                  ]
+                },
+                {
+                  "required": [
+                    "out_per_mtok_long_context"
+                  ]
+                },
+                {
+                  "required": [
+                    "cache_read_per_mtok_long_context"
                   ]
                 },
                 {
@@ -454,6 +503,21 @@
               },
               {
                 "required": [
+                  "in_per_mtok_long_context"
+                ]
+              },
+              {
+                "required": [
+                  "out_per_mtok_long_context"
+                ]
+              },
+              {
+                "required": [
+                  "cache_read_per_mtok_long_context"
+                ]
+              },
+              {
+                "required": [
                   "per_1k_pages"
                 ]
               },
@@ -566,6 +630,33 @@
               }
             ],
             "description": "batch_derived explains a derived '_batch' figure, so an entry carrying it carries at least one."
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "long_context_threshold"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "in_per_mtok_long_context"
+                ]
+              },
+              {
+                "required": [
+                  "out_per_mtok_long_context"
+                ]
+              },
+              {
+                "required": [
+                  "cache_read_per_mtok_long_context"
+                ]
+              }
+            ],
+            "description": "A threshold with nothing billed past it says nothing, so an entry carrying one carries at least one '_long_context' price."
           }
         }
       ]

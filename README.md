@@ -162,6 +162,8 @@ show it to whoever is reading your number. Display it:
 | `absent_since` | Absent on a model still on sale, which is the normal case. When present, the source has stopped offering this entry as of that day, and **every price beside it is the last one observed, not a current one**. See below. |
 | `unpriced_since` | Absent on a model the source prices, which is the normal case. When present, the source **still offers this entry and still calls it paid, and states no price** as of that day. Any price beside it is the last one observed; there may be none at all. See below. |
 | `batch_derived` | Present exactly when the entry carries at least one `_batch` figure this repository **worked out** rather than read, and absent otherwise. Its text says the rate it was worked out from. Read it before using a `_batch` figure -- see below. |
+| `disputed_since` | Absent, the normal case. When present, the source lists this entry **twice at two different prices** as of that day, and every price beside it is the last one published before that, until a human picks the real one. |
+| `long_context_threshold` | Present exactly when the entry carries a `_long_context` price: the prompt size, in tokens, from which a whole request is billed at those prices. See below. |
 
 **The key is whatever the source itself states, per provider.** There is no single
 convention because there is no single source:
@@ -236,6 +238,22 @@ published: `in_per_mtok_batch` is per million input tokens, in batch. The suffix
 the unit in the key name -- there is deliberately no generic `batch` field. Half is the
 usual discount but not a rule: 31 of the 32 batch rates Scaleway stated on 2026-11-03
 were exactly half, and `glm-5.2`'s output token was 5.50 realtime against 2.70 in batch.
+
+**A `_long_context` suffix is the rate past a prompt-size threshold.** Some providers
+bill a request whose prompt reaches a given size at a higher rate, for every token in
+it, not only the ones past the line. The entry then carries the plain prices, the
+`_long_context` ones, and the size they start at:
+
+```json
+"in_per_mtok": 1.0,
+"out_per_mtok": 2.0,
+"in_per_mtok_long_context": 2.0,
+"out_per_mtok_long_context": 4.0,
+"long_context_threshold": 128000
+```
+
+Each one requires the other: a `_long_context` price without its threshold cannot be
+applied to any request, and a threshold with nothing billed past it says nothing.
 
 **Check `batch_derived` before you use a `_batch` figure.** Scaleway states a batch rate
 per model and those are read off it. Mistral states no batch rate beside any model at

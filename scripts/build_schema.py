@@ -158,8 +158,17 @@ def build() -> dict[str, Any]:
                     "consumer can tell the two kinds of claim apart."
                 ),
             },
+            "long_context_threshold": {
+                "type": "integer",
+                "minimum": 1,
+                "description": (
+                    "The prompt size, in tokens, from which every token of a request is "
+                    "billed at the '_long_context' prices beside it instead of the plain ones."
+                ),
+            },
             **{field: _price_property(field) for field in validate.KNOWN_PRICE_FIELDS},
         },
+        "dependentRequired": {field: ["long_context_threshold"] for field in validate.LONG_CONTEXT_FIELDS},
         # Two cross-field rules, and the same list answers both: a free entry may carry
         # none of these, and every other entry must carry at least one. They describe a
         # single document, so unlike the three named in the description they belong here
@@ -190,6 +199,16 @@ def build() -> dict[str, Any]:
                     "description": (
                         "batch_derived explains a derived '_batch' figure, so an entry "
                         "carrying it carries at least one."
+                    ),
+                },
+            },
+            {
+                "if": {"required": ["long_context_threshold"]},
+                "then": {
+                    "anyOf": [{"required": [f]} for f in validate.LONG_CONTEXT_FIELDS],
+                    "description": (
+                        "A threshold with nothing billed past it says nothing, so an entry "
+                        "carrying one carries at least one '_long_context' price."
                     ),
                 },
             },

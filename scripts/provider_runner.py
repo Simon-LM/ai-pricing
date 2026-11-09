@@ -107,6 +107,8 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
                 ordered[field] = entry[field]
         if "batch_derived" in entry:
             ordered["batch_derived"] = entry["batch_derived"]
+        if "long_context_threshold" in entry:
+            ordered["long_context_threshold"] = entry["long_context_threshold"]
         if entry.get("free") is True:
             ordered["free"] = True
         ordered["display_name"] = entry["display_name"]
