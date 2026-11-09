@@ -401,8 +401,8 @@
       }
     },
     "ovh": {
-      "checked_utc": "2026-11-02T05:05:59Z",
-      "updated": "2026-10-26",
+      "checked_utc": "2026-11-09T05:05:54Z",
+      "updated": "2026-11-09",
       "source": "https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/",
       "currency": "EUR",
       "models": {
@@ -414,7 +414,8 @@
         "Mistral-Nemo-Instruct-2407": {
           "in_per_mtok": 0.13,
           "out_per_mtok": 0.13,
-          "display_name": "Mistral-Nemo-Instruct-2407"
+          "display_name": "Mistral-Nemo-Instruct-2407",
+          "absent_since": "2026-11-09"
         },
         "Mistral-Small-3.2-24B-Instruct-2506": {
           "in_per_mtok": 0.09,
