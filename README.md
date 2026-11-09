@@ -22,21 +22,32 @@ those numbers is in this file.
 | `ovh` | EUR | called directly |
 | `scaleway` | EUR | called directly |
 | `edenai` | USD | resold, 5 upstreams |
-| `huggingface` | USD | routed, 2 partners |
+| `huggingface` | USD | routed, 1 partner: OVHcloud |
 
 How many entries each block holds, and how many of them are still on sale, is not
 written here: it follows the source and changes most weeks, so any number in this
 file would be a number to maintain and eventually a number that lies. Count them in
-`pricing.json` itself, where two markers say what is no longer a live quote --
-`absent_since` for an entry the source has stopped offering, and `unpriced_since` for
-one it still sells but will not price. See [Models that go away](#models-that-go-away)
-and [Sold, with no price attached](#sold-with-no-price-attached).
+`pricing.json` itself, where three markers say what is no longer a live quote --
+`absent_since` for an entry the source has stopped offering, `unpriced_since` for
+one it still sells but will not price, and `disputed_since` for one it lists twice at
+two different prices, until a human picks the real one. See
+[Models that go away](#models-that-go-away) and
+[Sold, with no price attached](#sold-with-no-price-attached).
 
 `huggingface` is keyed by `<model>:<partner>` rather than by model, because the router
-serves the same model through both covered partners at different prices —
-`gpt-oss-120b` is $0.09 per million input tokens via OVHcloud and $0.171 via Scaleway.
-`huggingface` covers those two partners; the other four providers are covered in
-full.
+can serve one model through several partners at different prices — until 2026-11-09,
+`gpt-oss-120b` was $0.09 per million input tokens via OVHcloud and $0.171 via Scaleway.
+That day the router stopped routing to Scaleway: a call answers HTTP 402, "Pay-as-you
+go is not enabled for provider scaleway yet", and the router's listing holds no
+Scaleway route. `huggingface` now covers OVHcloud alone; its Scaleway routes stay in
+the file, marked `absent_since`, so a consumer that still names one finds out. The
+other four providers are covered in full.
+
+When a source lists one model twice at two different prices -- Eden AI did for
+`mistral/mistral-large-4` from 2026-10-06 -- that model alone keeps the prices already
+published, marked `disputed_since`, and the run says so; every other model is updated
+as usual. A human picks the real entry in the provider's mapping (`duplicate_choices`
+for Eden AI), and the marker goes on the next run.
 
 ## Read this before you trust a number in it
 
