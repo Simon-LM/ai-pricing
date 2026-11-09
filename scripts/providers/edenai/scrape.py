@@ -81,8 +81,20 @@ def per_million(raw: float) -> float:
     round-trips back to the same float, which is the decimal number the endpoint
     meant -- makes the scaling exact, and the float it converts back to prints as
     the plain 0.4 a reviewer expects.
+
+    Some figures already carry the noise in the endpoint itself: from November 2026
+    Eden states its `@eu` prices as 4.4000000000000004e-08 and 7.700000000000001e-08,
+    and the candidate file's own noise check refused the whole block for two of them.
+    Such a figure is read at 15 significant digits, which drops the binary tail and
+    nothing else, but only when that shortens it by four characters or more: a
+    converted price such as 6.715796448686838e-07 is precise, not noisy, and is kept
+    to the last digit.
     """
-    return float(Decimal(repr(raw)) * TOKENS_PER_MTOK)
+    text = repr(raw)
+    rounded = f"{raw:.15g}"
+    if len(rounded) <= len(text) - 4:
+        text = rounded
+    return float(Decimal(text) * TOKENS_PER_MTOK)
 
 
 def _not_scaled_by(listed: Any, effective: Any, factor: float, path: str = "") -> str | None:
@@ -150,11 +162,12 @@ def unexplained_by_public_discount(listed: JSONDict, effective: Any, discount: A
     return _not_scaled_by(listed, effective, 1 - discount)
 
 
-def parse_model_list(body: str) -> dict[str, JSONDict]:
-    """Parse the endpoint's response into {model id: model object}.
+def parse_model_list(body: str) -> dict[str, list[JSONDict]]:
+    """Parse the endpoint's response into {model id: [every entry listed under it]}.
 
     Raises ScrapeError, never returns something partial: every shape assumption is
-    checked here so that the mapping step below can read plain fields.
+    checked here so that the mapping step below can read plain fields. An id listed
+    more than once keeps all its entries; `pick_entries` decides what that means.
     """
     try:
         payload = json.loads(body)
@@ -173,7 +186,7 @@ def parse_model_list(body: str) -> dict[str, JSONDict]:
         )
     data = cast("list[Any]", data)
 
-    models: dict[str, JSONDict] = {}
+    models: dict[str, list[JSONDict]] = {}
     for entry in data:
         if not isinstance(entry, dict):
             raise ScrapeError("a model list entry is not an object -- the data shape has changed.")
@@ -182,18 +195,78 @@ def parse_model_list(body: str) -> dict[str, JSONDict]:
         model_id = entry.get("id")
         if not isinstance(model_id, str) or not model_id:
             raise ScrapeError('a model list entry has no string "id" -- the data shape has changed.')
-        if model_id in models:
-            raise ScrapeError(
-                f"the model list contains {model_id!r} more than once. Refusing to guess "
-                f"which entry carries the real price."
-            )
-        models[model_id] = entry
+        models.setdefault(model_id, []).append(entry)
 
     return models
 
 
-def extract_models(catalog: dict[str, JSONDict], mapping: JSONDict) -> dict[str, JSONDict]:
-    """Turn the model list into a `models` block, through the explicit mapping only."""
+def _what_it_charges(entry: JSONDict) -> str:
+    """Everything in an entry that bears on a price, as one comparable string."""
+    return json.dumps(
+        [entry.get("pricing"), entry.get("list_pricing"), entry.get("discount")], sort_keys=True
+    )
+
+
+def pick_entries(
+    groups: dict[str, list[JSONDict]], mapping: JSONDict
+) -> tuple[dict[str, JSONDict], set[str], list[str]]:
+    """One entry per model id, and the ids no entry can be picked for without a human.
+
+    Eden sometimes lists one id twice. Two entries that charge the same are one model
+    listed twice: either will do. Two that charge differently cannot both be right, and
+    nothing in the response says which is: `mistral/mistral-large-4` came twice from
+    2026-10-06, at $0.68/$2.09 and at $0.70/$2.10, and the refusal that followed stopped
+    every Eden price for four weeks. So such an id is HELD -- it keeps what is published,
+    marked, and a note asks a human -- and every other model goes on. The human's pick
+    is written in the mapping's `duplicate_choices`, by the entry's `created` stamp, and
+    applies from the next run. A pick that no longer matches any entry holds the model
+    again rather than guessing.
+
+    Returns (catalog, held ids, notes).
+    """
+    choices: JSONDict = mapping.get("duplicate_choices") or {}
+    catalog: dict[str, JSONDict] = {}
+    held: set[str] = set()
+    notes: list[str] = []
+    for model_id, entries in groups.items():
+        # A model from an upstream this file does not publish is not worth a human's look.
+        mapped = any(e.get("owned_by") in mapping["upstreams"] for e in entries)
+        if not mapped or len({_what_it_charges(e) for e in entries}) == 1:
+            catalog[model_id] = entries[0]
+            continue
+        choice = choices.get(model_id)
+        if isinstance(choice, dict):
+            picked = [e for e in entries if e.get("created") == choice.get("created")]
+            if len(picked) == 1:
+                catalog[model_id] = picked[0]
+                continue
+        catalog[model_id] = entries[0]
+        held.add(model_id)
+        listed = "; ".join(
+            f"created {e.get('created')!r}, pricing {json.dumps(e.get('pricing'), sort_keys=True)}"
+            for e in entries
+        )
+        why = (
+            "the pick in duplicate_choices matches none of them, or more than one"
+            if isinstance(choice, dict)
+            else "nothing says which is real"
+        )
+        notes.append(
+            f"{model_id}: listed {len(entries)} times at different prices ({listed}), and "
+            f"{why}. Its published prices are kept, marked disputed_since, until a human "
+            f"writes the real entry's `created` in duplicate_choices in "
+            f"scripts/providers/edenai/mapping.json."
+        )
+    return catalog, held, notes
+
+
+def extract_models(
+    catalog: dict[str, JSONDict], mapping: JSONDict, held: "set[str] | frozenset[str]" = frozenset()
+) -> dict[str, JSONDict]:
+    """Turn the model list into a `models` block, through the explicit mapping only.
+
+    A held id gets the runner's placeholder instead of figures: see `pick_entries`.
+    """
     upstreams = mapping["upstreams"]
     field_specs: JSONDict = mapping["fields"]
 
@@ -215,6 +288,9 @@ def extract_models(catalog: dict[str, JSONDict], mapping: JSONDict) -> dict[str,
     models: dict[str, JSONDict] = {}
 
     for model_id in offered:
+        if model_id in held:
+            models[model_id] = {provider_runner.HELD: True}
+            continue
         entry = catalog[model_id]
 
         # `list_pricing` is the public list price; `pricing` is what this endpoint
@@ -280,10 +356,12 @@ def extract_models(catalog: dict[str, JSONDict], mapping: JSONDict) -> dict[str,
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     """The one callback provider_runner needs. One source, read once.
 
-    No notes: every field this source states is either read or deliberately skipped by
-    the mapping, so there is nothing left over for a human to look at.
+    Every field this source states is either read or deliberately skipped by the
+    mapping. The only notes are for a model listed twice at different prices, which
+    needs a human's pick (`pick_entries`).
     """
-    return extract_models(parse_model_list(fetch(mapping["source"])), mapping), []
+    catalog, held, notes = pick_entries(parse_model_list(fetch(mapping["source"])), mapping)
+    return extract_models(catalog, mapping, held), notes
 
 
 def main(argv: list[str] | None = None) -> int:

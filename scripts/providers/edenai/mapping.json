@@ -55,5 +55,18 @@
       "api_field": "cache_read_input_token_cost",
       "optional": true
     }
+  },
+  "_comment_duplicate_choices": [
+    "A human's pick, for a model Eden lists more than once at different prices: the",
+    "`created` stamp of the entry that is real. Without one, such a model keeps its",
+    "published prices, marked disputed_since, and a note asks for a pick; the other",
+    "models are published as usual. This is not a model list: an entry here only",
+    "settles a contradiction in the source, and can go once Eden lists the id once."
+  ],
+  "duplicate_choices": {
+    "mistral/mistral-large-4": {
+      "created": 1791294122,
+      "why": "Listed twice since 2026-10-06: created 1791244800 at $0.68/$2.09 with no batch prices, created 1791294122 at $0.70/$2.10 with batch prices. The second matches the alias mistral/mistral-large-4-0 and Mistral's own price. Picked by Simon, 2026-11-09."
+    }
   }
 }

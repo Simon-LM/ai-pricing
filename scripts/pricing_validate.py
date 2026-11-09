@@ -147,6 +147,7 @@ NON_PRICE_ENTRY_FIELDS = (
     "kind",
     "absent_since",
     "unpriced_since",
+    "disputed_since",
     "api_ids",
     "batch_derived",
 )
@@ -381,7 +382,11 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
         #                   states no price this file can publish. It may carry the last
         #                   prices observed before that happened, or no price at all if
         #                   it was never quoted one.
-        for field in ("absent_since", "unpriced_since"):
+        #   disputed_since  the source lists this model more than once, with different
+        #                   prices. The prices beside it are the last ones published
+        #                   before that; a human picks the real entry in the provider's
+        #                   mapping, and the marker goes the day that choice applies.
+        for field in ("absent_since", "unpriced_since", "disputed_since"):
             if field not in entry:
                 continue
             day = entry[field]

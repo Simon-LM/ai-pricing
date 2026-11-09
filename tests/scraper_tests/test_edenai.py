@@ -91,12 +91,12 @@ class ScrapeTestCase(unittest.TestCase):
 
         self.source = self.tmp / "models.json"
 
-    def run_scrape(self, body: str, now: str = FIXED_NOW) -> tuple[int, str, str]:
+    def run_scrape(self, body: str, now: str = FIXED_NOW, mapping: Path = MAPPING_JSON) -> tuple[int, str, str]:
         self.source.write_text(body, encoding="utf-8")
         argv = [
             "--out-dir", str(self.out_dir),
             "--current", str(self.current),
-            "--mapping", str(MAPPING_JSON),
+            "--mapping", str(mapping),
             "--html", str(self.source),
             "--now", now,
         ]
@@ -188,6 +188,15 @@ class TestPerMillionScaling(unittest.TestCase):
                 self.assertEqual(scrape.per_million(raw), expected)
                 self.assertEqual(repr(scrape.per_million(raw)), repr(expected))
 
+    def test_noise_the_endpoint_itself_states_is_dropped(self) -> None:
+        """Eden's `@eu` figures, November 2026: the binary tail is in the source."""
+        for raw, expected in ((4.4000000000000004e-08, 0.044), (7.700000000000001e-08, 0.077)):
+            with self.subTest(raw=raw):
+                self.assertEqual(repr(scrape.per_million(raw)), repr(expected))
+
+    def test_a_precise_converted_price_keeps_every_digit(self) -> None:
+        self.assertEqual(scrape.per_million(6.715796448686838e-07), 0.6715796448686838)
+
     def test_the_naive_multiply_really_would_be_wrong(self) -> None:
         """Guards the reason this helper exists. If a future Python makes the naive
         form exact, this test says so rather than leaving dead cleverness behind."""
@@ -233,15 +242,84 @@ class TestPayloadFailures(ScrapeTestCase):
         code, _, stderr = self.run_scrape(json.dumps({"data": [{"id": 42}]}))
         self.assert_failed(code, stderr, 'no string "id"')
 
-    def test_a_duplicated_model_id_is_refused(self) -> None:
-        """Two entries for one id means two prices and no way to tell which is real."""
-        body = mutate(
-            self.models_ok,
-            '"id": "mistral/codestral-latest"',
-            '"id": "mistral/mistral-tiny-latest"',
+
+class TestDuplicatedIds(ScrapeTestCase):
+    """Eden listed `mistral/mistral-large-4` twice, at two prices, from 2026-10-06, and
+    refusing the whole list for it stopped every Eden price for four weeks. A model
+    listed twice at different prices is now held alone, until a human picks."""
+
+    TINY = "mistral/mistral-tiny-latest"
+
+    def body_with(self, *extra: JSONDict) -> str:
+        doc = json.loads(self.models_ok)
+        doc["data"].extend(extra)
+        return json.dumps(doc)
+
+    def tiny_copy(self, factor: float = 1.0, created: int = 1791294122, model_id: str = TINY) -> JSONDict:
+        doc = json.loads(self.models_ok)
+        entry = next(e for e in doc["data"] if e["id"] == self.TINY)
+        entry["id"], entry["created"] = model_id, created
+        for prices in (entry["pricing"], entry["list_pricing"]):
+            prices["input_cost_per_token"] = prices["input_cost_per_token"] * factor
+        return entry
+
+    def mapping_with_choice(self, model_id: str, created: int) -> Path:
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        mapping["duplicate_choices"] = {model_id: {"created": created, "why": "test"}}
+        path = self.tmp / "mapping.json"
+        path.write_text(json.dumps(mapping), encoding="utf-8")
+        return path
+
+    def published_block(self) -> JSONDict:
+        name = "updated.json" if (self.out_dir / "updated.json").exists() else "stamped.json"
+        return self.candidate_block(name)
+
+    def test_the_same_entry_listed_twice_is_one_model(self) -> None:
+        code, _, stderr = self.run_scrape(self.body_with(self.tiny_copy(created=1780673223)))
+        self.assertEqual(code, 0, stderr)
+        entry = self.published_block()["models"][self.TINY]
+        self.assertNotIn("disputed_since", entry)
+        self.assertEqual(entry["in_per_mtok"], 0.25)
+        self.assertEqual(self.notes(), "")
+
+    def test_two_prices_hold_that_model_alone(self) -> None:
+        code, _, stderr = self.run_scrape(self.body_with(self.tiny_copy(factor=1.2)))
+        self.assertEqual(code, 0, stderr)
+        block = self.published_block()
+        tiny = block["models"][self.TINY]
+        self.assertEqual(tiny["in_per_mtok"], 0.25, "a held model keeps its published price")
+        self.assertEqual(tiny["disputed_since"], FIXED_NOW[:10])
+        self.assertIn(f"{self.TINY}: listed 2 times at different prices", self.notes())
+        self.assertIn("duplicate_choices", self.notes())
+        others = [e for m, e in block["models"].items() if m != self.TINY]
+        self.assertTrue(others and all("disputed_since" not in e for e in others))
+        self.assert_current_untouched()
+
+    def test_a_human_pick_settles_it(self) -> None:
+        mapping = self.mapping_with_choice(self.TINY, 1791294122)
+        code, _, stderr = self.run_scrape(self.body_with(self.tiny_copy(factor=1.2)), mapping=mapping)
+        self.assertEqual(code, 0, stderr)
+        tiny = self.published_block()["models"][self.TINY]
+        self.assertNotIn("disputed_since", tiny)
+        self.assertEqual(tiny["in_per_mtok"], scrape.per_million(2.5e-07 * 1.2))
+        self.assertNotIn(self.TINY, self.notes())
+
+    def test_a_pick_that_matches_no_entry_holds_it_again(self) -> None:
+        mapping = self.mapping_with_choice(self.TINY, 1)
+        code, _, stderr = self.run_scrape(self.body_with(self.tiny_copy(factor=1.2)), mapping=mapping)
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("disputed_since", self.published_block()["models"][self.TINY])
+        self.assertIn("matches none of them", self.notes())
+
+    def test_a_disputed_model_never_published_is_left_out(self) -> None:
+        new_id = "mistral/brand-new-model"
+        body = self.body_with(
+            self.tiny_copy(model_id=new_id, created=1), self.tiny_copy(factor=1.2, model_id=new_id, created=2)
         )
         code, _, stderr = self.run_scrape(body)
-        self.assert_failed(code, stderr, "more than once", "Refusing to guess")
+        self.assertEqual(code, 0, stderr)
+        self.assertNotIn(new_id, self.published_block()["models"])
+        self.assertIn(f"{new_id}: never published before", self.notes())
 
 
 class TestModelSetDrift(ScrapeTestCase):

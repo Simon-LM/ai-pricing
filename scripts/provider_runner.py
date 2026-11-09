@@ -54,6 +54,15 @@ Fetcher = Callable[[str], str]
 # lists without a price). Notes never block a run; a real problem raises ScrapeError.
 ExtractNewModels = Callable[[Fetcher, JSONDict], "tuple[dict[str, JSONDict], list[str]]"]
 
+# A provider's parser puts this in place of an entry it cannot price today without a
+# human's choice: the source contradicts itself about that one model (Eden AI listed
+# `mistral/mistral-large-4` twice, at two prices, from 2026-10-06). One doubtful model
+# must not stop every other price in the block from being checked, as it did for four
+# weeks. run() swaps the placeholder for the entry already published, marked
+# `disputed_since`, and never lets the placeholder itself reach the file. The parser
+# says why in a note, which the workflow turns into an issue a human reads.
+HELD = "_held_for_a_human"
+
 
 class ScrapeError(Exception):
     """Anything that means: do not publish, report it, leave the file alone.
@@ -81,9 +90,10 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
     passes as the model, `free` stands in place of the price fields for a model a
     provider gives away, `kind` marks an entry that is billable but is not a model at
     all, `absent_since` marks one the source has stopped offering, and `unpriced_since`
-    marks one it still offers, still calls paid, and declines to put a figure on. In
-    both of those last two cases any price beside the marker is the last one observed
-    rather than today's. `batch_derived` sits beside the price fields it explains, and
+    marks one it still offers, still calls paid, and declines to put a figure on.
+    `disputed_since` marks one the source lists more than once at different prices,
+    until a human picks the real entry. In all three cases any price beside the marker
+    is the last one observed rather than today's. `batch_derived` sits beside the price fields it explains, and
     says they were worked out from a rule the source states in words rather than read
     off it -- so it must travel with them, or a consumer would take a derived figure for
     a stated one.
@@ -108,6 +118,8 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
             ordered["absent_since"] = entry["absent_since"]
         if "unpriced_since" in entry:
             ordered["unpriced_since"] = entry["unpriced_since"]
+        if "disputed_since" in entry:
+            ordered["disputed_since"] = entry["disputed_since"]
         ordered_models[model_id] = ordered
 
     block: JSONDict = {
@@ -388,6 +400,21 @@ def run(
 
     offered_models, notes = extract_new_models(build_fetcher(args, mapping), mapping)
 
+    now = args.now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    today = now[:10]
+
+    # A held model keeps what is published, marked, until a human picks; the others go on.
+    for model_id in [m for m, e in offered_models.items() if e.get(HELD)]:
+        old_entry = current_block["models"].get(model_id)
+        if old_entry is None:
+            del offered_models[model_id]
+            notes.append(f"{model_id}: never published before, so left out until a human picks an entry")
+            continue
+        kept = dict(old_entry)
+        kept.pop("absent_since", None)
+        kept.setdefault("disputed_since", today)
+        offered_models[model_id] = kept
+
     # Compare against what is published before believing any of it.
     for model_id, entry in offered_models.items():
         old_entry = current_block["models"].get(model_id)
@@ -396,9 +423,6 @@ def run(
         for field in KNOWN_PRICE_FIELDS:
             if field in entry and field in old_entry:
                 check_change(f"{provider_id}/{model_id}", field, float(old_entry[field]), float(entry[field]))
-
-    now = args.now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    today = now[:10]
 
     new_models, inventory_notes = reconcile_inventory(current_block["models"], offered_models, today)
     notes = notes + inventory_notes

@@ -127,6 +127,15 @@ def build() -> dict[str, Any]:
                     "none at all. A consumer must not quote a price for such an entry."
                 ),
             },
+            "disputed_since": {
+                "type": "string",
+                "pattern": day,
+                "description": (
+                    "The day the source was first seen listing this model more than once, "
+                    "with different prices. Every price beside it is the last one published "
+                    "before that, not a current one, until a human picks the real entry."
+                ),
+            },
             "api_ids": {
                 "type": "array",
                 "minItems": 1,
