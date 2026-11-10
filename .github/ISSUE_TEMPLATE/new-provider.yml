@@ -1,0 +1,43 @@
+name: Propose a provider
+description: Suggest a provider whose prices pricing.json should publish. Please open this before writing any code.
+labels: ["proposal: provider"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. A new provider becomes part of a public format other programs rely on, so it is discussed here before any pull request: this avoids work that cannot be merged.
+  - type: input
+    id: name
+    attributes:
+      label: Provider
+      placeholder: Acme AI
+    validations:
+      required: true
+  - type: textarea
+    id: pages
+    attributes:
+      label: Where its prices are published
+      description: Every page or API that states them. A JSON API or a page's Markdown version is easier to read reliably than a rendered page.
+    validations:
+      required: true
+  - type: checkboxes
+    id: public
+    attributes:
+      label: Access
+      options:
+        - label: The prices can be read without an account, a login or an API key.
+          required: true
+  - type: input
+    id: currency
+    attributes:
+      label: Currency
+      placeholder: USD
+  - type: textarea
+    id: example
+    attributes:
+      label: Two or three prices, as the page states them
+      placeholder: "acme-large: $1.00 per million input tokens, $4.00 per million output tokens"
+  - type: textarea
+    id: why
+    attributes:
+      label: What it would be used for

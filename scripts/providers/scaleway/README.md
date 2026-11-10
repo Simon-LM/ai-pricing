@@ -1,11 +1,15 @@
-<!-- @format -->
-
 # Scaleway
 
-Reads Scaleway's [public product catalogue][api] and publishes `providers.scaleway`
-in `pricing.json`. First implemented 2026-11-03, covering the 17 models Scaleway then
-offered. How many it offers now follows the source and is not written down here, so
-nothing in this directory has to be edited when it moves.
+`scrape.py` reads Scaleway's public product catalogue every day (03:00 UTC,
+`.github/workflows/refresh-scaleway.yml`) and works out what `providers.scaleway` should
+say. No API key: the catalogue is public.
+
+| what | source | read as |
+| --- | --- | --- |
+| every Generative APIs model, with its prices | [the product catalogue API][api] | JSON, one entry per sku |
+
+`mapping.json` holds no list of models: a model Scaleway adds is published on the next
+run.
 
 [api]: https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=generative_apis&page_size=500
 
@@ -21,7 +25,7 @@ scraper's own user agent, keyless, with JSON.
 
 Both carry the same figures. Checked by hand on 2026-11-03: all 17 models then on the
 page, same numbers to the nanosecond. So the page is still worth a look when a figure
-here is surprising -- it is what a customer is shown -- but it is not what the weekly
+here is surprising -- it is what a customer is shown -- but it is not what the daily
 job reads.
 
 Reading the page instead would also mean parsing formatted, French-language price
@@ -113,24 +117,14 @@ A catalogue entry for a model that is still sold but has no price at all (the re
 ones have neither a price nor a unit) is published carrying `unpriced_since`, the
 shared marker for "offered, not free, and no figure this file can stand behind".
 
-## Running it
+**A unit the mapping does not know.** The mapping's `fields` table maps a
+(unit, size, token type, consumption mode) descriptor to a field. A price row whose
+descriptor is not in it is skipped for that model alone and reported in the run's notes;
+everything else publishes.
+
+## Running it yourself
 
 ```sh
-scripts/providers/scaleway/scrape.py --out-dir .ci-out    # read the live catalogue
-scripts/providers/scaleway/scrape.py --out-dir .ci-out \
-  --html tests/fixtures/scaleway/catalog_ok.json          # offline, from the fixture
-python3 -m unittest tests.scraper_tests.test_scaleway
+python3 scripts/providers/scaleway/scrape.py --out-dir .ci-out          # live
+python3 scripts/providers/scaleway/scrape.py --out-dir .ci-out --html tests/fixtures/scaleway/catalog_ok.json
 ```
-
-The daily job is `.github/workflows/refresh-scaleway.yml`. It never writes
-`pricing.json` itself: it writes candidates into `.ci-out/`, and the workflow decides
-which one, if any, to promote.
-
-## Adding a unit
-
-Add the (unit, size, token type, consumption mode) descriptor to the mapping's `fields`
-table with the field it publishes as, and make sure that field is in
-`KNOWN_PRICE_FIELDS` in `scripts/pricing_validate.py` -- the unit is part of the field
-name, so an unknown unit is skipped and reported rather than guessed at. A price row
-whose descriptor is not in the table is skipped for that model alone; the run still
-publishes everything else and says so in its notes.

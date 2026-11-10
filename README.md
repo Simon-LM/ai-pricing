@@ -1,784 +1,123 @@
 # ai-pricing
 
-Machine-readable AI model prices, one provider's block per key, published as one
-file at one URL, with its JSON Schema beside it:
+Machine-readable prices of AI models and APIs, as each provider publishes them: one
+JSON file at one URL, with its JSON Schema beside it, checked every day.
 
 ```text
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
-Today that means nine providers called directly — Anthropic's API, OpenAI's API,
-Google's Gemini API, Google Cloud's Speech-to-Text, Mistral, OVH's AI Endpoints catalog, Scaleway's Generative APIs,
-xAI's API and Perplexity's API, which also resells other labs' models — and two
-aggregators that resell them and others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
-prices are grouped by **provider**, not just by model: the same model is a different
-bill depending on who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
-`Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
-those numbers is in this file.
+Prices are grouped by **provider**, not by model, because the same model is a different
+bill depending on who you pay: DeepSeek V4.1 Flash is $0.30 / $1.20 per million tokens
+at Mistral and €0.60 / €1.80 at Scaleway. Both figures are in the file, each under its
+own provider.
 
-| provider | currency | what it is |
-| --- | --- | --- |
-| `mistral` | USD | called directly |
-| `ovh` | EUR | called directly |
-| `scaleway` | EUR | called directly |
-| `edenai` | USD | resold, 5 upstreams |
-| `huggingface` | USD | routed, 1 partner: OVHcloud |
-| `xai` | USD | called directly |
-| `perplexity` | USD | called directly; its Agent API also resells 4 upstreams |
-| `anthropic` | USD | called directly |
-| `openai` | USD | called directly |
-| `google` | USD | called directly (Gemini Developer API) |
-| `googlecloud` | USD | called directly (Speech-to-Text) |
+## Providers
 
-How many entries each block holds, and how many of them are still on sale, is not
-written here: it follows the source and changes most weeks, so any number in this
-file would be a number to maintain and eventually a number that lies. Count them in
-`pricing.json` itself, where three markers say what is no longer a live quote --
-`absent_since` for an entry the source has stopped offering, `unpriced_since` for
-one it still sells but will not price, and `disputed_since` for one it lists twice at
-two different prices, until a human picks the real one. See
-[Models that go away](#models-that-go-away) and
-[Sold, with no price attached](#sold-with-no-price-attached).
+| key | what it covers | currency | read from | details |
+| --- | --- | --- | --- | --- |
+| `anthropic` | Claude models, fast mode, tools | USD | pricing and model deprecations pages | [README](scripts/providers/anthropic/README.md) |
+| `openai` | GPT models at every speed, audio, images, tools | USD | pricing page, as Markdown | [README](scripts/providers/openai/README.md) |
+| `google` | Gemini API: Gemini, Gemma, Lyria, grounding | USD | pricing page, as Markdown | [README](scripts/providers/google/README.md) |
+| `googlecloud` | Google Cloud Speech-to-Text | USD | pricing page | [README](scripts/providers/googlecloud/README.md) |
+| `mistral` | Mistral models, Voice Agents | USD | documentation site | [README](scripts/providers/mistral/README.md) |
+| `ovh` | OVHcloud AI Endpoints | EUR | catalog page | [README](scripts/providers/ovh/README.md) |
+| `scaleway` | Scaleway Generative APIs | EUR | public catalogue API | [README](scripts/providers/scaleway/README.md) |
+| `xai` | Grok, image, video and voice models, tools | USD | pricing page | [README](scripts/providers/xai/README.md) |
+| `perplexity` | Agent API (with resold models), Search API, tools | USD | pricing and models pages | [README](scripts/providers/perplexity/README.md) |
+| `edenai` | models resold by Eden AI | USD | public API | [README](scripts/providers/edenai/README.md) |
+| `huggingface` | models routed by Hugging Face to OVHcloud | USD | public router API | [README](scripts/providers/huggingface/README.md) |
 
-`huggingface` is keyed by `<model>:<partner>` rather than by model, because the router
-can serve one model through several partners at different prices — until 2026-11-09,
-`gpt-oss-120b` was $0.09 per million input tokens via OVHcloud and $0.171 via Scaleway.
-That day the router stopped routing to Scaleway: a call answers HTTP 402, "Pay-as-you
-go is not enabled for provider scaleway yet", and the router's listing holds no
-Scaleway route. `huggingface` now covers OVHcloud alone; its Scaleway routes stay in
-the file, marked `absent_since`, so a consumer that still names one finds out. The
-other six providers are covered in full.
+Every provider is read from its own public pages or API, with no API key.
 
-When a source lists one model twice at two different prices -- Eden AI did for
-`mistral/mistral-large-4` from 2026-10-06 -- that model alone keeps the prices already
-published, marked `disputed_since`, and the run says so; every other model is updated
-as usual. A human picks the real entry in the provider's mapping (`duplicate_choices`
-for Eden AI), and the marker goes on the next run.
+## Reading a price
 
-## Read this before you trust a number in it
-
-**Most of these figures are scraped from public web pages**, one scraper per provider,
-and the two that are not are read from a public JSON endpoint.
-There is no pricing endpoint in Mistral's API, and the one usage endpoint that returns
-a `prices` field requires an *admin* API key that an ordinary user of an open-source
-tool does not have and should never be asked for. So Mistral's models are read from
-its documentation site, <https://docs.mistral.ai/models>, which does at least state a
-machine-readable price object per model; its billable non-models used to come from
-<https://mistral.ai/pricing/api>, the only place they were ever priced — Mistral
-retired that page in October 2026 and nothing states a product price any more, so
-those entries carry `unpriced_since` with their last observed figures (see
-[Sold, with no price attached](#sold-with-no-price-attached)), and their inventory is
-kept by hand in the provider's own mapping. OVH's
-catalog is read the same way -- a Next.js app that embeds its model list and pricing
-as JSON inside the page.
-
-**Mistral is read from its documentation site and from nothing else.** The pricing
-page it had long been read alongside dropped Voxtral Mini Transcribe 2 while Mistral
-was still selling it, and this file published it as withdrawn until the docs site was
-read instead; Mistral retired that page in October 2026, which leaves the docs site
-the one page worth reading. A marketing page is not an inventory. See
-[scripts/providers/mistral/README.md](scripts/providers/mistral/README.md).
-
-Eden AI and Scaleway are the two exceptions, and the sturdiest sources here: real
-public JSON APIs rather than pages —
-<https://api.edenai.run/v3/models>, and Scaleway's
-[product catalogue](https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=generative_apis&page_size=500)
-— each stating prices under explicit field names, with no label to string-match and no
-layout to latch onto. Scaleway does publish a pricing page, and it is what a customer
-is shown, but it answers a plain fetch with a 403 challenge: good reason to read the
-catalogue endpoint instead, and a good reason to look at the page when a figure here
-is surprising. Being an aggregator, Eden's prices are what **Eden** charges to forward
-a call, so they differ from the same model's price under `providers.mistral` or
-`providers.ovh` — by design, not by error.
-
-xAI's figures come from its public pricing page, but not from the tables on it: the
-page embeds xAI's whole catalogue as data, every model with its prices, aliases and
-long-context threshold under explicit field names, and that is what is read. Only its
-server-side tools (web search, X search, code execution...) are read off a table.
-
-Perplexity's figures come from two pages. The Agent API's models are read off the
-tables of its models page, whose headers state the unit. Its tools, the Search API,
-embeddings and the Decisions API come from the rates its pricing calculator carries in
-the pricing page, which state the unit of each section; the run fails if one changes.
-Its Agent API resells Anthropic, OpenAI, Google and xAI models beside Perplexity's own,
-so, as with Eden, a model's price there is Perplexity's, not its maker's.
-
-Anthropic's figures come from two pages too. The pricing page's tables, found by their
-header rows, give every price: input, output, the three prompt caching rates, batch,
-fast mode, and Claude Haiku 5.5's higher prices past 100,000 tokens; three sentences
-price web search, code execution and web fetch. The model deprecations page gives each
-model's API id and whether it is still sold: a model it calls Retired is not
-published, even where the pricing page still prices it, and neither is a model the
-pricing page badges "Verification required" (the Claude Mythos models).
-
-OpenAI's figures come from its pricing page as Markdown, which OpenAI serves beside
-every docs page: every tab of it, as plain tables, each found by its section, its speed
-and its header row. Standard prices make the model's entry and batch its `_batch`
-fields; Flex, Fast and Ultrafast each make an entry of their own, `gpt-6-sol (flex)`.
-Models that take or make audio or images carry those tokens' prices in `audio_` and
-`image_` fields beside the text ones. Models sold only to approved organisations
-("Trusted Access") and fine-tuning, closed to new users, are not published.
-
-Google's figures come from its Gemini API pricing page as Markdown. Its prices are
-sentences, read clause by clause: the kinds of token, the prompt length, and dates --
-"$2.00 through November 30, 2026. $4.00 starting December 1, 2026." publishes the price
-valid on the day of the run. Batch, Flex and Priority are read like OpenAI's speeds; the
-Contributor tier, by invitation only, is not published. Gemma, offered in the free tier
-only, is published as free.
-
-Google Cloud's Speech-to-Text is a block of its own, `googlecloud`, read from its pricing
-page's tables: one entry per volume tier, each holding a single price per minute, its
-range in the key. The commitment plans' prices and the free minutes are not published.
-
-Each provider's own `README.md` under `scripts/providers/<name>/` explains that
-provider's specific situation.
-
-**Everything publishes automatically.** The daily job for each provider commits
-whatever it read, straight to `main`: a moved price, a model the source has added, a
-model it has withdrawn. There is no review gate and no hand-written list of models to
-reconcile first, because none of that is a decision anyone makes -- the provider
-already changed it, and holding the new file back only means shipping one known to be
-stale.
-
-What a reviewer would actually have caught is caught earlier and harder, before
-anything is written: a figure outside the plausible range for its unit, or one that
-moved by more than a factor of 5, fails the job and publishes nothing. Everything
-that reaches `main` has cleared those. `git log -- pricing.json` is the record of
-every move, dated, with the figures in the diff.
-
-**There is no guarantee of any kind.** Not of accuracy, not of freshness, not of
-continued existence. If money depends on the answer, read the authoritative page,
-linked in `providers.<name>.source` below.
-
-Every provider's block carries the date it was verified, precisely so that you can
-show it to whoever is reading your number. Display it:
-`≈ $0.80 (Mistral rates of 2026-07-30)`, never a bare `$0.80`.
-
-## The file
+A price is read by provider, then by the key that provider's source states, usually the
+API model id:
 
 ```json
-{
-  "schema_version": 2,
-  "providers": {
-    "mistral": {
-      "checked_utc": "2026-08-03T05:11:31Z",
-      "updated": "2026-08-03",
-      "source": "https://docs.mistral.ai/models",
-      "currency": "USD",
-      "models": {
-        "mistral medium 3.5": {
-          "in_per_mtok": 1.5,
-          "out_per_mtok": 7.5,
-          "display_name": "mistral medium 3.5",
-          "api_ids": ["mistral-medium-3-5", "mistral-medium-3", "mistral-medium-latest"]
-        },
-        "voxtral small": {
-          "in_per_mtok": 0.1,
-          "out_per_mtok": 0.4,
-          "per_audio_minute": 0.004,
-          "display_name": "voxtral small"
-        },
-        "mixtral 8x7b": {
-          "in_per_mtok": 0.7,
-          "out_per_mtok": 0.7,
-          "display_name": "mixtral 8x7b",
-          "absent_since": "2026-08-17"
-        }
-      }
+"anthropic": {
+  "checked_utc": "2026-11-10T12:25:30Z",
+  "currency": "USD",
+  "models": {
+    "claude-sonnet-5-5": {
+      "in_per_mtok": 2.0,
+      "out_per_mtok": 10.0,
+      "cache_read_per_mtok": 0.1,
+      "cache_write_5m_per_mtok": 2.5,
+      "cache_write_1h_per_mtok": 4.0,
+      "in_per_mtok_batch": 1.0,
+      "out_per_mtok_batch": 5.0,
+      "display_name": "Claude Sonnet 5.5"
     }
   }
 }
 ```
 
-| field | meaning |
+```python
+import json, urllib.request
+
+URL = "https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json"
+block = json.load(urllib.request.urlopen(URL))["providers"]["anthropic"]
+model = block["models"]["claude-sonnet-5-5"]
+print(model["in_per_mtok"], block["currency"], "per million input tokens, as of", block["checked_utc"])
+```
+
+What to know before using one:
+
+- **The unit is in the field name.** `in_per_mtok` is per million input tokens,
+  `per_audio_minute` per minute of audio. A model can carry several: read every field
+  you find. There is no generic `price` field.
+- **The currency is the block's.** Nothing here converts one currency to another.
+- **A price has a date.** Show it with the price: "≈ $2.00 (Anthropic rates of
+  2026-11-10)", never a bare "$2.00".
+- **Some entries are no longer live quotes.** `absent_since`: the provider stopped
+  selling it, and the price beside it is the last one seen. `unpriced_since`: still sold,
+  but no price is stated. `disputed_since`: the source states two prices, a human must
+  pick. Leave these out of a list of models to choose from.
+- **A free model is `"free": true`**, never a price of 0.
+- **An alias can change price without changing name.** `mistral-small-latest` points to
+  whatever model Mistral decides, at that model's price.
+
+Every field, unit and key is described in [docs/format.md](docs/format.md).
+
+## How it stays current
+
+Each provider has its own GitHub workflow, which reads its pages every day, between
+02:30 and 07:30 UTC. A price that changed is published that morning. A model the
+provider added is published, one it withdrew is kept with its last price and marked
+`absent_since`. A run that cannot read its source, or reads a figure that looks wrong,
+publishes nothing and opens an issue instead. Every Monday, a report says which
+providers were checked.
+
+How it works, and why it refuses rather than guesses:
+[docs/how-it-works.md](docs/how-it-works.md).
+
+## Before you trust a number
+
+- **Most figures are read from public web pages**, not from an official feed; two come
+  from public JSON APIs. A page can change faster than this file notices.
+- **There is no guarantee of any kind**: not of accuracy, freshness or continued
+  existence. If money depends on the answer, check the page each block names in
+  `source`.
+- **This project is not affiliated with any provider.**
+
+## Documentation
+
+| document | for |
 | --- | --- |
-| `schema_version` | A consumer that does not recognise this number must ignore the file and fall back, rather than misread it. Bumped on any breaking change. What a given version means is published as [`pricing.schema.json`](pricing.schema.json) -- see [The schema, as a file](#the-schema-as-a-file). |
-| `providers` | Keyed by provider id (`mistral`, `ovh`). Never flatten this: the same model name at two providers is two different prices, not a collision to resolve. |
-| `providers.<name>.checked_utc` | When that provider's scraper last **verified** its figures. "Confirmed unchanged today" is a much stronger statement than "last edited in May", which is why this is separate from `updated`. Each provider has its own -- they scrape on their own schedule. |
-| `providers.<name>.updated` | When that provider's figures last actually **changed**. |
-| `providers.<name>.source` | The page that provider's numbers came from, so a human can check in one click. Always present. |
-| `providers.<name>.sources` | Present only where a block is built from more than one page, and only `mistral` is today: its models come from the docs site, and its batch discount from a sentence on the batch API page. Read `source` for the page the prices come from; `sources` is every page the block is built from, `source` first. |
-| `providers.<name>.currency` | Never assume it, and never assume it matches another provider's. Nothing here performs conversion. |
-| `providers.<name>.models` | Keyed by **whatever identifies the entry at that source**, which is not the same thing at every provider -- see below. |
-| `display_name` | A human-readable label, kept only so that a diff is readable. Never use it for matching. |
-| `api_ids` | The strings you pass **as the model** when calling that provider, most specific first. Present only where the source states them. See below. |
-| `free` | Present, and always `true`, when the provider gives the model away. The entry then carries **no price field at all** -- see below. |
-| `kind` | Absent on a model, which is the normal case. `"product"` marks a billable thing that is **not** a model: Mistral's web search, code execution and image generation are not models at all and are billed separately. Since October 2026 they also carry `unpriced_since`, so `kind` is what keeps them out of a list of models to call. |
-| `absent_since` | Absent on a model still on sale, which is the normal case. When present, the source has stopped offering this entry as of that day, and **every price beside it is the last one observed, not a current one**. See below. |
-| `unpriced_since` | Absent on a model the source prices, which is the normal case. When present, the source **still offers this entry and still calls it paid, and states no price** as of that day. Any price beside it is the last one observed; there may be none at all. See below. |
-| `batch_derived` | Present exactly when the entry carries at least one `_batch` figure this repository **worked out** rather than read, and absent otherwise. Its text says the rate it was worked out from. Read it before using a `_batch` figure -- see below. |
-| `disputed_since` | Absent, the normal case. When present, the source lists this entry **twice at two different prices** as of that day, and every price beside it is the last one published before that, until a human picks the real one. |
-| `long_context_threshold` | Present exactly when the entry carries a `_long_context` price: the prompt size, in tokens, from which a whole request is billed at those prices. See below. |
-
-**The key is whatever the source itself states, per provider.** There is no single
-convention because there is no single source:
-
-| provider | key | example |
-| --- | --- | --- |
-| `ovh` | the callable API model id, from the catalog's own `name` | `Qwen3.6-27B` |
-| `edenai` | Eden's model id, upstream prefix included | `mistral/codestral-latest` |
-| `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
-| `scaleway` | the callable API model id, from the catalogue's own `product` | `glm-5.3` |
-| `xai` | the callable API model id, the catalogue's own `name`; a tool's id for a tool | `grok-4.7`, `x_search` |
-| `perplexity` | the id the Agent API takes, `provider/model`; a tool's `type` for a tool | `xai/grok-4.7`, `web_search` |
-| `anthropic` | the API id the model deprecations page states; a tool's name for a tool | `claude-opus-5-5`, `claude-opus-4-5-20251101`, `web_search` |
-| `openai` | the API id the pricing page states; `<id> (flex)`, `(fast)`, `(ultrafast)` for another speed; a tool's name for a tool | `gpt-6-sol`, `gpt-6-sol (flex)`, `web_search` |
-| `google` | the API id the pricing page states; `<id> (flex)`, `(priority)` for another speed; a grounding tool by model generation | `gemini-2.5-flash`, `gemini-2.5-flash (flex)`, `google_search (gemini 2.5)` |
-| `googlecloud` | the row the pricing page states, lowercased, with its volume tier: the page names no API id per price | `speech-to-text v2 recognition standard (0 to 500,000 min/month)` |
-| `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
-
-Mistral is the odd one: its source names things for people, not for callers. So its
-entries carry `api_ids` as well -- see the next section.
-
-### `api_ids` -- what to actually call
-
-**These are model identifiers, not endpoints.** The endpoint is the provider's own
-URL, and it is the same one for every model there; the identifier goes in the request
-body, as the `model` field. This file publishes no URLs.
-
-```json
-"api_ids": ["mistral-ocr-4-1", "mistral-ocr-4", "mistral-ocr-latest"]
-```
-
-**Order is meaning, and it is preserved exactly as the source gives it: most specific
-first.** The first entry pins a version and will keep costing what this file says. The
-last is usually a `-latest` alias, which resolves to a different model, at a different
-price, whenever the provider decides -- with no change anywhere in this file. Pin the
-first, and treat the last as a convenience you cannot price.
-
-The field is **absent** when there is nothing to publish for it, which means one of
-two different things -- tell them apart with `kind`:
-
-- on a model, absent means the key itself is the identifier. `ovh`, `scaleway`,
-  `edenai`,
-  `huggingface`, `xai`, `perplexity`, `anthropic`, `openai` and `google` are all keyed by the exact
-  string their API takes, so they carry no `api_ids` unless there is more to call it by -- an Anthropic id
-  with a snapshot date lists the shorter alias the Claude API also accepts for it;
-- on a `"kind": "product"` entry, absent means there is nothing to call. Mistral's web
-  search and image generation are billed, but they are not models.
-
-Mistral publishes the field because its keys are human-facing names rather than
-callable ids: its documentation site states the ids per model, which the pricing page
-this repository used to read never did. xAI publishes it for another reason: its keys
-are callable, but most models also answer to aliases (`grok-code-fast-1` is
-`grok-build-0.1`), so `api_ids` lists the dated name first, then every alias xAI states.
-
-The unit is part of the key name, so that a consumer cannot silently apply a
-per-token price to a per-page model. There is deliberately no generic `price` field.
-
-| unit key | billed |
-| --- | --- |
-| `in_per_mtok` | per million input tokens |
-| `out_per_mtok` | per million output tokens |
-| `per_mtok` | per million tokens, with no input/output split |
-| `cache_read_per_mtok` | per million tokens read back from a prompt cache |
-| `cache_write_5m_per_mtok` | per million tokens written to a prompt cache kept 5 minutes (Anthropic) |
-| `cache_write_1h_per_mtok` | per million tokens written to a prompt cache kept 1 hour (Anthropic) |
-| `cache_write_30m_per_mtok` | per million tokens written to a prompt cache kept 30 minutes (OpenAI) |
-| `cache_write_12h_per_mtok` | per million tokens written to a prompt cache kept 12 hours (OpenAI) |
-| `audio_in_per_mtok`, `audio_out_per_mtok`, `audio_cache_read_per_mtok` | the same three rates for audio tokens, where a model prices them apart from text (OpenAI, Google) |
-| `image_in_per_mtok`, `image_out_per_mtok`, `image_cache_read_per_mtok` | the same three rates for image tokens (OpenAI, Google) |
-| `video_in_per_mtok`, `video_out_per_mtok`, `video_cache_read_per_mtok` | the same three rates for video tokens (Google) |
-| `cache_storage_per_mtok_hour` | per million tokens kept in a context cache, per hour (Google) |
-| `index_per_mtok` | per million tokens indexed |
-| `train_per_mtok` | per million tokens trained on, one-off |
-| `per_1k_pages` | per thousand pages |
-| `per_1k_annotated_pages` | per thousand pages that are also annotated (OCR bills these higher) |
-| `per_1k_chars` | per thousand characters |
-| `per_audio_minute` | per minute of audio sent |
-| `per_audio_second` | per second of audio sent |
-| `per_call` | per API call |
-| `per_1k_calls` | per thousand API calls |
-| `per_session` | per session (Perplexity's code sandbox: a 20-minute billing window per container) |
-| `per_1k_posts` | per thousand posts returned (xAI's X search) |
-| `per_1k_profiles` | per thousand user profiles returned (xAI's X search) |
-| `per_1k_images` | per thousand images |
-| `per_image` | per image (xAI, Google: per image made) |
-| `per_song` | per song generated (Google's Lyria) |
-| `per_input_image` | per image sent in (xAI's image and video models) |
-| `per_video_second` | per second of video made |
-| `per_input_video_second` | per second of video sent in |
-| `per_conversation_minute` | per minute of conversation with a voice agent (Mistral's Voice Agents API, xAI's real-time voice) |
-| `per_text_input` | per text input sent into a real-time voice conversation (xAI) |
-| `per_container_hour` | per hour a code execution container runs (Anthropic) |
-| `per_session_hour` | per hour an agent session runs (Anthropic's Claude Managed Agents) |
-| `per_gb_day` | per gigabyte stored, per day (OpenAI's file search and ChatKit storage) |
-| `per_mchars` | per million input characters |
-| `per_model_month` | per month, per stored model |
-
-**A `_batch` suffix is a second rate for the same unit.** A source that sells a model
-both served immediately and deferred at a discount states both, and both are
-published: `in_per_mtok_batch` is per million input tokens, in batch. The suffix keeps
-the unit in the key name -- there is deliberately no generic `batch` field. Half is the
-usual discount but not a rule: 31 of the 32 batch rates Scaleway stated on 2026-11-03
-were exactly half, and `glm-5.2`'s output token was 5.50 realtime against 2.70 in batch.
-
-**A `_long_context` suffix is the rate past a prompt-size threshold.** Some providers
-bill a request whose prompt reaches a given size at a higher rate, for every token in
-it, not only the ones past the line. The entry then carries the plain prices, the
-`_long_context` ones, and the size they start at:
-
-```json
-"in_per_mtok": 1.0,
-"out_per_mtok": 2.0,
-"in_per_mtok_long_context": 2.0,
-"out_per_mtok_long_context": 4.0,
-"long_context_threshold": 128000
-```
-
-Each one requires the other: a `_long_context` price without its threshold cannot be
-applied to any request, and a threshold with nothing billed past it says nothing.
-
-The two suffixes combine in that order: `in_per_mtok_batch_long_context` is the batch
-input rate past the threshold, which Anthropic states for Claude Haiku 5.5 and OpenAI
-for its flagship models.
-
-**Check `batch_derived` before you use a `_batch` figure.** Scaleway states a batch rate
-per model and those are read off it. Mistral states no batch rate beside any model at
-all -- only one sentence, "We offer a 50% discount on batch API" -- so its batch figures
-are **worked out** from that sentence, and every entry carrying one says so:
-
-```json
-"in_per_mtok": 0.3,
-"in_per_mtok_batch": 0.15,
-"batch_derived": "50% off the stated rate, as Mistral's batch API documentation states"
-```
-
-The marker is the whole of the distinction, so do not read it as decoration: the figure
-beside it is this repository's arithmetic on a rate Mistral stated, not a rate Mistral
-printed. The percentage is parsed from the page on every run rather than written down
-here, so it follows Mistral if it changes and the run fails if the sentence goes --
-rather than republishing last week's rate as though it were still stated. xAI is the
-same case: it states one discount per model in a table, and its `_batch` figures are
-worked out from it and marked the same way. No `_batch`
-figure without the marker has been derived, and a source that states no batch rate at
-all publishes no `_batch` field.
-
-**A free model is `"free": true`, never a price of `0`.** Zero is also exactly what a
-broken parser reads off a page whose layout moved, and this repository refuses a
-figure of 0 for that reason. Publishing free models as a marker rather than a number
-is what lets that check stay strict. A consumer must treat an entry with `free` as
-costing nothing, not as missing data.
-
-**A model may carry several of them at once.** `voxtral small` above is billed both
-per minute of audio and per million tokens of text, and reading only one of the two
-undercounts a bill without ever looking wrong. Do not assume one unit per model:
-iterate the keys you find.
-
-## Sold, with no price attached
-
-Some sources list a model, say plainly that it is not free, and then quote nothing for
-it. Hugging Face's router does it today: `"status": "live"`, `"is_free": false`, and
-either `{"input": 0, "output": 0}` or no `pricing` object at all.
-
-That entry is published, carrying
-
-```json
-"unpriced_since": "2026-09-14"
-```
-
-and no price of its own:
-
-```json
-"deepseek-ai/DeepSeek-V4-Flash-0731:scaleway": {
-  "display_name": "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway",
-  "unpriced_since": "2026-09-14"
-}
-```
-
-**It is published rather than dropped because the fact is worth having.** "This model
-is sold, it is not free, and nobody will say what it costs" is a different statement
-from "this model does not exist", and a consumer that cannot tell them apart finds out
-at the invoice. An agent reading this file can say: *this one is billable and unpriced
-— do not call it without checking the cost first.*
-
-**`unpriced_since` is not `absent_since`.** Tell them apart:
-
-| | the source | the price beside it |
-| --- | --- | --- |
-| `absent_since` | no longer offers it at all | last observed, frozen |
-| `unpriced_since` | still offers it, still charges for it | last observed, or none at all |
-
-The cause is not always the source's. OVH sometimes prices a model in a unit this
-repository has no field for; the model is real and on sale, and marking it *absent*
-would be a false statement about OVH that sends a reader looking at the wrong place.
-It is marked unpriced, and the run says which unit is missing from the mapping.
-
-**A whole page can go quiet too.** Mistral's products — web search, code execution,
-images, data capture, libraries, premium news, the two classifiers — all went unpriced
-in October 2026, when Mistral retired the page that priced them. They are published
-`unpriced_since` with their last observed figures kept beside the marker: still sold,
-still what they used to cost, and not to be called without checking the price first.
-Their inventory now lives in the provider's own mapping, where adding a name is what
-publishes a new product — sold-but-unpriced, exactly like these.
-
-**It clears itself -- where a page still quotes prices.** The day a figure comes
-back, the marker goes and the figures are live again, nothing to undo by hand.
-Mistral's products are the exception: no page prices them any more, so their marker
-clears only if a page does again, and a scraper is pointed at it.
-
-**It is reported once.** The run that first observes it sends one email; while it stays
-unpriced, later runs say nothing, and the day it is priced again sends one more. The
-date does not move in the meantime, so a gap that opened in March still reads as March.
-
-**If a whole provider went unpriced, the run fails instead.** Marking one entry is an
-honest report; marking every one of them would quietly turn the block into last-known
-figures, and no single bad read upstream may cause that.
-
-## Models that go away
-
-Sources retire models constantly. When one disappears, its entry is **not** deleted:
-it keeps the last prices that were actually observed, unchanged, and gains
-
-```json
-"absent_since": "2026-08-17"
-```
-
-the day the source was first seen without it. The entry is dropped a year later. If
-the source starts offering it again, the field disappears and the prices are refreshed
-like any other.
-
-Deleting on sight would be the obvious automatic behaviour and it is the wrong one: a
-consumer still naming that model would lose its price with no warning and no way to
-look up what it used to be, and a price history would develop a hole exactly where a
-comparison is most interesting. A year rather than a few weeks because not every
-project reading this file is actively maintained.
-
-**A price under `absent_since` is a last known price, not a current one.** That is the
-entire point of the field, and a consumer that ignores it will quote a figure nobody
-sells any more. Two things worth doing with it: exclude those entries when listing
-models a user can pick, and show the date when displaying a price you found under one.
-
-**Absent at one provider says nothing about another.** Every block follows its own
-source's inventory and only that, so a model dated under `providers.mistral` may still
-be listed -- and genuinely callable -- under `providers.edenai`. The two are not
-disagreeing. A reseller notices a retirement whenever its own catalogue gets round to
-it, and can hold a contract that keeps a model available through it for months after
-the original stopped selling it. Read the block for the provider you are actually
-calling. Nothing here reconciles one provider against another, and nothing should.
-
-A disappearance also sends one email, on the run that first observes it — see
-[How the daily job behaves](#how-the-daily-job-behaves).
-
-**Within a `schema_version`, no field is ever removed.** An old client may fetch this
-file at any time. Fields get added -- `per_audio_minute` and later `per_audio_second`
-were added this way, and so was the whole `providers` layer this file now has -- and
-when something must break in a way addition cannot cover, the version is bumped, as
-it was when `providers` arrived.
-
-## The schema, as a file
-
-`pricing.json` is fetched by projects this repository does not know about, and it
-declares a `schema_version` whose meaning has to be findable without reading Python.
-So the schema is published as an artifact beside the file:
-
-```
-https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
-```
-
-**It is generated, never hand-written.** `scripts/pricing_validate.py` stays the
-authority; `scripts/build_schema.py` reads its constants -- the price fields, the
-per-unit plausible bounds, the date patterns, the allowed kinds -- and re-expresses
-them as JSON Schema. A test regenerates and compares, so the artifact cannot quietly
-fall behind the validator. Two hand-maintained descriptions of one contract drift,
-and a schema that has drifted lies to the consumer that trusted it.
-
-**What it proves, and what it does not.** Validating against it checks the shape, the
-units, and that every figure is inside the plausible range for its unit. It does not
-check three rules this repository also enforces, because none of them is a property
-of a single document:
-
-| rule | why the schema cannot state it |
-| --- | --- |
-| a figure may not move by more than a factor of 5 | compares against the **previous** published file |
-| `api_ids` must not repeat | across entries, not within one |
-| a block's currency matches its mapping | compares against a file consumers never see |
-
-That list is in the schema's own `description` too, so a consumer reading only the
-artifact is told the same thing. "It validates" is not "it is sane".
-
-## Consuming it
-
-Ship a copy of the file with your package, so a machine with no network still has
-dated figures. Refresh from the URL above at most once a day, cache it locally, never
-block on it, and let the user turn it off. Convert at display time only, and always
-attach the date.
-
-To price a call, you need to know both the provider you called and the model id, and
-read `providers.<that provider>.models.<that model>` -- there is no flat, provider-less
-lookup, on purpose.
-
-## The trap worth knowing about
-
-**An id can keep its name and change its price.** `mistral-medium-latest` at Mistral,
-`grok-latest` at Eden AI and every other `-latest` id is an **alias**: today it
-resolves to one model, tomorrow to a different one at a different price. Eden AI's
-`xai/grok-latest` moved from Grok 4.5 to Grok 4.6 in a single week, and in this file
-that shows up as a price change on an unchanged key -- which is exactly what it is.
-Nothing here can warn you that the model behind an alias is not the one you tested.
-
-Each provider's `mapping.json` still holds hand-written things, and it is worth
-knowing which: **not a list of models** -- those are read from the source every day --
-but a translation table for the things the source states in prose rather than in data.
-OVH's maps `million_input_tokens` to `in_per_mtok`; Mistral's maps the docs unit
-strings its pages state to price fields. Mistral's also holds its products list, the
-one inventory no source states any more (see
-[Sold, with no price attached](#sold-with-no-price-attached)). A unit or a label the
-table does not recognise is reported and its figure left unpublished, never guessed at,
-because the unit is part of the field name and there is no honest field to put an
-unrecognised figure in.
-
-Those tables are assumptions a human wrote down, and they are the thing most likely to
-be quietly wrong. They are written down explicitly so that they *can* be checked.
-
-## Multiple providers, one file
-
-`providers.<name>` exists because the same model can be called through more than one
-API, at more than one price. A Mistral model resold through OVH is not the same bill
-as calling Mistral directly, and nothing about a model's own name says which API you
-actually paid.
-
-Each provider is fully independent in practice, even though they share one file:
-
-- its own scraper, under `scripts/providers/<name>/`, reading only that provider's
-  source and writing only `providers.<name>`;
-- its own explicit mapping, reviewed by a human;
-- its own daily workflow, `.github/workflows/refresh-<name>.yml`, with the same
-  three outcomes as Mistral's (unchanged -> stamp, changed -> commit, failure -> issue);
-- its own `checked_utc`, `updated`, `source` and `currency`.
-
-A scraper only ever reads and rewrites its own block. Every other provider's block is
-carried through candidate files byte-for-byte -- a Mistral run never so much as parses
-`providers.ovh`, and an OVH run never touches `providers.mistral`. Key order is
-preserved too, not just values: a merge that rebuilt the whole `providers` dict would
-leave every untouched provider's block looking removed-and-re-added in the diff a
-human is about to review, which is exactly the kind of noise this design exists to
-avoid. `validate_document()` still checks every provider's block on every run, so a
-corruption sitting untouched in one provider is caught by any run, not only by that
-provider's own.
-
-The plumbing that makes all of this true -- reading, merging, writing, the three
-outcomes, the run()/main() control flow -- is written once, in
-[`scripts/provider_runner.py`](scripts/provider_runner.py), and shared by every
-provider's own `scrape.py`. A provider's own file supplies only what is genuinely
-its own: how to fetch and parse its page. Compare
-[`scripts/providers/mistral/scrape.py`](scripts/providers/mistral/scrape.py) (reads
-the docs index, then one page per model) against
-[`scripts/providers/ovh/scrape.py`](scripts/providers/ovh/scrape.py) (reads a
-framework's embedded JSON data chunk) for how differently "read the page" can look
-between two providers, and how little of either file is about anything else.
-
-## How the daily job behaves
-
-Each provider has its own workflow, `.github/workflows/refresh-<name>.yml`, and every
-one runs every day, at its own time: Google Cloud at 02:30 UTC, Scaleway 03:00, Google 03:30, Mistral 04:00,
-Anthropic 04:30, OVH 05:00, OpenAI 05:30, Eden AI 06:00, Perplexity 06:30, Hugging Face
-07:00, xAI 07:30. They are half an hour apart on purpose, so the scheduled runs don't
-land in the same minute and queue behind each other, and all of them come before the
-08:00 report on Mondays, which reads their stamps. They have run daily since
-2026-11-10, so that a price a provider changes on a given date -- Google announces some
-in advance -- is published that morning. All also run on demand. Every provider's
-workflow has three outcomes and never a fourth:
-
-| outcome | what happens |
-| --- | --- |
-| figures unchanged | nothing is committed, except on Mondays and on a run started by hand: then that provider's `checked_utc` stamp is committed straight to `main` |
-| anything changed | the new file is committed straight to `main`, with a `::notice::` on the run |
-| a check failed | an issue is opened **and assigned to the repository owner**, the job fails, and `pricing.json` is left **untouched** |
-
-"Anything changed" is deliberately wider than "a price moved": a model added, a model
-withdrawn and a model renamed all land in the same outcome and all publish. The one
-thing that stops a run is not knowing whether the figures can be trusted, so each job
-refuses rather than guesses whenever:
-
-- the page cannot be fetched, or no longer parses;
-- a figure lands outside the plausible range for its unit, or moves by more than a
-  factor of 5;
-- the same identifier appears twice, so which figure is the real one is ambiguous;
-- the page stops publishing a figure in the currency that provider's block declares;
-- the file it is about to commit does not pass the tests that describe a published
-  file -- the block no longer agrees with its mapping, the cross-source price band
-  broke, or the weekly report could not be built from it.
-
-That last one is checked on the candidate, after the scrape and before the commit,
-rather than on the file already published. They are not the same file, and on
-2026-09-14 that difference put a block its own tests reject onto `main`.
-
-Note what is **not** on that list: the set of models. A model appearing or vanishing
-says nothing about whether the other prices were read correctly, so it never withholds
-them. It is published, and it sends an email.
-
-### The three emails
-
-All of them arrive by the same mechanism -- an issue assigned to the repository owner,
-which notifies through a channel that is on by default and does not depend on watching
-the repository.
-
-| when | what |
-| --- | --- |
-| a scrape fails | an issue per outage, per provider, commented on rather than duplicated on repeated failure. `pricing.json` untouched. |
-| a source's inventory changes | an issue naming what appeared, disappeared or was dropped after a year. Raised **once**, by the run that observes it, never repeated while the entry sits there marked. Nothing is broken and nothing needs fixing; it is a notification. |
-| every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers refreshed and which did not. Closed automatically when every provider did. |
-
-The weekly report exists because the other two report by exception, and no exception
-can be raised by a workflow that never ran -- disabled by GitHub after 60 idle days,
-broken by a bad edit to its own YAML, or silently skipped. `pricing.json` would just
-stop moving while looking exactly as it always did. A receipt that arrives every Monday
-is worth more than silence, because a receipt that *doesn't* arrive is itself the
-alarm, and that is the one alarm no code in this repository could raise.
-[`scripts/weekly_report.py`](scripts/weekly_report.py) reads every provider's
-`checked_utc` stamp and nothing else; it writes no file and has no permission to.
-
-Every provider's workflow is in one `concurrency` group, `pricing-json-writes`,
-since they all commit to the same file: a second provider's run queues behind the first
-rather than racing it. The weekly report is deliberately not in that group -- it writes
-nothing, so it has no reason to queue behind a scrape and every reason to still run if
-one is stuck.
-
-**Refusing to publish a wrong number is only half the job.** A scraper notices when a
-model it used to publish disappears from a page, and is completely silent about a model
-the provider sells that its page never mentions -- to a scraper reading one source, an
-absent row looks exactly like a model that does not exist. OVH's catalog page dropped
-five models it was still serving on 2026-08-04, and nothing in the scrape could have
-noticed. So OVH's
-workflow also runs
-[`scripts/providers/ovh/check_coverage.py`](scripts/providers/ovh/check_coverage.py),
-which compares the catalog page against OVH's own public model list and reports what
-each one has that the other does not. It reads no price, never touches
-`pricing.json`, and a gap is a warning rather than a failed job: refusing to publish
-every correct price because one model is missing would also suppress the
-`checked_utc` stamp that keeps the schedule alive.
-
-The Monday stamp commit is not only informative. GitHub disables a scheduled workflow
-after 60 days without repository activity, and **only new commits reset that timer** --
-not tags, not issues, nothing but commits. A repository whose content changes every few
-months is exactly the profile that gets silently switched off. Committing `checked_utc`
-every Monday, per provider, is both a real statement to consumers and the thing that
-keeps each schedule alive. On the other days an unchanged run commits nothing, so the
-history holds one stamp a week per provider rather than seven, and `checked_utc` says
-when a block was last committed as verified, not every time it was checked.
-
-## Running it yourself
-
-No dependencies beyond the Python standard library, and no API key of any kind -- a
-scraper reads a public page and must never be given a credential.
-
-```sh
-python3 -m unittest discover -s tests -v                          # the whole suite
-npx pyright                                                       # types, as CI checks them
-python3 scripts/build_schema.py                                   # regenerate pricing.schema.json
-python3 scripts/build_schema.py --check                           # ...or just say if it is stale
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out     # read the live source
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
-
-python3 scripts/providers/ovh/scrape.py --out-dir .ci-out         # read the live catalog
-python3 scripts/providers/ovh/scrape.py --out-dir .ci-out --html tests/fixtures/ovh/catalog_ok.html
-
-python3 scripts/providers/scaleway/scrape.py --out-dir .ci-out    # read the live catalogue API
-python3 scripts/providers/scaleway/scrape.py --out-dir .ci-out --html tests/fixtures/scaleway/catalog_ok.json
-```
-
-A provider's `scrape.py` **never writes `pricing.json`.** It writes candidates into
-`--out-dir` and reports which one, if any, should be promoted, merging its own block
-into a full copy of the current file and leaving every other provider's block
-untouched. "Leave the published file alone when anything goes wrong" is therefore a
-property of the design rather than a branch of code somebody has to remember to get
-right.
-
-## Adding a model
-
-**You don't.** A model a source has started offering is published by that source's next
-weekly run, without anyone doing anything. That is the whole design: a hand-written
-model list is what used to make a single retired model block every other price in its
-block, and there is no longer one to add to.
-
-What still needs a human is a source stating something the file has no way to express:
-
-1. **A new unit.** If the source prices something per week, or per gigabyte, the run
-   reports it and publishes nothing for that one figure. Add the unit to
-   `KNOWN_PRICE_FIELDS` in
-   [`scripts/pricing_validate.py`](scripts/pricing_validate.py) -- shared by every
-   provider -- and check whether the default floor of 0.001 still makes sense for it.
-   A unit whose prices are naturally small needs its own entry in `PRICE_BOUNDS`, or an
-   ordinary price cut will be refused as a parsing accident. A test enforces that every
-   published figure keeps a factor of 5 of room above its floor, so you will be told
-   rather than left to find out on a Monday morning.
-2. **A new way of naming that unit at one source.** Add it to that provider's
-   `mapping.json`: OVH's `units` maps a catalog `price_unit` to a field, Mistral's
-   `denominators` maps a docs unit string to one, Eden AI's and Hugging Face's `fields`
-   map an API field name, Scaleway's `fields` map a `(unit, size, token type,
-   consumption mode)` descriptor to one. Copy the string byte-for-byte from the source.
-3. Re-capture that provider's fixtures (Mistral's are under `tests/fixtures/mistral/`,
-   listed by `offline.json`; OVH's is `tests/fixtures/ovh/catalog_ok.html`; Scaleway's
-   is `tests/fixtures/scaleway/catalog_ok.json`) so they contain the new shape, and
-   regenerate its `baseline.json` from them.
-4. Run the tests. `tests/test_pricing_validate.py` checks the shared schema,
-   `tests/test_provider_runner.py` the reconciliation every provider shares,
-   `tests/test_nextjs_flight.py` the payload reader the two Next.js sources share, and each
-   provider's `tests/scraper_tests/test_<name>.py` has `TestPublishedFileMatches<Name>`
-   and `TestMapping` classes that check that provider's own files agree with each
-   other -- including that its mapping still contains no model list.
-
-Do not add currency conversion, token estimation, or anything that reads a user's
-account. This repository knows prices. It does not know volumes, and it never
-touches anyone's account at any provider.
-
-## Adding a provider
-
-Confirm the real pricing source first -- read it yourself, work out whether it is
-scrapeable card markup, a per-model documentation site (like Mistral's) or embedded
-framework data (like OVH's), confirm the currency, check whether the catalog resells
-third-party models under a name that could be confused with theirs. Never guess at any
-of this.
-
-Then mirror whichever existing provider reads more like your new one -- Mistral's
-[`scrape.py`](scripts/providers/mistral/scrape.py) for a documentation site, OVH's for
-a page with embedded framework data, or Scaleway's for a plain JSON endpoint -- for the
-source-reading half, and use [`scripts/provider_runner.py`](scripts/provider_runner.py)
-for everything else: it already handles reading, merging, writing, the three outcomes,
-and keeping withdrawn entries for a year. It only needs a provider id and an
-`extract_new_models(fetch, mapping)` callback returning `(models, notes)` -- `fetch`
-being a url-to-text callable, so a provider that needs several pages (as Mistral does)
-reads them all through the same offline-testable path --
-`models` being everything the source offers *today*, with no reference to what is
-already published. Write a mapping that names units and labels, never models, and give
-the new provider its own `refresh-<name>.yml` sharing the `pricing-json-writes`
-concurrency group.
-
-The mapping also declares `format`, which is how its source is asked for: `html` for
-a rendered page, `json` for an API endpoint. It decides the `Accept` header and the
-floor below which an answer is treated as an error rather than parsed -- 10 kB for a
-page, which no real marketing page falls under, and 100 bytes for an endpoint, whose
-whole body is data and can legitimately be small. It defaults to `html`, the strict
-end of both, so a source left undeclared fails loudly instead of passing quietly.
-
-One naming trap worth knowing before you start: give the new provider's test file
-a distinct import path (`from providers.<name> import scrape`, not a bare
-`import scrape` off a directly-inserted directory). Two providers' `scrape.py`
-files share the same filename by convention, and Python's module cache is keyed
-by name alone -- a flat import works when only one test file runs, and silently
-imports the wrong provider's module the moment both run in the same process, which
-`unittest discover` always does.
-
-## Why this is a separate repository
-
-Somebody has to read a web page. The design question is *where*, and the answer is:
-not on the user's machine. A consumer that scraped the page itself would not crash
-when the page was redesigned -- it would read the **wrong number** and cheerfully
-announce €0.80 for a run that costs €8, in every installation at once. Here, the page
-is read in one place, checked against bounds that stop a misparse from ever being
-committed, and every change is a dated line in `git log` that a human can go back and
-read.
-
-It also means the price of `mistral-medium-latest` is not one project's private fact,
-`git log` on a single JSON file becomes a price history nobody else publishes -- across
-every provider, not just one -- and a correction does not require cutting a release
-of anything.
-
-The full rationale, and the contract this file is bound by, is
-[`docs/ai-pricing-source.md`](https://github.com/Simon-LM/ProcraFiler/blob/main/docs/ai-pricing-source.md)
-in [ProcraFiler](https://github.com/Simon-LM/ProcraFiler), the first consumer.
+| [docs/format.md](docs/format.md) | reading the file: fields, units, keys, markers, the schema |
+| [docs/how-it-works.md](docs/how-it-works.md) | how the daily checks run, publish, refuse and report |
+| [docs/contributing.md](docs/contributing.md) | running it yourself, reporting an error, proposing a provider or a field |
+| `scripts/providers/<key>/README.md` | what each provider's pages say, and what is not published |
+
+## Contributing
+
+A wrong price or a mistake in the documentation can be fixed directly in a pull request.
+For a new provider, a new field or a new unit, please open an issue first: each one
+becomes part of a public format other projects rely on, and talking it over first
+avoids work that cannot be merged. See [docs/contributing.md](docs/contributing.md).
 
 ## Licence
 

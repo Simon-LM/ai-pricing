@@ -1,0 +1,44 @@
+name: Wrong or missing price
+description: A price in pricing.json differs from the provider's own page, or is missing.
+labels: ["price report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Please do not edit `pricing.json` by hand: the next daily run rewrites it from the provider's page, so the fix belongs in how the page is read.
+  - type: input
+    id: provider
+    attributes:
+      label: Provider
+      description: The block's key in pricing.json.
+      placeholder: openai
+    validations:
+      required: true
+  - type: input
+    id: entry
+    attributes:
+      label: Entry
+      description: The entry's key in that block, or the model's name if it is missing.
+      placeholder: gpt-6-sol
+    validations:
+      required: true
+  - type: textarea
+    id: difference
+    attributes:
+      label: What the file says, and what the provider's page says
+      placeholder: |
+        pricing.json: in_per_mtok 2.0
+        provider's page: $2.50 per million input tokens
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Link to the provider's page that shows the price
+    validations:
+      required: true
+  - type: input
+    id: date
+    attributes:
+      label: Date you read that page
+      placeholder: 2026-11-10

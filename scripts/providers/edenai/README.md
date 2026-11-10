@@ -1,121 +1,78 @@
-<!-- @format -->
-
 # Eden AI
 
-Reads Eden AI's [public model list](https://api.edenai.run/v3/models) and publishes
-`providers.edenai` in `pricing.json`. First implemented 2026-08-10, covering every
-model Eden offers from the five upstreams asked for: Mistral, xAI, Scaleway,
-OVHcloud and Perplexity. That was 103 models on the day it was written; how many it
-is now follows the source and is not written down here, so nothing in this directory
-has to be edited when it moves.
+`scrape.py` reads Eden AI's public model list every day (06:00 UTC,
+`.github/workflows/refresh-edenai.yml`) and works out what `providers.edenai` should say.
+No API key: the list is public.
 
-## These are Eden's prices, not the upstream provider's
+| what | source | read as |
+| --- | --- | --- |
+| every model Eden AI sells, with its price | <https://api.edenai.run/v3/models> | JSON, explicit field names per model |
 
-Eden AI is an aggregator: you call one API and it forwards to a provider
-underneath. What is published here is what **Eden** charges to do that, which is
-not the price of calling that provider directly. `codestral-latest` is
-`$1.00`/`$3.00` through Eden and `$0.30`/`$0.90` straight from Mistral. Both are
-correct, and both are in this file under their own provider.
+`mapping.json` names the upstreams covered (Mistral, xAI, Scaleway, OVHcloud and
+Perplexity) and the price fields read; it holds no list of models. A model Eden AI adds
+is published on the next run.
 
-So `providers.edenai` is a provider in its own right, not a cross-check of
-`providers.mistral` or `providers.ovh`. A difference between them is expected. Do
-not "reconcile" it.
+## Eden AI's prices, not the upstream's
 
-## How this source differs from the others
+Eden AI is an aggregator: one API, forwarding each call to a provider underneath. A price
+here is what **Eden AI** charges to do that, which can equal the upstream's or not:
+`mistral/codestral-latest` is $0.30 / $0.90 per million tokens, as at Mistral, while
+`scaleway/deepseek-v4.1-flash-1017` is $0.67 / $2.01, Eden AI's conversion of Scaleway's
+€0.60 / €1.80. Both blocks are correct; `providers.edenai` is not a cross-check of
+`providers.mistral` or `providers.scaleway`.
 
-Mistral's and OVH's scrapers read marketing pages -- card markup and a Next.js
-data chunk respectively -- where a renamed label silently changes what a figure
-means. Eden publishes a real JSON API with explicit field names per model:
+Keys are Eden AI's own ids, upstream prefix included: `mistral/codestral-latest`. An
+alias such as `mistral/mistral-large-4-0` or a region such as `...@eu` is an entry of its
+own, as Eden AI lists it.
+
+## How the figures are read
 
 ```json
 "pricing": { "input_cost_per_token": 1.5e-06, "output_cost_per_token": 7.5e-06 }
 ```
 
-There is nothing to string-match and no layout to latch onto, which makes this the
-sturdiest source in the repository and `scrape.py` the shortest scraper in it.
+- **Per token, published per million**, with exact decimal arithmetic: a plain float
+  multiplication turns `4e-07` into `0.39999999999999997`. Long decimals that are really
+  there are kept: Eden AI's conversions from EUR carry fifteen of them, and rounding would
+  invent a price.
+- **USD.** The API states no currency; Eden AI's model page renders the same figures as
+  dollars, under a column headed "Input $".
+- **The price paid, `pricing`, not the list price, `list_pricing`**, when Eden AI runs a
+  promotion it states in the same public response (`"discount": 0.5`), and only if every
+  figure in `pricing` is exactly the list price less that discount, in Eden AI's own
+  floating-point arithmetic. A difference the stated discount does not account for, or a
+  shape the comparison cannot check, fails the run.
+- **`cache_read_per_mtok`** for every model that states `cache_read_input_token_cost`.
+- **Long context**: the rates Eden AI states past a prompt size
+  (`input_cost_per_token_above_128k_tokens`, `_above_200k_tokens`, and their output and
+  cache twins) go in the `_long_context` fields, the size in `long_context_threshold`.
 
-`mapping.json` is shaped differently for the same reason. It does not name a page
-element per model, because there is none; a per-model spec would be a hundred copies
-of the same three lines. What it names instead is the **upstreams** — and only those.
+## A model listed twice
 
-It deliberately holds no model list. An earlier version pinned all 103 ids, and the
-only thing that achieved was failing the weekly job, and with it blocking 102 correct
-prices, the first time Eden retired a single model. Eden states each model's id in
-`id`, so there is nothing for a hand-written list to translate: a model Eden adds is
-published on the next run, one it drops keeps its last observed prices under an
-`absent_since` stamp, and the disappearance sends one email rather than stopping
-everything.
+Eden AI sometimes lists one id twice at two prices: `mistral/mistral-large-4` from
+2026-10-06, at $0.68 / $2.09 and at $0.70 / $2.10. That model alone keeps its published
+prices, marked `disputed_since`, and the run asks a human to pick; every other model is
+published as usual. The pick goes in `mapping.json`'s `duplicate_choices`, by the
+`created` stamp of the real entry, with the reason. For Mistral Large 4 it is the
+$0.70 / $2.10 entry, the one that matches Mistral's own price, picked on 2026-11-09. An
+entry there can go once Eden AI lists the id once.
 
-## `list_pricing`, `pricing`, and the public `discount`
+## What is not published, and why
 
-Each model carries both. `list_pricing` is the public list price; `pricing` is what
-the endpoint actually charges, and it is lower when Eden runs a promotion, which it
-states per model in a `discount` field (`"discount": 0.5`). Until October 2026 this
-scraper published the list price and stopped on any divergence, on the grounds that
-an unauthenticated read might be quoted a rate private to one account. Eden then
-served the case that argument did not cover: a promotion declared in the same
-unauthenticated response, on every figure at once -- a price every consumer of the
-endpoint gets, and the price they actually pay.
-
-What is published is now that effective price (`pricing`), on one narrow condition:
-every figure in it is exactly `list_pricing` scaled by the discount the response
-itself states. "Exactly" is judged in Eden's arithmetic, plain floating-point
-multiplication by `1 - discount`: Eden computes the figures that way (`1.5e-07` at
-35% off arrives as `9.749999999999999e-08`, not `9.75e-08`), and a decimal
-re-derivation disagreed with its own bytes on 61 of the 79 discounted models served
-on 2026-10-12. A divergence with no `discount`, a discount that does not account
-for the difference figure by figure, or a shape the comparison cannot vouch for (a
-tiered array) stops the run, as before. When the two objects are equal, nothing
-changes.
-
-## Currency
-
-**USD.** There is no currency field anywhere in the API. It is confirmed the same
-way OVH's EUR was, by comparing a number against the page that renders it: the
-endpoint states `4e-07` per token for `mistral/mistral-medium-2508`, and
-<https://app.edenai.run/models> renders that exact model as `$0.40` under a column
-headed "Input $". If that ever needs revisiting, it starts here.
-
-## Per-token to per-million
-
-Eden states a price per single token; this file publishes per million. `raw *
-1_000_000` is wrong often enough to matter -- it turns `4e-07` into
-`0.39999999999999997`, on 48 of the 245 figures this provider published the day that
-was measured -- so the scaling goes through `Decimal` seeded from `repr()`.
-Genuinely long decimals are preserved, not
-rounded: Scaleway's figures really do carry fifteen of them, because Eden converts
-them from EUR, and rounding would invent a price.
-
-## What is deliberately not published
-
-The API states these and this file does not carry them:
-
-- **A second long-context tier.** Since 2026-11-09 the rates Eden states past a prompt
-  size -- `input_cost_per_token_above_128k_tokens`, the `_above_200k_tokens` variants and
-  their output and cache twins -- are published as `in_per_mtok_long_context`,
-  `out_per_mtok_long_context` and `cache_read_per_mtok_long_context`, with the size read
-  off the field name as `long_context_threshold` (12 models at 200k and 9 at 128k that
-  day). The format holds one threshold per entry, so a model that states two publishes
-  neither, and the run says so in a note: picking one would understate the bill past
-  the other.
-- **`search_context_cost_per_query`** — a per-query web-search charge, and itself an
-  object of three sizes rather than one figure.
-- **`output_cost_per_reasoning_token`** and **`citation_cost_per_token`** (one model
-  each).
-
-`cache_read_per_mtok` **is** published, for every model that states
-`cache_read_input_token_cost`.
+- **A second long-context tier.** The format holds one threshold per entry: a model that
+  states two publishes neither, and the run says so, since picking one would understate
+  the bill past the other.
+- **`search_context_cost_per_query`**: a per-query web search charge, stated as three
+  sizes rather than one figure.
+- **`output_cost_per_reasoning_token`** and **`citation_cost_per_token`**, stated by one
+  model each.
+- **Upstreams not covered**: Eden AI's list also holds other makers' models (Google,
+  Anthropic and Together AI among them), which `mapping.json` does not name. Google and
+  Anthropic are published directly, under their own blocks.
 
 ## Running it yourself
 
 ```sh
-python3 scripts/providers/edenai/scrape.py --out-dir .ci-out          # read the live endpoint
+python3 scripts/providers/edenai/scrape.py --out-dir .ci-out          # live
 python3 scripts/providers/edenai/scrape.py --out-dir .ci-out --html tests/fixtures/edenai/models_ok.json
 ```
-
-Same rules as every other provider here: no API key, ever; never writes
-`pricing.json` directly; touches only `providers.edenai`, carrying every other
-provider's block through byte-for-byte.
-`.github/workflows/refresh-edenai.yml` runs it every day and on demand, sharing the
-`pricing-json-writes` concurrency group with the other providers' workflows so they
-queue rather than race.

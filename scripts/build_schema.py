@@ -15,12 +15,15 @@ re-expresses it. A test regenerates and compares, and fails if the committed
 artifact has drifted from the validator.
 
 What it deliberately cannot say is listed in the schema's own description. JSON
-Schema describes one document; three of this repository's rules are not properties
+Schema describes one document; two of this repository's rules are not properties
 of one document at all:
 
     the change factor    compares a figure against the PREVIOUS file
-    duplicate api_ids    across entries, not within one
     currency pinning     compares the block against a provider's mapping.json
+
+An id may appear in the api_ids of several entries of one block, and that is no rule
+broken: a model's speeds and resolutions are entries of their own, all called with the
+model's id.
 
 A consumer that validates against this schema has checked the shape, the units and
 the plausible range of every figure. It has not checked that the file is sane, and
@@ -50,12 +53,11 @@ SCHEMA_URL = "https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing
 
 CANNOT_EXPRESS = (
     "Generated from scripts/pricing_validate.py, which remains the authority -- do "
-    "not edit this file by hand. It describes one document, so three rules this "
+    "not edit this file by hand. It describes one document, so two rules this "
     "repository enforces are necessarily absent: a figure may not move by more than "
     "a factor of "
-    f"{validate.MAX_CHANGE_FACTOR:g} from the previous published file; api_ids must "
-    "not repeat across entries; and a block's currency must match the mapping its "
-    "scraper reads. Validating against this schema proves the shape, the units and "
+    f"{validate.MAX_CHANGE_FACTOR:g} from the previous published file; and a block's "
+    "currency must match the mapping its scraper reads. Validating against this schema proves the shape, the units and "
     "the plausible range of every figure. It does not prove the file is sane."
 )
 

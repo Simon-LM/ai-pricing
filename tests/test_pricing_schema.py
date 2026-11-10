@@ -66,8 +66,12 @@ class TestTheArtifactIsGenerated(unittest.TestCase):
         """Without this, "it validates" reads as "it is sane", and a consumer trusts a
         figure that moved by a factor of a thousand overnight."""
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-        for missing in ("factor of", "api_ids", "currency"):
+        for missing in ("factor of", "currency"):
             self.assertIn(missing, schema["description"])
+        # An id in the api_ids of several entries is no broken rule (a model's speeds and
+        # resolutions are entries of their own), and nothing enforces one: the schema
+        # must not claim it.
+        self.assertNotIn("api_ids", schema["description"])
 
     def test_the_version_travels_with_the_file(self) -> None:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))

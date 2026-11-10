@@ -1,186 +1,92 @@
-<!-- @format -->
+# OVHcloud AI Endpoints
 
-# OVH
+`scrape.py` reads OVHcloud's public AI Endpoints catalog every day (05:00 UTC,
+`.github/workflows/refresh-ovh.yml`) and works out what `providers.ovh` should say. No
+API key: the catalog is public.
 
-Reads OVH's [AI Endpoints catalog](https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/)
-and publishes `providers.ovh` in `pricing.json`. First implemented 2026-08-03.
-Covers the catalog in full, whatever it happens to list -- priced entries and free
-ones alike. Five further models were dropped from the catalog page on 2026-08-04
-while remaining on sale -- see below.
+| what | source | read as |
+| --- | --- | --- |
+| every model the catalog lists, with its prices | <https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/> | the model list the page embeds as data |
+| the models OVHcloud serves, for the coverage check only | <https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models> | JSON, model ids only, no price read |
 
-If you are checking the catalog by eye, **hard-reload it first**
-(`Ctrl+Shift+R`) and compare the "N résultats
-disponibles" count against what `scrape.py` reads. A cached tab already caused
-one round of "the scraper is missing models" that turned out to be a stale
-browser copy; nothing distinguishes a stale render from a live one except that
-count.
+`mapping.json` names pricing units, not models: a model OVHcloud adds to the catalog is
+published on the next run.
 
-## How this page differs from Mistral's
+## What it reads
 
-Mistral's pricing page is server-rendered card markup: `scripts/providers/mistral/scrape.py`
-reads `<div class="model-item">` elements and a `data-prices` JSON attribute on
-each price row. OVH's catalog is a Next.js app where the entire model list --
-id, display name, and a machine-readable `metadata.usage_information.pricing`
-array -- is embedded as JSON inside a React Server Components ("Flight") data
-chunk: a `<script>self.__next_f.push([1, "..."])</script>` tag whose string
-argument, once JS-unescaped, contains a `"models":[...]` array. The rendered
-price text a browser shows ("0.08€/Mtoken(entrée)") is derived from that same
-JSON at render time.
+The catalog is a Next.js app. Its whole model list, each with a machine-readable
+`metadata.usage_information.pricing` array, is embedded as JSON in the page's streamed
+data (`self.__next_f.push(...)`), read through `scripts/nextjs_flight.py`. The price a
+browser shows ("0.08€/Mtoken(entrée)") is drawn from that same data; reading the data
+gives a number and an explicit unit (`price_unit`: `million_input_tokens`...) instead of
+a French-formatted string. `mapping.json`'s `units` translates each `price_unit` into a
+field; a unit it does not know is reported and that figure left out, never guessed at.
+If the data's shape changes, the run fails.
 
-`scrape.py` reads the JSON directly rather than re-parsing the formatted,
-French-language price string: it is more robust (a number stays a number
-regardless of locale formatting) and gives an explicit, unambiguous unit per
-price (`price_unit`, e.g. `"million_input_tokens"`) rather than a suffix like
-Mistral's `"/ 1000 pages"` that has to be string-matched.
+## The key is the API model id, not the catalog's `id`
 
-This also means a genuinely different failure mode than Mistral's page: the
-thing that can break is not the CSS class of a card, but the shape of a
-framework-internal data-streaming format. `extract_catalog_models()` in
-`scrape.py` documents exactly what it expects and refuses -- never guesses --
-the moment that shape changes.
+Each entry carries an `id`, a slug for the catalog's own URLs, and a `name`, what OVH's
+API answers to: `qwen-3-6-27b` is called as `Qwen3.6-27B`. Entries are keyed by `name`.
+A renamed `name` publishes the new id and keeps the old one, frozen and dated with
+`absent_since`.
 
-## Currency
+## EUR, because of the URL
 
-**EUR**, confirmed by direct comparison: the catalog's JSON price for
-`bge-multilingual-gemma2` (`0.01`) matches the literal "0.01€" rendered on the
-page at the `/fr/` locale URL this scraper reads. No currency field exists
-elsewhere in the payload -- the number is only meaningfully EUR because of
-which locale URL was fetched. `mapping.json`'s `source` is pinned to that exact
-`/fr/` URL for this reason; fetching a different locale could plausibly return
-different (converted) numbers under the same JSON shape, which this scraper has
-no way to detect. If that ever needs revisiting, it starts here.
+The payload states no currency. The figures are euros because the `/fr/` catalog is
+fetched: its JSON price for `bge-multilingual-gemma2`, `0.01`, is the "0.01€" the page
+renders. Another locale could return other numbers in the same shape, undetectably, so
+`source` is pinned to that URL.
 
-## What is published, and what is deliberately not
+## Free models
 
-`mapping.json` names **pricing units**, not models: it says that a catalog price
-tagged `million_input_tokens` is published as `in_per_mtok`, and so on. A unit
-missing from that table is reported and its figure left unpublished, never guessed
-at -- the unit is part of the field name, and there is no honest field to put an
-unrecognised figure in. Read its own `_comment` for the authoritative account.
-Summary:
-
-**Published: every catalog entry, whatever the catalog happens to list.** There is
-no hand-written model list here and there must not be one: the catalog states the
-callable model id itself, so a model OVH adds is published on the next run and one
-it withdraws keeps its last observed prices under an `absent_since` stamp.
-
-This paragraph used to end with the model list itself, spelled out. It was a
-hand-written model list under a sentence forbidding hand-written model lists, and by
-2026-09-14 it had gone stale exactly as one would expect -- OVH had put `Qwen3.8-27B`
-on sale and the list did not know. `pricing.json` is the answer to "which models",
-and it is the only thing that has to be right. Every figure in it was confirmed
-against the live catalog and cross-checked against the page's own rendered price text
-before being committed.
-
-## The key is the API model id, and it is not the catalog's `id`
-
-Each catalog entry carries both an `id` and a `name`, and they are different
-things. `id` is a CMS slug used in the catalog's own URLs; `name` is what OVH's
-API actually answers to. The entry with `id: "qwen-3-6-27b"` is called as
-`Qwen3.6-27B`, and `llama-3-3-70b-instruct` is called as
-`Meta-Llama-3_3-70B-Instruct`. `pricing.json` is keyed by `name` for that reason,
-and nothing is keyed off `id` at all -- so OVH reorganising its own catalog URLs
-does not show up in this file, while a rename of `name` does: it publishes the new
-id with today's price and keeps the old one, frozen and dated, so a consumer still
-calling it finds out rather than getting a plausible price for a model that no
-longer answers.
-
-Fifteen of the nineteen names the catalog listed on 2026-08-04 were cross-checked
-against OVH's public, keyless OpenAI-compatible model list at
-`https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`. The four nvr-tts
-voices are absent from that list only because text-to-speech is served from its
-own per-model endpoint rather than the OpenAI-compatible one.
-
-**Withdrawn from the catalog page between 2026-08-03 and 2026-08-04, but still
-sold (5 models):** Qwen3-Coder-30B-A3B-Instruct, Qwen3-32B,
-Mistral-Small-3.2-24B-Instruct-2506, Mistral-7B-Instruct-v0.3,
-Mistral-Nemo-Instruct-2407. The page listed 24 models on the 3rd and 19 on the
-4th; these five are the difference, and the word "mistral" no longer appears
-anywhere in the page's HTML. They have not been retired from the service --
-OVH's public, keyless OpenAI-compatible serving API
-(`https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models`) still lists all five
-with live non-zero prices. That API is deliberately not used as a source here:
-it quotes **USD**, this block publishes **EUR**, and the two are different
-numbers rather than the same price in two formats (Qwen3.6-27B: `0.47`/`3.19`
-there against `0.40`/`2.70` on the page). Add these five if the catalog page
-lists them again. Do not backfill them from the API, and do not convert.
-
-**Free (7 models):** the four nvr-tts voices, both Qwen3Guard models and
-stable-diffusion-xl-base-v10. The catalog prices all seven at `0` and the page
-renders their price block as the literal word "Gratuit" (free), not a number --
-OVH stating a deliberate free tier, not missing data. They are published as
-`"free": true` with no price field, never as a price of `0`: this repository's
-sanity floor (`pricing_validate.MIN_PLAUSIBLE = 0.001`) exists to catch a parser
-that misreads a real price as `0`, and publishing genuine free tiers as numbers
-would force that floor open for everything.
-
-The marker is not remembered anywhere: it is read off the catalog on every run,
-and it means "every unit this model is priced in is stated at 0". The day OVH
-starts charging for one of these, the price simply appears in the file and the
-marker simply goes -- nothing keeps announcing "free" for something that now bills.
-
-A single `0` sitting *beside* a real price is a different thing and is not
-published at all. It is either a giveaway of one side of a token price, which this
-schema has no way to state, or a misparse; the run reports it and publishes the
-prices it could read.
+A model whose every price is `0` is one OVHcloud gives away: the page renders its price
+as "Gratuit". It is published as `"free": true`, with no price field, never as a price of
+0, and the marker is read again on every run, so the day OVHcloud charges for it, the
+price appears and the marker goes. A single `0` beside a real price is not published: a
+giveaway of one side of a token price has no field, and it could be a misread. The run
+reports it.
 
 ## The coverage check
 
-`check_coverage.py` closes a blind spot the scraper cannot close on its own.
-`scrape.py` notices when a model it used to publish disappears from the page; it
-is silent about a model OVH **sells** that the page never mentions, because to a
-scraper reading one source, an absent row is indistinguishable from a model that
-does not exist. That is exactly how the five withdrawn models above went unnoticed
-until a human compared a stale browser tab against a fresh one.
+A scraper sees a model disappear from its page, but not a model the provider sells that
+the page never lists. On 2026-08-04 the catalog page dropped five models OVHcloud was
+still serving, and nothing in the scrape could notice. So, every day after the price
+check, `check_coverage.py` compares the catalog page with OVHcloud's public list of
+served models and reports:
 
-So every day, right after the price check, the catalog page is compared
-against OVH's own public model list. Three things get reported:
+- **served but not on the catalog page**: nothing here can publish its price;
+- **on the catalog page but not published**: usually a price in a unit the mapping has no
+  field for;
+- **on the catalog page but not served**: advertised before it can be called, or a key
+  that is not the callable id.
 
-- **sold but not on the catalog page** — OVH serves it, the page does not price
-  it, so nothing here can publish it;
-- **on the catalog page but not published** — the scraper publishes every model
-  the page prices, so this normally means the page states no price for it, or
-  states one in a unit `mapping.json` has no field for;
-- **on the catalog page but not in the API list** — either the page advertises
-  something not yet servable, or a published key is not the callable model id.
+It reads no price and never changes a figure. The served list quotes USD prices that are
+not the catalog's EUR ones converted (`Qwen3.6-27B`: $0.47 / $3.19 there, €0.40 / €2.70
+on the page), so it is never used as a source of prices. A gap is a warning on the run,
+never a failure: refusing every correct price for one missing model would also stop the
+Monday stamp that keeps the schedule alive. Exit codes: `0` no gap, `2` a gap, `1` the
+check could not run. `coverage.json` lists the known exceptions, each with its reason
+(text-to-speech voices served from their own endpoint, a model listed under another
+name).
 
-It reads **no price** and can never change a figure. Prices there are quoted in
-USD while this block publishes EUR, and they are different numbers rather than
-the same price in another format; only the sets of model ids are compared.
+## What is not published, and why
 
-**A gap never fails the job.** Refusing to publish every correct price in the
-catalog because one model is missing from a page would also suppress the
-`checked_utc` stamp — and that stamp is what keeps the schedule from being
-switched off. A gap is a `::warning::` and a job-summary entry, nothing more.
+- **A model OVHcloud serves but the catalog page does not list.** The coverage check
+  reports it; its price is not taken from the served list, which quotes another currency
+  and other figures. It is published if the catalog lists it again.
+- **A price in a unit `mapping.json` does not know**, until the unit is added.
 
-The three exit codes are deliberate: `0` no gap, `2` a gap was found, `1` the
-check could not run. "I could not look" must never be reported as "I looked and
-found nothing", which is why a timeout is not folded into the same code as a
-clean result.
+## Checking the catalog by eye
 
-`coverage.json` holds the exceptions, each with a reason: `ppl` (in the API,
-never a published model), `stabilityai/stable-diffusion-xl-base-1.0` (the
-upstream name for weights the catalog lists as `stable-diffusion-xl-base-v10`),
-and the four nvr-tts voices (served from their own endpoint, so never in the
-OpenAI-compatible list). Without those, this check would report the same
-non-problem every Monday and be worth nothing by March.
-
-```sh
-python3 scripts/providers/ovh/check_coverage.py     # reads both sources live
-python3 scripts/providers/ovh/check_coverage.py \
-  --html tests/fixtures/ovh/catalog_ok.html \
-  --models-json tests/fixtures/ovh/models_api_ok.json
-```
+Hard-reload it first (`Ctrl+Shift+R`) and compare its "N résultats disponibles" count
+with what `scrape.py` reads. A cached tab once looked like missing models; nothing
+distinguishes a stale render from a live one but that count.
 
 ## Running it yourself
 
 ```sh
-python3 scripts/providers/ovh/scrape.py --out-dir .ci-out                       # read the live catalog
+python3 scripts/providers/ovh/scrape.py --out-dir .ci-out          # live
 python3 scripts/providers/ovh/scrape.py --out-dir .ci-out --html tests/fixtures/ovh/catalog_ok.html
+python3 scripts/providers/ovh/check_coverage.py                    # the coverage check, live
+python3 scripts/providers/ovh/check_coverage.py --html tests/fixtures/ovh/catalog_ok.html --models-json tests/fixtures/ovh/models_api_ok.json
 ```
-
-Same rules as every other provider here: no API key, ever; never writes
-`pricing.json` directly; touches only `providers.ovh`, carrying every other
-provider's block through byte-for-byte. `.github/workflows/refresh-ovh.yml`
-runs it every day and on demand, sharing the `pricing-json-writes` concurrency
-group with Mistral's workflow so the two queue rather than race.

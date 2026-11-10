@@ -1,0 +1,29 @@
+name: Propose a field or a unit
+description: Suggest a price pricing.json cannot state yet. Please open this before writing any code.
+labels: ["proposal: format"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Every field becomes part of a public format other programs rely on, and cannot simply be taken back once published, so it is discussed here first. The fields that exist are listed in docs/format.md.
+  - type: input
+    id: providers
+    attributes:
+      label: Provider or providers that state this price
+    validations:
+      required: true
+  - type: textarea
+    id: quote
+    attributes:
+      label: What the provider's page says, word for word, with its link
+    validations:
+      required: true
+  - type: input
+    id: field
+    attributes:
+      label: Field you would propose, if you have one in mind
+      placeholder: per_audio_hour
+  - type: textarea
+    id: why
+    attributes:
+      label: What it would be used for
