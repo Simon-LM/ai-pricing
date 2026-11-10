@@ -270,6 +270,18 @@
           "maximum": 1000.0,
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
+        "per_1k_posts": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "per_1k_profiles": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
         "per_1k_images": {
           "type": "number",
           "minimum": 0.001,
@@ -427,6 +439,16 @@
                 },
                 {
                   "required": [
+                    "per_1k_posts"
+                  ]
+                },
+                {
+                  "required": [
+                    "per_1k_profiles"
+                  ]
+                },
+                {
+                  "required": [
                     "per_1k_images"
                   ]
                 },
@@ -564,6 +586,16 @@
               {
                 "required": [
                   "per_1k_calls"
+                ]
+              },
+              {
+                "required": [
+                  "per_1k_posts"
+                ]
+              },
+              {
+                "required": [
+                  "per_1k_profiles"
                 ]
               },
               {

@@ -8,8 +8,8 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
-Today that means three providers called directly — Mistral, OVH's AI Endpoints
-catalog and Scaleway's Generative APIs — and two aggregators that resell them and
+Today that means four providers called directly — Mistral, OVH's AI Endpoints
+catalog, Scaleway's Generative APIs and xAI's API — and two aggregators that resell them and
 others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
 prices are grouped by **provider**, not just by model: the same model is a different
 bill depending on who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
@@ -23,6 +23,7 @@ those numbers is in this file.
 | `scaleway` | EUR | called directly |
 | `edenai` | USD | resold, 5 upstreams |
 | `huggingface` | USD | routed, 1 partner: OVHcloud |
+| `xai` | USD | called directly |
 
 How many entries each block holds, and how many of them are still on sale, is not
 written here: it follows the source and changes most weeks, so any number in this
@@ -41,7 +42,7 @@ That day the router stopped routing to Scaleway: a call answers HTTP 402, "Pay-a
 go is not enabled for provider scaleway yet", and the router's listing holds no
 Scaleway route. `huggingface` now covers OVHcloud alone; its Scaleway routes stay in
 the file, marked `absent_since`, so a consumer that still names one finds out. The
-other four providers are covered in full.
+other five providers are covered in full.
 
 When a source lists one model twice at two different prices -- Eden AI did for
 `mistral/mistral-large-4` from 2026-10-06 -- that model alone keeps the prices already
@@ -84,6 +85,11 @@ catalogue endpoint instead, and a good reason to look at the page when a figure 
 is surprising. Being an aggregator, Eden's prices are what **Eden** charges to forward
 a call, so they differ from the same model's price under `providers.mistral` or
 `providers.ovh` — by design, not by error.
+
+xAI's figures come from its public pricing page, but not from the tables on it: the
+page embeds xAI's whole catalogue as data, every model with its prices, aliases and
+long-context threshold under explicit field names, and that is what is read. Only its
+server-side tools (web search, X search, code execution...) are read off a table.
 
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
@@ -174,6 +180,7 @@ convention because there is no single source:
 | `edenai` | Eden's model id, upstream prefix included | `mistral/codestral-latest` |
 | `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
 | `scaleway` | the callable API model id, from the catalogue's own `product` | `glm-5.3` |
+| `xai` | the callable API model id, the catalogue's own `name`; a tool's id for a tool | `grok-4.7`, `x_search` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
 Mistral is the odd one: its source names things for people, not for callers. So its
@@ -199,15 +206,17 @@ The field is **absent** when there is nothing to publish for it, which means one
 two different things -- tell them apart with `kind`:
 
 - on a model, absent means the key itself is the identifier. `ovh`, `scaleway`,
-  `edenai` and
-  `huggingface` are all keyed by the exact string their API takes, so they carry no
-  `api_ids` at all;
+  `edenai`,
+  `huggingface` and `xai` are all keyed by the exact string their API takes, so they
+  carry no `api_ids` unless there is more to call it by;
 - on a `"kind": "product"` entry, absent means there is nothing to call. Mistral's web
   search and image generation are billed, but they are not models.
 
-Only Mistral publishes the field today, because it is the only provider whose keys are
-human-facing names rather than callable ids. Its documentation site states the ids
-per model; the pricing page this repository used to read never did.
+Mistral publishes the field because its keys are human-facing names rather than
+callable ids: its documentation site states the ids per model, which the pricing page
+this repository used to read never did. xAI publishes it for another reason: its keys
+are callable, but most models also answer to aliases (`grok-code-fast-1` is
+`grok-build-0.1`), so `api_ids` lists the dated name first, then every alias xAI states.
 
 The unit is part of the key name, so that a consumer cannot silently apply a
 per-token price to a per-page model. There is deliberately no generic `price` field.
@@ -227,6 +236,8 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `per_audio_second` | per second of audio sent |
 | `per_call` | per API call |
 | `per_1k_calls` | per thousand API calls |
+| `per_1k_posts` | per thousand posts returned (xAI's X search) |
+| `per_1k_profiles` | per thousand user profiles returned (xAI's X search) |
 | `per_1k_images` | per thousand images |
 | `per_image` | per image |
 | `per_mchars` | per million input characters |

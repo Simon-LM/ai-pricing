@@ -1,0 +1,52 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from xAI's public pricing page to pricing.json entries.",
+    "",
+    "The page embeds xAI's whole public catalogue as data, in a script that sets",
+    "globalThis.__XAI_PUBLIC_MODELS__: per cluster, every language model with its",
+    "prices, its aliases and its long-context threshold, and every audio model with",
+    "its own. The server-side tools are priced in a table on the same page. Nothing",
+    "here is a model list: what the page states is what is published.",
+    "",
+    "Token prices arrive in US cents per 100 million tokens, as xAI's API reference",
+    "states for the same fields (GET /v1/language-models): 20000 is $2.00 per million.",
+    "Audio prices arrive in units of 1e-10 dollars: perAudioSecond 277778 is the",
+    "$0.10 per hour the page shows beside it, perCharacter 150000 the $15.00 per",
+    "million characters. Both checked against the page's own table on 2026-11-09.",
+    "",
+    "Prices differ by cluster: on 2026-11-09 us-central-1 charged 10% more for",
+    "grok-4.6 and grok-4.7. One cluster is published, the one every language model",
+    "is listed in; the run notes how many other clusters exist.",
+    "",
+    "Not published yet, though the page states them: image and video generation",
+    "(per image, per second of video) and the real-time voice models (per audio token,",
+    "per minute of phone line), whose units this file does not represent; and the",
+    "batch discount (batchDiscountPercent), for a later change."
+  ],
+  "source": "https://docs.x.ai/developers/pricing",
+  "format": "html",
+  "currency": "USD",
+  "cluster": "us-east-1",
+  "_comment_audio": [
+    "Audio models published, and how. A model the page lists that is not named here is",
+    "skipped without a note when it is in `audio_skipped`, and noted otherwise."
+  ],
+  "audio": {
+    "grok-tts": {"perCharacter": "per_mchars"},
+    "grok-voice-transcribe-2.0": {
+      "perAudioSecond": "per_audio_second",
+      "perAudioSecondStreaming": "per_audio_second@streaming"
+    }
+  },
+  "audio_skipped": ["grok-voice-2.0", "grok-voice-3.0"],
+  "_comment_tools": [
+    "The unit words the tool table uses, and the price field each becomes. A price the",
+    "table states in any other way (\"Token-based\", \"Imagine API rates\") is not a",
+    "per-call price, and the tool is left out with a note."
+  ],
+  "tool_units": {
+    "calls": "per_1k_calls",
+    "posts": "per_1k_posts",
+    "profiles": "per_1k_profiles"
+  }
+}
