@@ -105,7 +105,8 @@ header rows, give every price: input, output, the three prompt caching rates, ba
 fast mode, and Claude Haiku 5.5's higher prices past 100,000 tokens; three sentences
 price web search, code execution and web fetch. The model deprecations page gives each
 model's API id and whether it is still sold: a model it calls Retired is not
-published, even where the pricing page still prices it.
+published, even where the pricing page still prices it, and neither is a model the
+pricing page badges "Verification required" (the Claude Mythos models).
 
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.

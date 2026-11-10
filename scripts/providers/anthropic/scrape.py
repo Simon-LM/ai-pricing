@@ -72,6 +72,9 @@ class Cell:
         self.header = header
         self.rowspan = rowspan
         self.parts: list[str] = []
+        # What the cell's badges say to a screen reader: "Claude Mythos 5.2 (Verification
+        # required)", "Claude Opus 4 (Retired)". The badge itself is an icon, with no text.
+        self.labels: list[str] = []
 
     @property
     def text(self) -> str:
@@ -106,6 +109,10 @@ class _Tables(HTMLParser):
             self._row.append(self._cell)
         elif self._cell is not None and tag in ("br", "div", "p", "span", "a", "button"):
             self._cell.parts.append(" ")
+        if self._cell is not None and tag not in ("td", "th"):
+            label = dict(attrs).get("aria-label")
+            if label:
+                self._cell.labels.append(label)
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "table" and self._depth:
@@ -414,15 +421,27 @@ def product_entries(page: str, page_tables: list[list[list[Cell]]], mapping: JSO
 # --------------------------------------------------------------------------------------
 
 
+def restricted(table: list[list[Cell]], mapping: JSONDict) -> set[str]:
+    """The models whose name carries the badge the mapping names: on 2026-11-10, "(Verification
+    required)", which marks the Claude Mythos models, sold only to organisations Anthropic has
+    verified. They are not published, in any table."""
+    badge = cast(str, mapping["restricted_badge"])
+    names: set[str] = set()
+    for row in body_rows(table):
+        if any(badge in label for label in row[0].labels):
+            names.update(model_names(row[0].text))
+    return names
+
+
 def extract_models(pricing_page: str, status_page: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     url = cast(str, mapping["source"])
     specs = cast("dict[str, JSONDict]", mapping["tables"])
     page_tables = tables(pricing_page)
     states = status_table(status_page, mapping)
 
-    main, notes = model_prices(
-        find_table(page_tables, cast("list[list[str]]", specs["models"]["headers"]), "model table", url),
-        specs["models"], "model table")
+    model_table = find_table(page_tables, cast("list[list[str]]", specs["models"]["headers"]), "model table", url)
+    held_back = restricted(model_table, mapping)
+    main, notes = model_prices(model_table, specs["models"], "model table")
     batch, batch_notes = model_prices(
         find_table(page_tables, cast("list[list[str]]", specs["batch"]["headers"]), "batch table", url),
         specs["batch"], "batch table")
@@ -434,6 +453,8 @@ def extract_models(pricing_page: str, status_page: str, mapping: JSONDict) -> tu
     models: dict[str, JSONDict] = {}
     for name, prices in main.items():
         extra = batch.pop(name, None)
+        if name in held_back:
+            continue
         model_id, sold = resolve(name, states, mapping)
         if model_id is None:
             notes.append(f"{name}: priced, but the deprecations page's status table does not list it; not published")
@@ -450,10 +471,12 @@ def extract_models(pricing_page: str, status_page: str, mapping: JSONDict) -> tu
         entry["display_name"] = name
         entry.update(ids_entry(model_id))
         models[model_id] = _published(model_id, entry)
-    for name in batch:
+    for name in sorted(set(batch) - held_back):
         notes.append(f"{name}: in the batch table, not in the model table; its batch prices are not published")
 
     for name, prices in fast.items():
+        if name in held_back:
+            continue
         model_id, sold = resolve(name, states, mapping)
         if model_id is None or sold != "sold":
             if model_id is None:

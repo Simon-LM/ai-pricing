@@ -161,6 +161,12 @@ class TestFigures(ScrapeTestCase):
         for model_id in ("claude-opus-4-1-20250805", "claude-opus-4-20250514", "claude-sonnet-4-20250514"):
             self.assertNotIn(model_id, self.models)
 
+    def test_a_model_sold_only_after_verification_is_not_published(self) -> None:
+        """On 2026-11-10 the page badged the three Claude Mythos models "(Verification
+        required)": not in the model table, the batch table or the fast mode table."""
+        self.assertIn("Claude Mythos 5.2 (Verification required)", self.pricing_page)
+        self.assertFalse([k for k in self.models if "mythos" in k])
+
     def test_a_deprecated_model_is_still_published(self) -> None:
         self.assertEqual(self.models["claude-sonnet-4-5-20250929"]["in_per_mtok"], 3.0)
 
@@ -195,13 +201,13 @@ class TestFigures(ScrapeTestCase):
             assert name is not None, cells[0]
             entry = next((e for e in self.models.values() if e.get("display_name") == name.group(0)), None)
             if entry is None:
-                continue  # retired: checked above
+                continue  # retired, or held back by its badge: checked above
             figures = [float(re.match(r"\$([0-9.]+)", c).group(1)) for c in cells[1:]]  # type: ignore[union-attr]
             fields = ["in_per_mtok", "out_per_mtok", "cache_write_5m_per_mtok", "cache_write_1h_per_mtok",
                       "cache_read_per_mtok"]
             self.assertEqual([entry[f] for f in fields], figures, name.group(0))
             checked += 1
-        self.assertEqual(checked, 17, "every flat row of a model still sold")
+        self.assertEqual(checked, 14, "every flat row of a model still sold and not held back")
 
 
 class TestFailures(ScrapeTestCase):
@@ -298,6 +304,31 @@ class TestNotes(ScrapeTestCase):
         self.assertIn("model table: a row named 'Sonnet Five'", self.notes())
         self.assertIn("batch table: a row named 'Sonnet Five'", self.notes())
         self.assertEqual(self.published()["claude-sonnet-5"]["absent_since"], FIXED_NOW[:10])
+
+
+class TestBadges(ScrapeTestCase):
+    def test_a_badge_taken_off_publishes_the_model(self) -> None:
+        page = self.edited(self.pricing_page, 'aria-label="Claude Mythos 5.2 (Verification required)"',
+                           'aria-label="Claude Mythos 5.2"', count=2)
+        code, _, stderr = self.run_scrape(pricing=page)
+        self.assertEqual(code, 0, stderr)
+        models = self.published()
+        self.assertEqual(models["claude-mythos-5-2"]["in_per_mtok"], 8.0)
+        self.assertEqual(models["claude-mythos-5-2"]["in_per_mtok_batch"], 4.0)
+        self.assertEqual(models["claude-mythos-5-2 (fast)"]["in_per_mtok"], 16.0)
+        self.assertNotIn("claude-mythos-5-1", models)
+
+    def test_a_badge_put_on_holds_the_model_back(self) -> None:
+        page = self.edited(self.pricing_page, '>Claude Sonnet 5</a>',
+                           '>Claude Sonnet 5</a><button aria-label="Claude Sonnet 5 (Verification required)"></button>',
+                           count=3)
+        code, _, stderr = self.run_scrape(pricing=page)
+        self.assertEqual(code, 0, stderr)
+        # It was published before: kept, marked absent, like any entry a source stops offering.
+        self.assertEqual(self.published()["claude-sonnet-5"]["absent_since"], FIXED_NOW[:10])
+        # The run reports it once as no longer offered; the scraper adds nothing of its own.
+        self.assertIn("claude-sonnet-5: no longer offered", self.notes())
+        self.assertNotIn("a row named", self.notes())
 
 
 class TestMapping(unittest.TestCase):

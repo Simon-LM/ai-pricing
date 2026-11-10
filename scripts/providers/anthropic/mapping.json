@@ -33,6 +33,13 @@
   ],
   "format": "html",
   "currency": "USD",
+  "_comment_restricted": [
+    "A model whose name carries this badge is not published, in any table: on 2026-11-10",
+    "the pricing page marked the Claude Mythos models '(Verification required)', sold only",
+    "to organisations Anthropic has verified. The badge is an icon; its words are what it",
+    "says to a screen reader, its aria-label."
+  ],
+  "restricted_badge": "(Verification required)",
   "states": {
     "Active": "sold",
     "Deprecated": "sold",

@@ -33,8 +33,7 @@ own, model by model: half the standard rates on 2026-11-10.
 input rate), writing to it for 1 hour (2 times), and reading it back. The page states
 all three as figures, model by model, and all three are published. The read rate is
 not the same multiple for every model: 0.1 times the input rate for most, 0.05 for
-Claude Opus 5.5 and Sonnet 5.5, 0.025 for Claude Fable 5.2, Mythos 5.2, Fable 5.1 and
-Mythos 5.1.
+Claude Opus 5.5 and Sonnet 5.5, 0.025 for Claude Fable 5.2 and Fable 5.1.
 
 **Claude Haiku 5.5 is priced by prompt length.** Its rows say "for prompts up to
 100,000 tokens" and "for prompts over 100,000 tokens": every price, cache and batch
@@ -113,6 +112,12 @@ the status table does not list is reported in the run's notes and not published.
 
 ## What is not published, and why
 
+- **The models sold only after verification.** The pricing page badges them "(Verification
+  required)": on 2026-11-10, Claude Mythos 5, 5.1 and 5.2, which Anthropic sells only to
+  organisations it has verified. They are not published, in any table. The badge is read
+  from the page, as `restricted_badge` in `mapping.json` names it, not from a list of
+  models: a badge taken off publishes the model on the next run, a badge put on holds it
+  back, and the run then marks its entry `absent_since`.
 - **The 1.1x multiplier for US-only inference.** With `inference_geo: "us"`, Claude 4.6
   and later models cost 1.1 times every price above, cache and the long-context prices
   of Claude Haiku 5.5 included. The default, global routing, costs the prices
