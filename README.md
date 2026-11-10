@@ -8,8 +8,8 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
-Today that means eight providers called directly — Anthropic's API, OpenAI's API,
-Google's Gemini API, Mistral, OVH's AI Endpoints catalog, Scaleway's Generative APIs,
+Today that means nine providers called directly — Anthropic's API, OpenAI's API,
+Google's Gemini API, Google Cloud's Speech-to-Text, Mistral, OVH's AI Endpoints catalog, Scaleway's Generative APIs,
 xAI's API and Perplexity's API, which also resells other labs' models — and two
 aggregators that resell them and others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
 prices are grouped by **provider**, not just by model: the same model is a different
@@ -29,6 +29,7 @@ those numbers is in this file.
 | `anthropic` | USD | called directly |
 | `openai` | USD | called directly |
 | `google` | USD | called directly (Gemini Developer API) |
+| `googlecloud` | USD | called directly (Speech-to-Text) |
 
 How many entries each block holds, and how many of them are still on sale, is not
 written here: it follows the source and changes most weeks, so any number in this
@@ -126,6 +127,10 @@ valid on the day of the run. Batch, Flex and Priority are read like OpenAI's spe
 Contributor tier, by invitation only, is not published. Gemma, offered in the free tier
 only, is published as free.
 
+Google Cloud's Speech-to-Text is a block of its own, `googlecloud`, read from its pricing
+page's tables: one entry per volume tier, each holding a single price per minute, its
+range in the key. The commitment plans' prices and the free minutes are not published.
+
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
 
@@ -220,6 +225,7 @@ convention because there is no single source:
 | `anthropic` | the API id the model deprecations page states; a tool's name for a tool | `claude-opus-5-5`, `claude-opus-4-5-20251101`, `web_search` |
 | `openai` | the API id the pricing page states; `<id> (flex)`, `(fast)`, `(ultrafast)` for another speed; a tool's name for a tool | `gpt-6-sol`, `gpt-6-sol (flex)`, `web_search` |
 | `google` | the API id the pricing page states; `<id> (flex)`, `(priority)` for another speed; a grounding tool by model generation | `gemini-2.5-flash`, `gemini-2.5-flash (flex)`, `google_search (gemini 2.5)` |
+| `googlecloud` | the row the pricing page states, lowercased, with its volume tier: the page names no API id per price | `speech-to-text v2 recognition standard (0 to 500,000 min/month)` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
 Mistral is the odd one: its source names things for people, not for callers. So its
@@ -566,7 +572,7 @@ between two providers, and how little of either file is about anything else.
 ## How the daily job behaves
 
 Each provider has its own workflow, `.github/workflows/refresh-<name>.yml`, and every
-one runs every day, at its own time: Scaleway at 03:00 UTC, Google 03:30, Mistral 04:00,
+one runs every day, at its own time: Google Cloud at 02:30 UTC, Scaleway 03:00, Google 03:30, Mistral 04:00,
 Anthropic 04:30, OVH 05:00, OpenAI 05:30, Eden AI 06:00, Perplexity 06:30, Hugging Face
 07:00, xAI 07:30. They are half an hour apart on purpose, so the scheduled runs don't
 land in the same minute and queue behind each other, and all of them come before the

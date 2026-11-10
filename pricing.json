@@ -4822,6 +4822,53 @@
           "display_name": "lyria-3.5"
         }
       }
+    },
+    "googlecloud": {
+      "checked_utc": "2026-11-10T15:23:39Z",
+      "updated": "2026-11-10",
+      "source": "https://cloud.google.com/speech-to-text/pricing",
+      "sources": [
+        "https://cloud.google.com/speech-to-text/pricing"
+      ],
+      "currency": "USD",
+      "models": {
+        "speech-to-text v1 medical conversation": {
+          "per_audio_minute": 0.078,
+          "display_name": "speech-to-text v1 medical conversation"
+        },
+        "speech-to-text v1 medical dictation": {
+          "per_audio_minute": 0.078,
+          "display_name": "speech-to-text v1 medical dictation"
+        },
+        "speech-to-text v1 speech recognition with data logging standard": {
+          "per_audio_minute": 0.016,
+          "display_name": "speech-to-text v1 speech recognition with data logging standard"
+        },
+        "speech-to-text v1 speech recognition without data logging standard": {
+          "per_audio_minute": 0.024,
+          "display_name": "speech-to-text v1 speech recognition without data logging standard"
+        },
+        "speech-to-text v2 dynamic batch recognition standard": {
+          "per_audio_minute": 0.003,
+          "display_name": "speech-to-text v2 dynamic batch recognition standard"
+        },
+        "speech-to-text v2 recognition standard (0 to 500,000 min/month)": {
+          "per_audio_minute": 0.016,
+          "display_name": "speech-to-text v2 recognition standard (0 to 500,000 min/month)"
+        },
+        "speech-to-text v2 recognition standard (1,000,000 to 2,000,000 min/month)": {
+          "per_audio_minute": 0.008,
+          "display_name": "speech-to-text v2 recognition standard (1,000,000 to 2,000,000 min/month)"
+        },
+        "speech-to-text v2 recognition standard (2,000,000+ min/month)": {
+          "per_audio_minute": 0.004,
+          "display_name": "speech-to-text v2 recognition standard (2,000,000+ min/month)"
+        },
+        "speech-to-text v2 recognition standard (500,000 to 1,000,000 min/month)": {
+          "per_audio_minute": 0.01,
+          "display_name": "speech-to-text v2 recognition standard (500,000 to 1,000,000 min/month)"
+        }
+      }
     }
   }
 }

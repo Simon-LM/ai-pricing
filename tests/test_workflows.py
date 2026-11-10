@@ -37,6 +37,7 @@ PROVIDER_MODULES = {
     "anthropic": ["tests.scraper_tests.test_anthropic"],
     "edenai": ["tests.scraper_tests.test_edenai"],
     "google": ["tests.scraper_tests.test_google"],
+    "googlecloud": ["tests.scraper_tests.test_googlecloud"],
     "huggingface": ["tests.scraper_tests.test_huggingface"],
     "mistral": ["tests.scraper_tests.test_mistral"],
     "openai": ["tests.scraper_tests.test_openai"],
@@ -46,13 +47,19 @@ PROVIDER_MODULES = {
     "xai": ["tests.scraper_tests.test_xai"],
 }
 
-# Run by every refresh, because they cover the plumbing all ten share.
+# Run by every refresh, because they cover the plumbing all eleven share.
 SHARED_MODULES = [
     "tests.test_pricing_validate",
     "tests.test_provider_runner",
     "tests.test_nextjs_flight",
     "tests.test_weekly_report",
 ]
+
+
+def names(module: str, text: str) -> bool:
+    """Whether `text` names `module` itself, not a longer one it begins: the Google Cloud
+    workflow runs tests.scraper_tests.test_googlecloud, which is not test_google."""
+    return re.search(re.escape(module) + r"(?![A-Za-z0-9_])", text) is not None
 
 
 def workflow(slug: str) -> str:
@@ -108,7 +115,7 @@ class TestARefreshRunsOnlyItsOwnProvidersTests(unittest.TestCase):
                     if module in own:  # no overlap today, but do not assume it
                         continue
                     self.assertFalse(
-                        module in text,
+                        names(module, text),
                         f"refresh-{slug}.yml runs {module}, so a problem in "
                         f"{other_slug} can stop {slug} from publishing.",
                     )
@@ -176,9 +183,8 @@ class TestTheCandidateIsTestedBeforeItIsPublished(unittest.TestCase):
                 for module in others:
                     if module in own:
                         continue
-                    self.assertNotIn(
-                        module,
-                        after,
+                    self.assertFalse(
+                        names(module, after),
                         f"refresh-{slug}.yml checks its candidate with {module}.",
                     )
 

@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from Google Cloud's public Speech-to-Text pricing page to",
+    "pricing.json entries. No model list is held here: the page lists the prices, and the",
+    "keys are made from what each row states.",
+    "",
+    "Each price table sits under a heading naming its API version, matched by",
+    "`version_heading`, and is read if its first header cells are `header`, word for word.",
+    "The columns after the price, one per commitment plan (Gemini Enterprise Flexible",
+    "Savings Plan, 1 or 3 years), are not read. A table headed another way is reported.",
+    "",
+    "Every price is per minute of audio, `field`: '$0.016 / 1 minute, per 1 month /",
+    "account'. A cell in any other unit fails the run. A free tier is not an entry."
+  ],
+  "source": "https://cloud.google.com/speech-to-text/pricing",
+  "sources": [
+    "https://cloud.google.com/speech-to-text/pricing"
+  ],
+  "format": "html",
+  "currency": "USD",
+  "version_heading": "^Speech-to-Text V(?P<version>[0-9]+) API$",
+  "header": [
+    "Category",
+    "Model",
+    "Price (USD)"
+  ],
+  "field": "per_audio_minute",
+  "min_entries": 5
+}

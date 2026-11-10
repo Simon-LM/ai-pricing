@@ -22,6 +22,7 @@ on:
       - "Refresh prices (Anthropic)"
       - "Refresh prices (Eden AI)"
       - "Refresh prices (Google)"
+      - "Refresh prices (Google Cloud)"
       - "Refresh prices (Hugging Face)"
       - "Refresh prices (Mistral)"
       - "Refresh prices (OVH)"
