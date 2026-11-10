@@ -77,6 +77,11 @@ PRICING_PAGE = "https://mistral.ai/pricing/api"
 # block is worked out from. Nothing else on it is read, and nothing else is read for it.
 BATCH_DOCS = "https://docs.mistral.ai/studio/batch-processing"
 
+# The API pricing page, read for one table: the Voice Agents API's prices per minute of
+# conversation, which no model page states. Its other sections list the models by
+# family, already priced on the model pages, and are not read.
+API_PRICING = "https://docs.mistral.ai/inference/pricing"
+
 # What an entry's `batch_derived` says. Matched as a pattern rather than compared to a
 # literal so that the rate is read from the figure and not from the wording.
 BATCH_MARKER = re.compile(r"^(?P<percent>\d+(?:\.\d+)?)% off the stated rate, as Mistral's batch API documentation states$")
@@ -467,7 +472,7 @@ class TestWithdrawnModel(ScrapeTestCase):
         self.run_scrape()
         models = self.models()
         still_offered = [m for m in models if "absent_since" not in models[m]]
-        self.assertEqual(len(still_offered), 26)
+        self.assertEqual(len(still_offered), 28)
         self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
 
     def test_it_is_reported_once_and_not_again(self) -> None:
@@ -763,6 +768,73 @@ class TestBatchFigures(ScrapeTestCase):
 # ======================================================================================
 
 
+class TestVoiceAgents(ScrapeTestCase):
+    """The API pricing page's "Voice agents" table, the one price no model page states.
+
+    Read strictly: a rate whose unit may have changed is not published. The fixture is
+    the page as served on 2026-11-10: "Pricing for the Voice Agents API, billed per
+    minute of conversation", Mistral Small 4 at $0.04/min, larger models at $0.08/min.
+    """
+
+    SECTION = '\\"sectionId\\":\\"voice-agents\\"'
+    UNIT = "billed per minute of conversation"
+    SMALL = '\\"$$0.04/min\\"'
+
+    def test_each_row_is_a_product_priced_per_minute_of_conversation(self) -> None:
+        code, _, stderr = self.run_scrape()
+        self.assertEqual(code, 0, stderr)
+        models = self.models("stamped.json")
+        self.assertEqual(models["voice agents (mistral small 4)"], {
+            "per_conversation_minute": 0.04, "display_name": "voice agents (mistral small 4)", "kind": "product"})
+        self.assertEqual(models["voice agents (larger models)"]["per_conversation_minute"], 0.08)
+
+    def test_the_other_sections_list_models_and_are_not_reported(self) -> None:
+        code, _, stderr = self.run_scrape()
+        self.assertEqual(code, 0, stderr)
+        self.assertEqual(self.notes(), "")
+
+    def test_a_section_that_lists_no_model_is_reported(self) -> None:
+        """Where a price Mistral adds -- the products' prices coming back -- would show."""
+        self.edit(API_PRICING, '{\\"id\\":\\"time-series-models\\",\\"slugs\\"',
+                  '{\\"id\\":\\"time-series-models\\",\\"names\\"')
+        code, _, stderr = self.run_scrape()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("a section 'time-series-models' that lists no model", self.notes())
+
+    def test_a_page_without_the_section_fails_the_run(self) -> None:
+        self.edit(API_PRICING, self.SECTION, '\\"sectionId\\":\\"voice-assistants\\"')
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "no 'voice-agents' section")
+
+    def test_a_section_that_stops_stating_its_unit_fails_the_run(self) -> None:
+        self.edit(API_PRICING, self.UNIT, "billed per session")
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "no longer says it is 'billed per minute of conversation'")
+
+    def test_a_price_in_another_unit_fails_the_run(self) -> None:
+        self.edit(API_PRICING, self.SMALL, '\\"$$2.40/hr\\"')
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "prices 'Mistral Small 4' at '$$2.40/hr'")
+
+    def test_a_row_priced_twice_fails_the_run(self) -> None:
+        self.edit(API_PRICING, '\\"children\\":\\"Larger models\\"', '\\"children\\":\\"Mistral Small 4\\"')
+        code, _, stderr = self.run_scrape()
+        self.assert_failed(code, stderr, "'voice agents (mistral small 4)' is priced twice")
+
+    def test_a_price_change_is_published(self) -> None:
+        self.edit(API_PRICING, self.SMALL, '\\"$$0.05/min\\"')
+        code, _, stderr = self.run_scrape()
+        self.assertEqual(code, 0, stderr)
+        self.assertEqual(self.models()["voice agents (mistral small 4)"]["per_conversation_minute"], 0.05)
+        self.assert_current_untouched()
+
+    def test_the_voice_agents_get_no_batch_rate(self) -> None:
+        self.run_scrape()
+        for key, entry in self.models("stamped.json").items():
+            if key.startswith("voice agents"):
+                self.assertFalse([k for k in entry if k.endswith("_batch") or k == "batch_derived"], key)
+
+
 class TestLayoutFailures(ScrapeTestCase):
     def test_docs_index_without_model_cards(self) -> None:
         self.path_for(DOCS_INDEX).write_text("<html><body>nothing</body></html>", encoding="utf-8")
@@ -1000,12 +1072,13 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
         assert_price_fields_are_producible(self, models, producible)
 
     def test_the_mapping_names_the_pages_that_are_read(self) -> None:
-        """Mistral's figures come from the docs site, and the batch discount from the
-        batch API page: two pages, both read every run. The page that used to price the
-        products was retired and is not read any more, so a third url here would be a
-        page some future edit could quietly start reading again."""
+        """Mistral's figures come from the docs site, the batch discount from the batch
+        API page, and the Voice Agents prices from the API pricing page: three pages, all
+        read every run. The page that used to price the products was retired and is not
+        read any more, so a fourth url here would be a page some future edit could
+        quietly start reading again."""
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(mapping["sources"], [DOCS_INDEX, BATCH_DOCS])
+        self.assertEqual(mapping["sources"], [DOCS_INDEX, BATCH_DOCS, API_PRICING])
         self.assertEqual(mapping["source"], DOCS_INDEX)
         self.assertNotIn("products_source", mapping)
 
@@ -1016,12 +1089,15 @@ class TestPublishedFileMatchesMistral(unittest.TestCase):
         self.assertEqual(mapping["format"], "html")
 
     def test_only_products_carry_a_kind(self) -> None:
+        """A product is either in the hand-held list or a row of the Voice Agents
+        table; nothing else is published as one."""
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
         products = set(mapping["products"])
+        voice_prefix = mapping["voice_agents"]["key_prefix"] + " ("
         for model_id, entry in self.mistral_block()["models"].items():
             if "kind" in entry:
                 self.assertEqual(entry["kind"], "product", model_id)
-                self.assertIn(model_id, products, model_id)
+                self.assertTrue(model_id in products or model_id.startswith(voice_prefix), model_id)
 
     def test_every_key_is_a_name_the_source_states(self) -> None:
         """The keys are names the source states, deliberately not API model ids. An
@@ -1068,17 +1144,19 @@ class TestMapping(unittest.TestCase):
         that back without anything else in the tests noticing."""
         self.assertNotIn("models", self.mapping())
 
-    def test_two_pages_are_named_and_no_more(self) -> None:
-        """The mapping names exactly the two pages that are read every run: the docs
-        site for the prices, and the batch API page for the one sentence the batch
-        figures are worked out from. The page that used to price the products was
-        retired by Mistral and is not replaced, and the products are inventoried by the
-        `products` list alone -- no page, no row table. A third url here would be a page
-        some future edit could quietly start reading again."""
+    def test_three_pages_are_named_and_no_more(self) -> None:
+        """The mapping names exactly the three pages that are read every run: the docs
+        site for the prices, the batch API page for the one sentence the batch figures
+        are worked out from, and the API pricing page for the Voice Agents table. The
+        page that used to price the products was retired by Mistral and is not
+        replaced, and the products are inventoried by the `products` list alone -- no
+        page, no row table. A fourth url here would be a page some future edit could
+        quietly start reading again."""
         mapping = self.mapping()
-        self.assertEqual(mapping["sources"], [DOCS_INDEX, BATCH_DOCS])
+        self.assertEqual(mapping["sources"], [DOCS_INDEX, BATCH_DOCS, API_PRICING])
         self.assertEqual(mapping["source"], DOCS_INDEX)
         self.assertEqual(mapping["batch"]["source"], BATCH_DOCS)
+        self.assertEqual(mapping["voice_agents"]["source"], API_PRICING)
         self.assertNotIn("products_source", mapping)
         self.assertNotIn("rows", mapping)
 

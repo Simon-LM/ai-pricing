@@ -2,7 +2,8 @@
 
 The fixture is xAI's public pricing page as served on 2026-11-09, trimmed to the two
 things the scraper reads: the Next.js chunk that carries globalThis.__XAI_PUBLIC_MODELS__,
-and the server-side tools table.
+and the server-side tools table. Its image, video and real-time voice figures were the
+same on 2026-11-10, the day they were first read and checked against the page's tables.
 """
 
 from __future__ import annotations
@@ -136,8 +137,54 @@ class TestFigures(ScrapeTestCase):
         for tool in ("image_generation", "view_image", "view_x_video"):
             self.assertNotIn(tool, self.models)
 
-    def test_the_real_time_voice_models_are_not_published(self) -> None:
-        self.assertNotIn("grok-voice-3.0", self.models)
+    def test_real_time_voice_is_priced_per_minute_of_conversation(self) -> None:
+        """The page: "Speech to Speech (grok-voice-3.0) $0.08 / min ($4.80 / hr),
+        $0.004 / text input". The catalogue states 13333333 a second, which is
+        $0.0799999980 a minute until rounded: the figure published is the page's."""
+        voice = self.models["grok-voice-3.0"]
+        self.assertEqual(voice, {"per_conversation_minute": 0.08, "per_text_input": 0.004, "display_name": "grok-voice-3.0"})
+        self.assertEqual(self.models["grok-voice-2.0"]["per_conversation_minute"], 0.08)
+
+    def test_real_time_voice_is_not_also_priced_per_token_or_phone_minute(self) -> None:
+        voice = self.models["grok-voice-3.0"]
+        self.assertFalse([k for k in voice if "mtok" in k or "audio" in k])
+
+    def test_images_are_priced_per_resolution_and_quality(self) -> None:
+        """The page's Imagine table, 2026-11-10: grok-imagine-image-2.0, $0.01 per image
+        sent in; 1K, 1.5K, 2K at $0.04, $0.05, $0.06 low and $0.06, $0.07, $0.08 medium."""
+        expected = {("1K", "low"): 0.04, ("1.5K", "low"): 0.05, ("2K", "low"): 0.06,
+                    ("1K", "medium"): 0.06, ("1.5K", "medium"): 0.07, ("2K", "medium"): 0.08}
+        for (resolution, quality), price in expected.items():
+            with self.subTest(resolution=resolution, quality=quality):
+                entry = self.models[f"grok-imagine-image-2.0 ({resolution}, {quality})"]
+                self.assertEqual((entry["per_image"], entry["per_input_image"]), (price, 0.01))
+                self.assertEqual(entry["api_ids"], ["grok-imagine-image-2.0"])
+        self.assertNotIn("grok-imagine-image-2.0", self.models, "no entry without its resolution")
+
+    def test_an_image_model_with_no_quality_is_keyed_by_resolution_alone(self) -> None:
+        entry = self.models["grok-imagine-image (1K)"]
+        self.assertEqual((entry["per_image"], entry["per_input_image"]), (0.02, 0.002))
+        self.assertEqual(entry["api_ids"], ["grok-imagine-image", "grok-imagine-image-2026-03-02"])
+
+    def test_video_is_priced_per_second_and_per_resolution(self) -> None:
+        """The page: grok-imagine-video-1.5 at $0.08, $0.14 and $0.25 a second in 480p,
+        720p and 1080p, $0.01 per image sent in; grok-imagine-video also takes video, at
+        $0.01 a second."""
+        for resolution, price in (("480p", 0.08), ("720p", 0.14), ("1080p", 0.25)):
+            with self.subTest(resolution=resolution):
+                entry = self.models[f"grok-imagine-video-1.5 ({resolution})"]
+                self.assertEqual((entry["per_video_second"], entry["per_input_image"]), (price, 0.01))
+                self.assertNotIn("per_input_video_second", entry)
+        older = self.models["grok-imagine-video (480p)"]
+        self.assertEqual((older["per_video_second"], older["per_input_video_second"], older["per_input_image"]),
+                         (0.05, 0.01, 0.002))
+
+    def test_image_and_video_get_no_batch_rate(self) -> None:
+        """The page: image and video generation are billed at standard rates in batch."""
+        for model_id, entry in self.models.items():
+            if model_id.startswith("grok-imagine"):
+                with self.subTest(model=model_id):
+                    self.assertFalse([k for k in entry if "batch" in k])
 
     def test_batch_rates_are_derived_from_the_table_and_say_so(self) -> None:
         grok = self.models["grok-4.7"]
@@ -168,6 +215,19 @@ class TestFailures(ScrapeTestCase):
         code, _, stderr = self.run_scrape(body)
         self.assert_failed(code, stderr, "not a whole number")
 
+    def test_one_resolution_priced_twice(self) -> None:
+        body = self.page.replace('IMAGE_RESOLUTION_1P5K\\",\\"pricePerImage\\":\\"500000000',
+                                 'IMAGE_RESOLUTION_1K\\",\\"pricePerImage\\":\\"500000000')
+        self.assertNotEqual(body, self.page, "fixture drift: no 1.5K low row to break")
+        code, _, stderr = self.run_scrape(body)
+        self.assert_failed(code, stderr, "grok-imagine-image-2.0 (1K, low): priced twice")
+
+    def test_a_media_price_that_is_not_a_whole_number(self) -> None:
+        body = self.page.replace('\\"pricePerSecond\\":\\"800000000\\"', '\\"pricePerSecond\\":\\"0.08\\"')
+        self.assertNotEqual(body, self.page, "fixture drift: no video price to break")
+        code, _, stderr = self.run_scrape(body)
+        self.assert_failed(code, stderr, "not a whole number")
+
     def test_a_page_without_the_tools_table(self) -> None:
         code, _, stderr = self.run_scrape(self.page.replace("server-side tool invocations", "something else"))
         self.assert_failed(code, stderr, "tools table")
@@ -183,10 +243,35 @@ class TestNotes(ScrapeTestCase):
         self.assertNotIn("in_per_mtok_batch", grok)
 
     def test_an_audio_model_the_mapping_does_not_name_is_noted(self) -> None:
-        mapping = self.mapping_with(audio_skipped=["grok-voice-2.0"])
-        code, _, stderr = self.run_scrape(self.page, mapping=mapping)
+        audio = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))["audio"]
+        del audio["grok-voice-3.0"]
+        code, _, stderr = self.run_scrape(self.page, mapping=self.mapping_with(audio=audio))
         self.assertEqual(code, 0, stderr)
         self.assertIn("grok-voice-3.0: an audio model the mapping does not name", self.notes())
+
+    def test_an_audio_price_nothing_reads_is_noted(self) -> None:
+        body = self.page.replace("pstnMinutePrice", "sipMinutePrice")
+        code, _, stderr = self.run_scrape(body)
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("grok-voice-3.0: the page states 'sipMinutePrice', a price this does not read", self.notes())
+        self.assertEqual(self.published()["grok-voice-3.0"]["per_conversation_minute"], 0.08)
+
+    def test_a_media_price_nothing_reads_is_noted(self) -> None:
+        body = self.page.replace("pricePerInputVideoSecond", "pricePerInputAudioSecond")
+        code, _, stderr = self.run_scrape(body)
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("grok-imagine-video: the page states 'pricePerInputAudioSecond'", self.notes())
+        self.assertNotIn("per_input_video_second", self.published()["grok-imagine-video (480p)"])
+
+    def test_a_resolution_of_another_shape_is_noted_and_the_others_still_publish(self) -> None:
+        body = self.page.replace("VIDEO_RESOLUTION_1080P", "VIDEO_RESOLUTION_4K")
+        code, _, stderr = self.run_scrape(body)
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("grok-imagine-video-1.5: a resolution price reads", self.notes())
+        models = self.published()
+        self.assertEqual(models["grok-imagine-video-1.5 (480p)"]["per_video_second"], 0.08)
+        # Kept, marked absent, as for any entry the source stops offering.
+        self.assertEqual(models["grok-imagine-video-1.5 (1080p)"]["absent_since"], FIXED_NOW[:10])
 
     def test_a_tool_unit_the_mapping_does_not_name_is_noted(self) -> None:
         mapping = self.mapping_with(tool_units={"calls": "per_1k_calls", "posts": "per_1k_posts"})

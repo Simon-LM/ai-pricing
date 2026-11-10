@@ -3,15 +3,17 @@
 # Mistral
 
 Publishes `providers.mistral` in `pricing.json` from Mistral's own site, and from
-nothing else. Two pages are read every run:
+nothing else. Three pages are read every run:
 
 | what | source | why it has to be that one |
 | --- | --- | --- |
 | the models | <https://docs.mistral.ai/models> | states a machine-readable price object and an `isRetired` flag per model, and a unit per figure rather than implying one from a label |
 | the batch discount | <https://docs.mistral.ai/studio/batch-processing> | read for one sentence — the discount Mistral states on batch calls — and for nothing else |
+| the Voice Agents API | <https://docs.mistral.ai/inference/pricing> | read for one table, "Voice agents", the only place its per-minute prices are stated |
 | the billable non-models | `mapping.json`'s `products` list | no page prices them any more — Mistral retired the one that did in October 2026 — so their inventory is held by hand, and every name in it is published sold-but-unpriced |
 
-Every model the docs index lists, plus the billable products the list names. How
+Every model the docs index lists, the Voice Agents API's prices, plus the billable
+products the list names. How
 many that is follows the source and the list; count them in `pricing.json`. The
 products currently carry `unpriced_since`: Mistral still sells them and states no
 price for them anywhere.
@@ -37,15 +39,37 @@ the source that actually knows. Mistral went on to retire the pricing page itsel
 in October 2026, it began redirecting to the docs site — and nothing of it is read
 any more.
 
-## The docs' "API pricing" page: a fallback, not read today
+## The docs' "API pricing" page: read for the Voice Agents table only
 
 Where `mistral.ai/pricing/api` redirects now, <https://docs.mistral.ai/inference/pricing>,
 is a page titled "API pricing" that lists every model's price on one page, by family
 (generalist, OCR, audio, code, embedding, moderation, time series), and the Voice
-Agents API per minute of conversation. Checked on 2026-11-10, it is not read, for three
-reasons:
+Agents API per minute of conversation.
 
-- it states the same model prices the per-model docs pages state, as a summary: the
+**The Voice Agents table is read, and nothing else on the page.** No model page states
+those prices: "Pricing for the Voice Agents API, billed per minute of conversation",
+Mistral Small 4 at $0.04 a minute and "Larger models" at $0.08, on 2026-11-10. Each row
+is published as a product, keyed `voice agents (<row>)`:
+
+```json
+"voice agents (mistral small 4)": {
+  "per_conversation_minute": 0.04,
+  "display_name": "voice agents (mistral small 4)",
+  "kind": "product"
+}
+```
+
+`per_conversation_minute` is not `per_audio_minute`: a minute of audio is what
+transcription bills for the sound sent in, a minute of conversation covers the agent
+listening, thinking and answering. Which models "larger models" covers, the page does
+not say. The table is read strictly, because a rate in a unit that may have changed is
+worse than a stale one: the run fails if the section stops saying it is billed per
+minute of conversation, if a row stops reading as a price per minute, or if the section
+goes. The settings are `mapping.json`'s `voice_agents` block.
+
+**The model sections are not read**, for three reasons, checked on 2026-11-10:
+
+- they state the same model prices the per-model docs pages state, as a summary: the
   model pages also carry each figure's unit and the `isRetired` flag, which this page
   does not;
 - its "Batch", "Priority", "EUR" and regional switches show figures the fetched HTML
@@ -54,11 +78,10 @@ reasons:
 - it prices no product either: web search, code execution, image generation and the
   rest appear nowhere on it.
 
-It matters in two cases. If the per-model pages go, it is the place to read model
-prices from. And it is the only page that states the Voice Agents API's per-minute
-prices ($0.04 a minute with Mistral Small 4, $0.08 with larger models, on 2026-11-10),
-which this block does not publish yet. Until then it is worth a look by hand when a
-published figure is surprising.
+Every section on the page lists models, except Voice agents. **A section that lists no
+model and is not Voice agents is reported in the run's notes**: that is where a price
+Mistral adds would show — the products' prices coming back, for one. If the per-model
+pages go, this page is also the place to read model prices from.
 
 ## The products' page was retired, and they stay published
 
@@ -131,7 +154,7 @@ comes from the docs index alone. Eden still listing `mistral/<something>` that t
 file marks absent is not a contradiction anyone needs to reconcile: it is two
 different sellers, and only one of them is Mistral.
 
-That is structural rather than a promise. The offline test manifest serves 21 URLs,
+That is structural rather than a promise. The offline test manifest serves 23 URLs,
 every one of them Mistral's, and a run that asks for any URL it does not name fails
 instead of reaching the network — so a scraper here that started reading somebody
 else's catalogue would break the test suite rather than quietly publish from it. It
@@ -216,7 +239,7 @@ understates the bill.
 ## Running it yourself
 
 ```sh
-python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live, ~22 fetches
+python3 scripts/providers/mistral/scrape.py --out-dir .ci-out          # live, ~23 fetches
 python3 scripts/providers/mistral/scrape.py --out-dir .ci-out --offline tests/fixtures/mistral/offline.json
 ```
 

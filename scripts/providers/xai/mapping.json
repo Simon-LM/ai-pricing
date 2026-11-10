@@ -19,9 +19,11 @@
     "is listed in; the others are not published, and the run does not note them every",
     "week. scripts/providers/xai/README.md says so for whoever reads the figures.",
     "",
-    "Not published yet, though the page states them: image and video generation",
-    "(per image, per second of video) and the real-time voice models (per audio token,",
-    "per minute of phone line), whose units this file does not represent.",
+    "Image and video generation and the real-time voice models are published from the",
+    "same catalogue, in the same 1e-10 dollar units, checked against the page's tables on",
+    "2026-11-10: grok-imagine-image-2.0 $0.04 an image at 1K and low quality, $0.01 per",
+    "image sent in; grok-imagine-video-1.5 $0.08 a second at 480p; grok-voice-3.0 $0.08 a",
+    "minute of conversation and $0.004 per text input.",
     "",
     "Batch rates are derived from the page's \"Batch discounts by model\" table, which",
     "applies to every token type, and each entry says so in batch_derived. Not from the",
@@ -34,16 +36,72 @@
   "cluster": "us-east-1",
   "_comment_audio": [
     "Audio models published, and how. A model the page lists that is not named here is",
-    "skipped without a note when it is in `audio_skipped`, and noted otherwise."
+    "skipped without a note when it is in `audio_skipped`, and noted otherwise.",
+    "",
+    "`audio_not_read` names the prices the catalogue states for an audio model that are",
+    "deliberately not published; any other price field nothing here reads is noted.",
+    "realtimeAudioTokenPrice is the per-minute rate again, per audio token: 13333333 a",
+    "second over 266667 a token is exactly 50 tokens a second, so publishing both would",
+    "count one conversation twice. pstnMinutePrice, $0.01 a minute of phone line, is in",
+    "the catalogue but on no page xAI shows a customer (pricing, voice, speech to speech,",
+    "SIP phone calls; read 2026-11-10), so nothing confirms its unit."
   ],
   "audio": {
-    "grok-tts": {"perCharacter": "per_mchars"},
+    "grok-tts": {
+      "perCharacter": "per_mchars"
+    },
     "grok-voice-transcribe-2.0": {
       "perAudioSecond": "per_audio_second",
       "perAudioSecondStreaming": "per_audio_second@streaming"
+    },
+    "grok-voice-3.0": {
+      "realtimeAudioSecondPrice": "per_conversation_minute",
+      "realtimeTextInputPrice": "per_text_input"
+    },
+    "grok-voice-2.0": {
+      "realtimeAudioSecondPrice": "per_conversation_minute",
+      "realtimeTextInputPrice": "per_text_input"
     }
   },
-  "audio_skipped": ["grok-voice-2.0", "grok-voice-3.0"],
+  "audio_skipped": [],
+  "audio_not_read": [
+    "realtimeAudioTokenPrice",
+    "pstnMinutePrice"
+  ],
+  "_comment_media": [
+    "Image and video generation models, per list in the catalogue. `row` is what a",
+    "model makes, priced per resolution (and per quality where stated): one entry per",
+    "row, keyed `<model> (<resolution>[, <quality>])`. `model` is what it is given,",
+    "priced once for all resolutions and carried on each of its entries.",
+    "",
+    "`media_not_read`: imagePrice, a single figure per image model that the page's",
+    "table does not show (on 2026-11-10 it equalled the 2K low and 1K medium price of",
+    "grok-imagine-image-2.0); the per-resolution prices are what the table states.",
+    "Batch: the page says image and video generation are billed at standard rates in",
+    "the Batch API, so no batch figure is derived for them."
+  ],
+  "media": {
+    "imageGenerationModels": {
+      "row": {
+        "pricePerImage": "per_image"
+      },
+      "model": {
+        "pricePerInputImage": "per_input_image"
+      }
+    },
+    "videoGenerationModels": {
+      "row": {
+        "pricePerSecond": "per_video_second"
+      },
+      "model": {
+        "pricePerInputImage": "per_input_image",
+        "pricePerInputVideoSecond": "per_input_video_second"
+      }
+    }
+  },
+  "media_not_read": [
+    "imagePrice"
+  ],
   "_comment_tools": [
     "The unit words the tool table uses, and the price field each becomes. A price the",
     "table states in any other way (\"Token-based\", \"Imagine API rates\") is not a",

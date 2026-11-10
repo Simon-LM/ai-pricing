@@ -249,7 +249,12 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `per_1k_posts` | per thousand posts returned (xAI's X search) |
 | `per_1k_profiles` | per thousand user profiles returned (xAI's X search) |
 | `per_1k_images` | per thousand images |
-| `per_image` | per image |
+| `per_image` | per image (xAI: per image made) |
+| `per_input_image` | per image sent in (xAI's image and video models) |
+| `per_video_second` | per second of video made |
+| `per_input_video_second` | per second of video sent in |
+| `per_conversation_minute` | per minute of conversation with a voice agent (Mistral's Voice Agents API, xAI's real-time voice) |
+| `per_text_input` | per text input sent into a real-time voice conversation (xAI) |
 | `per_mchars` | per million input characters |
 | `per_model_month` | per month, per stored model |
 

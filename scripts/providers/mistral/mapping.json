@@ -4,7 +4,8 @@
     "",
     "MODELS come from `source`, https://docs.mistral.ai/models. Its index lists the",
     "models currently offered as cards, and each card's page carries a machine-readable",
-    "price object with the unit stated per figure. That is the only page read.",
+    "price object with the unit stated per figure. Two more pages are read, for one",
+    "thing each: the batch discount, and the Voice Agents API's prices (see below).",
     "",
     "PRODUCTS used to come from https://mistral.ai/pricing/api -- web search, code",
     "execution, image generation, libraries, data capture and the two classifier models",
@@ -80,7 +81,8 @@
   "source": "https://docs.mistral.ai/models",
   "sources": [
     "https://docs.mistral.ai/models",
-    "https://docs.mistral.ai/studio/batch-processing"
+    "https://docs.mistral.ai/studio/batch-processing",
+    "https://docs.mistral.ai/inference/pricing"
   ],
   "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
   "format": "html",
@@ -132,6 +134,33 @@
   "batch": {
     "source": "https://docs.mistral.ai/studio/batch-processing",
     "fields": ["in_per_mtok", "out_per_mtok", "per_1k_pages", "per_1k_annotated_pages"]
+  },
+
+  "_comment_voice_agents": [
+    "THE VOICE AGENTS API is priced on one more page, `voice_agents.source`, the API",
+    "pricing page, in its 'Voice agents' section: a table of two rows, 'Mistral Small",
+    "4' at $0.04 and 'Larger models' at $0.08 a minute on 2026-11-10, under the",
+    "sentence 'Pricing for the Voice Agents API, billed per minute of conversation.'",
+    "No model page states these prices. Each row is published as a product, keyed",
+    "'voice agents (<row>)', lowercased like every key here, in",
+    "per_conversation_minute. The run fails if the section stops stating `unit`, if a",
+    "row stops reading as a price per `price_suffix`, or if the section goes: a rate in",
+    "a unit that may have changed is not published.",
+    "",
+    "The page's other sections list the models by family, and the model pages already",
+    "price them, so they are not read. A section that lists no model and is not Voice",
+    "agents is reported in the run's notes: that is where a price Mistral adds -- the",
+    "products' prices coming back, say -- would show."
+  ],
+
+  "voice_agents": {
+    "source": "https://docs.mistral.ai/inference/pricing",
+    "section": "voice-agents",
+    "unit": "billed per minute of conversation",
+    "header": ["Model", "Price"],
+    "price_suffix": "/min",
+    "field": "per_conversation_minute",
+    "key_prefix": "voice agents"
   },
 
   "denominators": {

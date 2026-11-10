@@ -7,7 +7,8 @@
       "source": "https://docs.mistral.ai/models",
       "sources": [
         "https://docs.mistral.ai/models",
-        "https://docs.mistral.ai/studio/batch-processing"
+        "https://docs.mistral.ai/studio/batch-processing",
+        "https://docs.mistral.ai/inference/pricing"
       ],
       "currency": "USD",
       "models": {
@@ -214,6 +215,16 @@
           "display_name": "premium news",
           "kind": "product",
           "unpriced_since": "2026-08-18"
+        },
+        "voice agents (larger models)": {
+          "per_conversation_minute": 0.08,
+          "display_name": "voice agents (larger models)",
+          "kind": "product"
+        },
+        "voice agents (mistral small 4)": {
+          "per_conversation_minute": 0.04,
+          "display_name": "voice agents (mistral small 4)",
+          "kind": "product"
         },
         "voxtral mini transcribe 2": {
           "per_audio_minute": 0.003,

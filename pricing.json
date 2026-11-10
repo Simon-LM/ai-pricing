@@ -2,12 +2,13 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-11-09T04:08:31Z",
-      "updated": "2026-11-02",
+      "checked_utc": "2026-11-10T09:22:14Z",
+      "updated": "2026-11-10",
       "source": "https://docs.mistral.ai/models",
       "sources": [
         "https://docs.mistral.ai/models",
-        "https://docs.mistral.ai/studio/batch-processing"
+        "https://docs.mistral.ai/studio/batch-processing",
+        "https://docs.mistral.ai/inference/pricing"
       ],
       "currency": "USD",
       "models": {
@@ -276,6 +277,16 @@
           "display_name": "premium news",
           "kind": "product",
           "unpriced_since": "2026-10-13"
+        },
+        "voice agents (larger models)": {
+          "per_conversation_minute": 0.08,
+          "display_name": "voice agents (larger models)",
+          "kind": "product"
+        },
+        "voice agents (mistral small 4)": {
+          "per_conversation_minute": 0.04,
+          "display_name": "voice agents (mistral small 4)",
+          "kind": "product"
         },
         "voxtral mini transcribe 2": {
           "per_audio_minute": 0.003,
@@ -1897,7 +1908,7 @@
       }
     },
     "xai": {
-      "checked_utc": "2026-11-10T02:42:04Z",
+      "checked_utc": "2026-11-10T09:19:12Z",
       "updated": "2026-11-10",
       "source": "https://docs.x.ai/developers/pricing",
       "currency": "USD",
@@ -2078,9 +2089,157 @@
             "grok-code-fast-1-0825"
           ]
         },
+        "grok-imagine-image (1K)": {
+          "per_image": 0.02,
+          "per_input_image": 0.002,
+          "display_name": "grok-imagine-image (1K)",
+          "api_ids": [
+            "grok-imagine-image",
+            "grok-imagine-image-2026-03-02"
+          ]
+        },
+        "grok-imagine-image (2K)": {
+          "per_image": 0.02,
+          "per_input_image": 0.002,
+          "display_name": "grok-imagine-image (2K)",
+          "api_ids": [
+            "grok-imagine-image",
+            "grok-imagine-image-2026-03-02"
+          ]
+        },
+        "grok-imagine-image-2.0 (1.5K, low)": {
+          "per_image": 0.05,
+          "per_input_image": 0.01,
+          "display_name": "grok-imagine-image-2.0 (1.5K, low)",
+          "api_ids": [
+            "grok-imagine-image-2.0"
+          ]
+        },
+        "grok-imagine-image-2.0 (1.5K, medium)": {
+          "per_image": 0.07,
+          "per_input_image": 0.01,
+          "display_name": "grok-imagine-image-2.0 (1.5K, medium)",
+          "api_ids": [
+            "grok-imagine-image-2.0"
+          ]
+        },
+        "grok-imagine-image-2.0 (1K, low)": {
+          "per_image": 0.04,
+          "per_input_image": 0.01,
+          "display_name": "grok-imagine-image-2.0 (1K, low)",
+          "api_ids": [
+            "grok-imagine-image-2.0"
+          ]
+        },
+        "grok-imagine-image-2.0 (1K, medium)": {
+          "per_image": 0.06,
+          "per_input_image": 0.01,
+          "display_name": "grok-imagine-image-2.0 (1K, medium)",
+          "api_ids": [
+            "grok-imagine-image-2.0"
+          ]
+        },
+        "grok-imagine-image-2.0 (2K, low)": {
+          "per_image": 0.06,
+          "per_input_image": 0.01,
+          "display_name": "grok-imagine-image-2.0 (2K, low)",
+          "api_ids": [
+            "grok-imagine-image-2.0"
+          ]
+        },
+        "grok-imagine-image-2.0 (2K, medium)": {
+          "per_image": 0.08,
+          "per_input_image": 0.01,
+          "display_name": "grok-imagine-image-2.0 (2K, medium)",
+          "api_ids": [
+            "grok-imagine-image-2.0"
+          ]
+        },
+        "grok-imagine-video (480p)": {
+          "per_input_image": 0.002,
+          "per_video_second": 0.05,
+          "per_input_video_second": 0.01,
+          "display_name": "grok-imagine-video (480p)",
+          "api_ids": [
+            "grok-imagine-video"
+          ]
+        },
+        "grok-imagine-video (720p)": {
+          "per_input_image": 0.002,
+          "per_video_second": 0.07,
+          "per_input_video_second": 0.01,
+          "display_name": "grok-imagine-video (720p)",
+          "api_ids": [
+            "grok-imagine-video"
+          ]
+        },
+        "grok-imagine-video-1.5 (1080p)": {
+          "per_input_image": 0.01,
+          "per_video_second": 0.25,
+          "display_name": "grok-imagine-video-1.5 (1080p)",
+          "api_ids": [
+            "grok-imagine-video-1.5",
+            "grok-imagine-video-1.5-preview",
+            "grok-imagine-video-1.5-2026-05-30"
+          ]
+        },
+        "grok-imagine-video-1.5 (480p)": {
+          "per_input_image": 0.01,
+          "per_video_second": 0.08,
+          "display_name": "grok-imagine-video-1.5 (480p)",
+          "api_ids": [
+            "grok-imagine-video-1.5",
+            "grok-imagine-video-1.5-preview",
+            "grok-imagine-video-1.5-2026-05-30"
+          ]
+        },
+        "grok-imagine-video-1.5 (720p)": {
+          "per_input_image": 0.01,
+          "per_video_second": 0.14,
+          "display_name": "grok-imagine-video-1.5 (720p)",
+          "api_ids": [
+            "grok-imagine-video-1.5",
+            "grok-imagine-video-1.5-preview",
+            "grok-imagine-video-1.5-2026-05-30"
+          ]
+        },
+        "grok-imagine-video-1.5-lite (1080p)": {
+          "per_input_image": 0.01,
+          "per_video_second": 0.14,
+          "display_name": "grok-imagine-video-1.5-lite (1080p)",
+          "api_ids": [
+            "grok-imagine-video-1.5-lite"
+          ]
+        },
+        "grok-imagine-video-1.5-lite (480p)": {
+          "per_input_image": 0.01,
+          "per_video_second": 0.02,
+          "display_name": "grok-imagine-video-1.5-lite (480p)",
+          "api_ids": [
+            "grok-imagine-video-1.5-lite"
+          ]
+        },
+        "grok-imagine-video-1.5-lite (720p)": {
+          "per_input_image": 0.01,
+          "per_video_second": 0.03,
+          "display_name": "grok-imagine-video-1.5-lite (720p)",
+          "api_ids": [
+            "grok-imagine-video-1.5-lite"
+          ]
+        },
         "grok-tts": {
           "per_mchars": 15.0,
           "display_name": "grok-tts"
+        },
+        "grok-voice-2.0": {
+          "per_conversation_minute": 0.08,
+          "per_text_input": 0.004,
+          "display_name": "grok-voice-2.0"
+        },
+        "grok-voice-3.0": {
+          "per_conversation_minute": 0.08,
+          "per_text_input": 0.004,
+          "display_name": "grok-voice-3.0"
         },
         "grok-voice-transcribe-2.0": {
           "per_audio_second": 2.77778e-05,

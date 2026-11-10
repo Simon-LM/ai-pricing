@@ -12,17 +12,21 @@ other providers' scrapers (see provider_runner).
 The page, <https://docs.x.ai/developers/pricing>, is a Next.js document. Besides the
 tables a human reads, it carries xAI's whole public catalogue as data, in a script
 that sets `globalThis.__XAI_PUBLIC_MODELS__`: per cluster, every language model with
-its prices, its aliases and its long-context threshold, and every audio model with
-its own prices. That data is what this reads, through nextjs_flight, rather than the
-rendered tables -- with one exception: the server-side tools (web search, X search,
-code execution...) are priced only in a table, so that table is read too.
+its prices, its aliases and its long-context threshold, every audio model, and every
+image and video generation model, each with its own prices. That data is what this
+reads, through nextjs_flight, rather than the rendered tables -- with one exception:
+the server-side tools (web search, X search, code execution...) are priced only in a
+table, so that table is read too.
 
 Units, as the source states them:
   token prices  US cents per 100 million tokens (xAI's API reference says so for the
                 same fields): 20000 is $2.00 per million
-  audio prices  units of 1e-10 dollars: perAudioSecond 277778 is $0.10 per hour,
-                perCharacter 150000 is $15.00 per million characters
-Both were checked against the page's own human-readable table on 2026-11-09.
+  audio, image  units of 1e-10 dollars: perAudioSecond 277778 is $0.10 per hour,
+  and video     perCharacter 150000 is $15.00 per million characters,
+                realtimeAudioSecondPrice 13333333 is $0.08 per minute, pricePerImage
+                400000000 is $0.04 an image, pricePerSecond 800000000 $0.08 a second
+Token and audio prices were checked against the page's own human-readable tables on
+2026-11-09, image, video and real-time voice prices on 2026-11-10.
 
 Usage:
     scripts/providers/xai/scrape.py --out-dir .ci-out                    # live
@@ -61,6 +65,13 @@ CATALOGUE_MARKER = "__XAI_PUBLIC_MODELS__="
 TOKEN_DIVISOR = Decimal(10_000)
 # units of 1e-10 dollars -> dollars
 AUDIO_UNIT = Decimal(10) ** -10
+# What a figure stated per second, or per character, is multiplied by to be stated in
+# the unit its field names. Any field not listed is published in the source's unit.
+AUDIO_SCALE = {"per_mchars": Decimal(1_000_000), "per_conversation_minute": Decimal(60)}
+# The source states its 1e-10 dollar counts to six or eight digits. Scaled up, a count
+# picks up a tail no page shows -- 13333333 a second is $0.0799999980 a minute, which
+# the page states as $0.08 -- so a scaled figure keeps six significant digits.
+SIGNIFICANT_DIGITS = 6
 
 TOKEN_FIELDS = {
     "promptTextTokenPrice": "in_per_mtok",
@@ -82,6 +93,26 @@ def _count(raw: Any, where: str) -> Decimal:
 
 def _price(value: Decimal, model_id: str, field: str) -> float:
     return check_price(f"{PROVIDER_ID}/{model_id}", field, float(value))
+
+
+def _rounded(value: Decimal) -> Decimal:
+    """`value` to SIGNIFICANT_DIGITS significant digits."""
+    if value == 0:
+        return value
+    return round(value, SIGNIFICANT_DIGITS - 1 - value.adjusted())
+
+
+def _unread_prices(fields: JSONDict, read: set[str], not_read: set[str], where: str) -> list[str]:
+    """A note for every price field the source states that nothing here reads.
+
+    A field is a price if its name says so. The ones known and deliberately left out
+    are named in the mapping, so only a field xAI adds is reported.
+    """
+    return [
+        f"{where}: the page states {name!r}, a price this does not read; not published"
+        for name in sorted(fields)
+        if "price" in name.lower() and name not in read and name not in not_read
+    ]
 
 
 def public_catalogue(page: str) -> JSONDict:
@@ -141,6 +172,7 @@ def language_entries(config: JSONDict) -> dict[str, JSONDict]:
 def audio_entries(config: JSONDict, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     wanted: JSONDict = mapping.get("audio") or {}
     skipped = set(mapping.get("audio_skipped") or [])
+    not_read = set(mapping.get("audio_not_read") or [])
     models: dict[str, JSONDict] = {}
     notes: list[str] = []
     for model in config.get("audioModels") or []:
@@ -156,17 +188,86 @@ def audio_entries(config: JSONDict, mapping: JSONDict) -> tuple[dict[str, JSONDi
         pricing: JSONDict = {}
         for endpoint in model.get("endpoints") or []:
             pricing.update(endpoint.get("pricing") or {})
+        notes += _unread_prices(pricing, set(fields), not_read, model_id)
         for source_field, target in fields.items():
             if source_field not in pricing:
                 raise ScrapeError(f"{model_id}: no {source_field!r} in its pricing. The data shape has changed.")
             count = _count(pricing[source_field], f"{model_id}.{source_field}")
             field, _, variant = target.partition("@")
             key = f"{model_id} ({variant})" if variant else model_id
-            dollars = count * AUDIO_UNIT * (Decimal(1_000_000) if field == "per_mchars" else 1)
+            dollars = _rounded(count * AUDIO_UNIT * AUDIO_SCALE.get(field, Decimal(1)))
             entry = models.setdefault(key, {"display_name": key})
             if variant:
                 entry["api_ids"] = [model_id]
             entry[field] = _price(dollars, key, field)
+    return models, notes
+
+
+_IMAGE_RESOLUTION = re.compile(r"IMAGE_RESOLUTION_([0-9]+)(?:P([0-9]+))?K")
+_VIDEO_RESOLUTION = re.compile(r"VIDEO_RESOLUTION_([0-9]+)P")
+
+
+def _resolution(raw: Any) -> str | None:
+    """The resolution as the page's table writes it: IMAGE_RESOLUTION_1P5K is "1.5K",
+    VIDEO_RESOLUTION_480P is "480p". None for a name of any other shape."""
+    if not isinstance(raw, str):
+        return None
+    image = _IMAGE_RESOLUTION.fullmatch(raw)
+    if image:
+        return f"{image[1]}.{image[2]}K" if image[2] else f"{image[1]}K"
+    video = _VIDEO_RESOLUTION.fullmatch(raw)
+    return f"{video[1]}p" if video else None
+
+
+def media_entries(config: JSONDict, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """The image and video generation models: one entry per resolution priced, and per
+    quality where the model states one.
+
+    A model states what it makes per resolution, in `resolutionPricing`, and what it is
+    given (an image, a second of video) once for all resolutions. Each entry carries
+    both, so that a call is priced by reading one entry: `grok-imagine-image-2.0 (1K,
+    low)` is the price of one 1K image at low quality, and of each image sent in.
+    Which source field becomes which price field is the mapping's `media` table, per
+    list in the catalogue; a list it does not name is not read.
+    """
+    tables: JSONDict = mapping.get("media") or {}
+    not_read = set(mapping.get("media_not_read") or [])
+    models: dict[str, JSONDict] = {}
+    notes: list[str] = []
+    for list_name, table in tables.items():
+        row_fields: JSONDict = table["row"]
+        model_fields: JSONDict = table["model"]
+        for model in config.get(list_name) or []:
+            model_id = model.get("name") if isinstance(model, dict) else None
+            if not isinstance(model_id, str) or not model_id:
+                raise ScrapeError(f"a model in {list_name} has no string `name`. The data shape has changed.")
+            notes += _unread_prices(model, set(model_fields) | {"resolutionPricing"}, not_read, model_id)
+            given: JSONDict = {}
+            for source_field, target in model_fields.items():
+                if source_field in model:
+                    count = _count(model[source_field], f"{model_id}.{source_field}")
+                    given[target] = _price(count * AUDIO_UNIT, model_id, target)
+            aliases = [a for a in model.get("aliases") or [] if isinstance(a, str) and a and a != model_id]
+            rows = model.get("resolutionPricing") or []
+            if not rows:
+                notes.append(f"{model_id}: states no price per resolution; not published")
+            for row in rows:
+                resolution = _resolution(row.get("resolution") if isinstance(row, dict) else None)
+                prices = [f for f in row_fields if f in row] if isinstance(row, dict) else []
+                if resolution is None or len(prices) != 1:
+                    notes.append(f"{model_id}: a resolution price reads {row!r}, not one this can read; not published")
+                    continue
+                quality = row.get("quality")
+                label = f"{resolution}, {quality}" if isinstance(quality, str) and quality else resolution
+                key = f"{model_id} ({label})"
+                if key in models:
+                    raise ScrapeError(f"{key}: priced twice. Refusing to guess which price is the real one.")
+                count = _count(row[prices[0]], f"{key}.{prices[0]}")
+                entry: JSONDict = {row_fields[prices[0]]: _price(count * AUDIO_UNIT, key, row_fields[prices[0]])}
+                entry.update(given)
+                entry["display_name"] = key
+                entry["api_ids"] = [model_id] + aliases
+                models[key] = entry
     return models, notes
 
 
@@ -273,13 +374,14 @@ def extract_models(page: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], l
     discounts, batch_notes = batch_discounts(page)
     add_batch(models, discounts)
     audio, audio_notes = audio_entries(config, mapping)
+    media, media_notes = media_entries(config, mapping)
     tools, tool_notes = tool_entries(page, mapping)
-    for group in (audio, tools):
+    for group in (audio, media, tools):
         clash = sorted(set(group) & set(models))
         if clash:
-            raise ScrapeError(f"{clash} named twice on the page, as a model and as an audio model or tool.")
+            raise ScrapeError(f"{clash} named twice on the page: two kinds of model, or a model and a tool.")
         models.update(group)
-    return models, batch_notes + audio_notes + tool_notes
+    return models, batch_notes + audio_notes + media_notes + tool_notes
 
 
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:

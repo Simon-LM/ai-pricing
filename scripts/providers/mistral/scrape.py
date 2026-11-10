@@ -2,7 +2,7 @@
 """Read Mistral's public prices and work out what pricing.json's providers.mistral
 block should say.
 
-Standard library only. Reads one public page and nothing else: it takes no API key,
+Standard library only. Reads public pages and nothing else: it takes no API key,
 must never be given one, and never touches anyone's Mistral account.
 
 This script DOES NOT WRITE pricing.json. It writes candidate files into an output
@@ -26,6 +26,16 @@ units the discount may be applied to is decided in mapping.json's `batch` block,
 here, and the percentage is parsed rather than written down: the day Mistral says
 30%, this block follows, and the day the sentence goes, the run fails instead of
 republishing last week's rate as though it were still stated.
+
+A THIRD PAGE IS READ FOR ONE TABLE: the API pricing page,
+<https://docs.mistral.ai/inference/pricing>, for its "Voice agents" section, the one
+price on it that no model page states: the Voice Agents API, billed per minute of
+conversation, $0.04 with Mistral Small 4 and $0.08 with "larger models" on 2026-11-10.
+Its other sections list the models by family, which the model pages already price, and
+are not read; a section that lists no model and is not Voice agents is reported in the
+run's notes, so that a price Mistral adds there -- the products' prices returning, say
+-- is seen rather than missed. The Voice agents rows are published as products, keyed
+`voice agents (<row>)`, in `per_conversation_minute`.
 
 The products -- web search, code execution, image generation, libraries, data
 capture and the two classifier models -- used to come from
@@ -61,8 +71,10 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
+from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
@@ -411,8 +423,136 @@ def frozen_products(mapping: JSONDict) -> dict[str, JSONDict]:
     }
 
 
+# --------------------------------------------------------------------------------------
+# docs.mistral.ai/inference/pricing -- the Voice Agents API
+# --------------------------------------------------------------------------------------
+
+
+# The heading every section of the API pricing page carries, in the streamed tree.
+_SECTION_HEADING = re.compile(r'"sectionId":"([a-z0-9-]+)"')
+
+
+def _section_props(text: str, section_id: str) -> JSONDict | None:
+    """The props of the section element `{"id": "<section_id>", ...}`, or None."""
+    at = text.find(f'{{"id":"{section_id}",')
+    if at < 0:
+        return None
+    try:
+        value, _ = json.JSONDecoder().raw_decode(text, at)
+    except json.JSONDecodeError:
+        return None
+    return cast(JSONDict, value) if isinstance(value, dict) else None
+
+
+def _children(node: object) -> Iterator[object]:
+    """The elements and text below a node of the streamed tree, in order.
+
+    An element is streamed as `["$", type, key, props]`; its content is
+    `props["children"]`, a string, an element, or a list of either.
+    """
+    if isinstance(node, list):
+        if len(node) == 4 and node[0] == "$" and isinstance(node[3], dict):
+            yield node
+        else:
+            for item in node:
+                yield from _children(item)
+    elif isinstance(node, str):
+        yield node
+
+
+def _content(element: object) -> object:
+    """What an element `["$", type, key, props]` holds: `props["children"]`."""
+    return cast(JSONDict, cast("list[object]", element)[3]).get("children")
+
+
+def _text(node: object) -> Iterator[str]:
+    """Every string of text below a node, in order."""
+    for child in _children(node):
+        if isinstance(child, str):
+            yield child
+        else:
+            yield from _text(_content(child))
+
+
+def _rows(node: object) -> Iterator[tuple[str, str]]:
+    """Every two-cell table row below a node: an element whose children are exactly
+    two elements, each holding one string."""
+    for child in _children(node):
+        if isinstance(child, str):
+            continue
+        inner = _content(child)
+        cells = [c for c in _children(inner) if not isinstance(c, str)]
+        texts = [_content(c) for c in cells]
+        if len(cells) == 2 and all(isinstance(t, str) for t in texts):
+            yield cast(str, texts[0]), cast(str, texts[1])
+        else:
+            yield from _rows(inner)
+
+
+def voice_agent_entries(html_text: str, spec: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+    """The Voice Agents API's prices, from the API pricing page's "Voice agents" table.
+
+    Read strictly: the section must still say what its unit is, in the words the
+    mapping states, and every row must price one figure per minute. Anything else
+    fails the run rather than publish a rate in a unit that may have changed.
+    """
+    section = cast(str, spec["section"])
+    url = cast(str, spec["source"])
+    text = next((c for c in nextjs_flight.decoded_chunks(html_text) if f'"sectionId":"{section}"' in c), None)
+    if text is None:
+        raise ScrapeError(
+            f"{url} carries no {section!r} section. Mistral moved or dropped the Voice "
+            f"Agents prices: check the page, then update the mapping's `voice_agents`."
+        )
+
+    notes = [
+        f"{url}: a section {other!r} that lists no model and that nothing here reads; "
+        f"any price in it is not published"
+        for other in dict.fromkeys(_SECTION_HEADING.findall(text))
+        if other != section and "slugs" not in (_section_props(text, other) or {})
+    ]
+
+    props = _section_props(text, section)
+    if props is None:
+        raise ScrapeError(f"{url}: the {section!r} section could not be read. The data shape has changed.")
+    unit = cast(str, spec["unit"])
+    if not any(unit in line for line in _text(props.get("children"))):
+        raise ScrapeError(
+            f"{url}: the {section!r} section no longer says it is {unit!r}. Its unit may "
+            f"have changed; nothing is published from it until a human has looked."
+        )
+
+    suffix = cast(str, spec["price_suffix"])
+    # The stream escapes a string's leading "$" as "$$".
+    price_form = re.compile(r"\$?\$([0-9]+(?:\.[0-9]+)?)" + re.escape(suffix))
+    header = tuple(cast("list[str]", spec["header"]))
+    field = cast(str, spec["field"])
+    entries: dict[str, JSONDict] = {}
+    for label, cell in _rows(props.get("children")):
+        if (label.strip(), cell.strip()) == header:
+            continue
+        match = price_form.fullmatch(cell.strip())
+        if match is None:
+            raise ScrapeError(
+                f"{url}: the {section!r} section prices {label!r} at {cell!r}, not a "
+                f"price per {suffix!r} this can read."
+            )
+        key = f"{spec['key_prefix']} ({label.strip().lower()})"
+        if key in entries:
+            raise ScrapeError(f"{url}: {key!r} is priced twice. Refusing to guess which one is real.")
+        entries[key] = {
+            "kind": "product",
+            "display_name": key,
+            field: check_price(f"{PROVIDER_ID}/{key}", field, float(match[1])),
+        }
+    if not entries:
+        raise ScrapeError(f"{url}: the {section!r} section prices nothing. Its layout has changed.")
+    return entries, notes
+
+
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs: the docs site, plus the frozen products.
+    """The one callback provider_runner needs: the docs site, the Voice Agents prices,
+    plus the frozen products.
 
     The models half is read strictly, exactly as before. The products half reads
     nothing: it republishes every name the mapping's `products` list holds, and the
@@ -421,6 +561,10 @@ def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSO
     twice, because one key cannot be both a model and a product.
     """
     models, notes = extract_docs_models(fetch, mapping)
+
+    spec = cast(JSONDict, mapping["voice_agents"])
+    voice, voice_notes = voice_agent_entries(fetch(cast(str, spec["source"])), spec)
+    notes += voice_notes
 
     products = frozen_products(mapping)
 
@@ -431,8 +575,15 @@ def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSO
             f"from mapping.json's products list. One key cannot be two things; resolve "
             f"it by hand."
         )
+    clash = sorted(set(voice) & (set(models) | set(products)))
+    if clash:
+        raise ScrapeError(
+            f"{clash} is published both from the Voice Agents table and as a model or as "
+            f"a product from mapping.json's products list. One key cannot be two things; "
+            f"resolve it by hand."
+        )
 
-    return {**models, **products}, notes
+    return {**models, **voice, **products}, notes
 
 
 def main(argv: list[str] | None = None) -> int:

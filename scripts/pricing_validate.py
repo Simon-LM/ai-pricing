@@ -118,6 +118,18 @@ KNOWN_PRICE_FIELDS = (
     "per_1k_profiles",
     "per_1k_images",
     "per_image",
+    # xAI's image and video models bill what they are given as well as what they
+    # make: so much per image sent in, and per second of video sent in.
+    "per_input_image",
+    "per_video_second",
+    "per_input_video_second",
+    # A voice agent, billed for as long as the conversation lasts: Mistral's Voice
+    # Agents API and xAI's real-time voice models, both per minute. Not
+    # per_audio_minute, which is audio sent in to be transcribed: a minute of
+    # conversation covers listening, thinking and answering.
+    "per_conversation_minute",
+    # xAI's real-time voice models also bill each text input sent into a conversation.
+    "per_text_input",
     # subscription prices
     "per_model_month",
 )
@@ -142,6 +154,11 @@ PRICE_BOUNDS = {
     # whisper-large-v3-turbo prices at ~0.0000128 per second, which the
     # per_audio_minute floor above would already reject outright.
     "per_audio_second": (0.000001, MAX_PLAUSIBLE),
+    # Fractions of a cent each: xAI's grok-imagine-image takes $0.002 per input image,
+    # its real-time voice $0.004 per text input. The default floor of 0.001 would leave
+    # them less than the change factor above it, and refuse an ordinary price cut.
+    "per_input_image": (0.0001, MAX_PLAUSIBLE),
+    "per_text_input": (0.0001, MAX_PLAUSIBLE),
 }
 
 # What an entry under `models` actually is. "model" is the default and is left
