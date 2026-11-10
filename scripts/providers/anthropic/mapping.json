@@ -1,0 +1,124 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from Anthropic's public docs to pricing.json entries.",
+    "No model list is held here: the pricing page lists the models, and the",
+    "deprecations page states their ids and whether they are still sold.",
+    "",
+    "`source`, the pricing page, is read for its tables, which are rendered on the",
+    "server: the model table, the batch table, the fast mode table and the Claude",
+    "Managed Agents table. Each is found by its header rows, word for word, below in",
+    "`tables`; a table headed any other way is not read, and a page where one of these",
+    "is missing, or found twice, fails the run. Every price cell states its unit,",
+    "'/ MTok', and a cell in any other form fails the run too.",
+    "",
+    "`status_source`, the deprecations page, is read for its status table: the API id",
+    "of every current and recently retired model, and its state. A priced name is",
+    "matched to its id by the format Anthropic's 'Model IDs and versions' page states:",
+    "'Claude Opus 4.5' is claude-opus-4-5, followed by -YYYYMMDD before the 4.6",
+    "generation. `states` says which states are still sold. A Retired model is not",
+    "published even when the pricing page still prices it, as it did Claude Opus 4.1,",
+    "Opus 4 and Sonnet 4 on 2026-11-10. A state not named in `states` fails the run.",
+    "",
+    "Not published, and why (scripts/providers/anthropic/README.md says more):",
+    "the 1.1x multiplier for US-only inference (inference_geo), a rule and not a price;",
+    "the prompt caching multipliers on fast mode prices, which the page states as a",
+    "rule and no figure; the partner clouds (Amazon Bedrock, Google Cloud), which set",
+    "their own prices on their own pages."
+  ],
+  "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+  "status_source": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+  "sources": [
+    "https://platform.claude.com/docs/en/about-claude/pricing",
+    "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+  ],
+  "format": "html",
+  "currency": "USD",
+  "states": {
+    "Active": "sold",
+    "Deprecated": "sold",
+    "Retired": "retired"
+  },
+  "_comment_tables": [
+    "`headers` is every header row of the table, cell by cell. `columns` is the price",
+    "columns after the name, in order, and the field each becomes. A model priced on",
+    "two rows, 'for prompts up to N tokens' then 'for prompts over N tokens', gets its",
+    "second row in the `_long_context` twin of each field, and long_context_threshold",
+    "N + 1: the prompt of N tokens is still billed at the first row's prices."
+  ],
+  "tables": {
+    "models": {
+      "headers": [
+        ["Model", "Base tokens", "Prompt caching"],
+        ["Name", "Input", "Output", "5m writes", "1h writes", "Hits and refreshes"]
+      ],
+      "columns": {
+        "Input": "in_per_mtok",
+        "Output": "out_per_mtok",
+        "5m writes": "cache_write_5m_per_mtok",
+        "1h writes": "cache_write_1h_per_mtok",
+        "Hits and refreshes": "cache_read_per_mtok"
+      }
+    },
+    "batch": {
+      "headers": [
+        ["Model", "Batch tokens"],
+        ["Name", "Input", "Output"]
+      ],
+      "columns": {
+        "Input": "in_per_mtok_batch",
+        "Output": "out_per_mtok_batch"
+      }
+    },
+    "fast": {
+      "headers": [
+        ["Model", "Input", "Output"]
+      ],
+      "columns": {
+        "Input": "in_per_mtok",
+        "Output": "out_per_mtok"
+      }
+    },
+    "status": {
+      "headers": [
+        ["API model name", "Current state", "Deprecated", "Tentative retirement date"]
+      ]
+    }
+  },
+  "_comment_products": [
+    "Tools and products, keyed by the tool's name in the API where it has one. Three",
+    "are priced in a sentence, matched by `sentence`: its `amount` is the figure, and",
+    "a sentence with no `amount` says the product is free (`field` null). A sentence",
+    "that is gone, or found twice with two figures, fails the run. Claude Managed",
+    "Agents is priced in a table, found by `headers`, in the row named `row`.",
+    "",
+    "Code execution: Anthropic also gives every organisation 1,550 free container hours",
+    "a month, and makes it free when web search or web fetch is in the same request.",
+    "Neither fits a price field; the README says both."
+  ],
+  "products": {
+    "web_search": {
+      "display_name": "Web search",
+      "sentence": "Web search is available on the Claude API for \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) USD per 1,000 searches",
+      "field": "per_1k_calls"
+    },
+    "code_execution": {
+      "display_name": "Code execution",
+      "sentence": "Additional usage beyond [0-9,]+ hours is billed at \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) USD per hour, per container",
+      "field": "per_container_hour"
+    },
+    "web_fetch": {
+      "display_name": "Web fetch",
+      "sentence": "The web fetch tool is available on the Claude API at no additional cost",
+      "field": null
+    },
+    "managed_agents": {
+      "display_name": "Claude Managed Agents session runtime",
+      "headers": [
+        ["SKU", "Rate", "Metering"]
+      ],
+      "row": "Session runtime",
+      "rate": "\\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) USD per session-hour",
+      "field": "per_session_hour"
+    }
+  }
+}

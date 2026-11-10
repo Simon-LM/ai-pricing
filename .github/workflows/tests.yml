@@ -19,6 +19,7 @@ on:
   pull_request:
   workflow_run:
     workflows:
+      - "Refresh prices (Anthropic)"
       - "Refresh prices (Eden AI)"
       - "Refresh prices (Hugging Face)"
       - "Refresh prices (Mistral)"

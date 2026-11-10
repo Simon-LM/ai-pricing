@@ -8,9 +8,9 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
-Today that means five providers called directly — Mistral, OVH's AI Endpoints
-catalog, Scaleway's Generative APIs, xAI's API and Perplexity's API, which also resells
-other labs' models — and two aggregators that resell them and others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
+Today that means six providers called directly — Anthropic's API, Mistral, OVH's AI
+Endpoints catalog, Scaleway's Generative APIs, xAI's API and Perplexity's API, which
+also resells other labs' models — and two aggregators that resell them and others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
 prices are grouped by **provider**, not just by model: the same model is a different
 bill depending on who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
 `Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
@@ -25,6 +25,7 @@ those numbers is in this file.
 | `huggingface` | USD | routed, 1 partner: OVHcloud |
 | `xai` | USD | called directly |
 | `perplexity` | USD | called directly; its Agent API also resells 4 upstreams |
+| `anthropic` | USD | called directly |
 
 How many entries each block holds, and how many of them are still on sale, is not
 written here: it follows the source and changes most weeks, so any number in this
@@ -98,6 +99,13 @@ embeddings and the Decisions API come from the rates its pricing calculator carr
 the pricing page, which state the unit of each section; the run fails if one changes.
 Its Agent API resells Anthropic, OpenAI, Google and xAI models beside Perplexity's own,
 so, as with Eden, a model's price there is Perplexity's, not its maker's.
+
+Anthropic's figures come from two pages too. The pricing page's tables, found by their
+header rows, give every price: input, output, the three prompt caching rates, batch,
+fast mode, and Claude Haiku 5.5's higher prices past 100,000 tokens; three sentences
+price web search, code execution and web fetch. The model deprecations page gives each
+model's API id and whether it is still sold: a model it calls Retired is not
+published, even where the pricing page still prices it.
 
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
@@ -190,6 +198,7 @@ convention because there is no single source:
 | `scaleway` | the callable API model id, from the catalogue's own `product` | `glm-5.3` |
 | `xai` | the callable API model id, the catalogue's own `name`; a tool's id for a tool | `grok-4.7`, `x_search` |
 | `perplexity` | the id the Agent API takes, `provider/model`; a tool's `type` for a tool | `xai/grok-4.7`, `web_search` |
+| `anthropic` | the API id the model deprecations page states; a tool's name for a tool | `claude-opus-5-5`, `claude-opus-4-5-20251101`, `web_search` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
 Mistral is the odd one: its source names things for people, not for callers. So its
@@ -216,8 +225,9 @@ two different things -- tell them apart with `kind`:
 
 - on a model, absent means the key itself is the identifier. `ovh`, `scaleway`,
   `edenai`,
-  `huggingface`, `xai` and `perplexity` are all keyed by the exact string their API takes, so they
-  carry no `api_ids` unless there is more to call it by;
+  `huggingface`, `xai`, `perplexity` and `anthropic` are all keyed by the exact string their API
+  takes, so they carry no `api_ids` unless there is more to call it by -- an Anthropic id
+  with a snapshot date lists the shorter alias the Claude API also accepts for it;
 - on a `"kind": "product"` entry, absent means there is nothing to call. Mistral's web
   search and image generation are billed, but they are not models.
 
@@ -236,6 +246,8 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `out_per_mtok` | per million output tokens |
 | `per_mtok` | per million tokens, with no input/output split |
 | `cache_read_per_mtok` | per million tokens read back from a prompt cache |
+| `cache_write_5m_per_mtok` | per million tokens written to a prompt cache kept 5 minutes (Anthropic) |
+| `cache_write_1h_per_mtok` | per million tokens written to a prompt cache kept 1 hour (Anthropic) |
 | `index_per_mtok` | per million tokens indexed |
 | `train_per_mtok` | per million tokens trained on, one-off |
 | `per_1k_pages` | per thousand pages |
@@ -255,6 +267,8 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `per_input_video_second` | per second of video sent in |
 | `per_conversation_minute` | per minute of conversation with a voice agent (Mistral's Voice Agents API, xAI's real-time voice) |
 | `per_text_input` | per text input sent into a real-time voice conversation (xAI) |
+| `per_container_hour` | per hour a code execution container runs (Anthropic) |
+| `per_session_hour` | per hour an agent session runs (Anthropic's Claude Managed Agents) |
 | `per_mchars` | per million input characters |
 | `per_model_month` | per month, per stored model |
 
@@ -280,6 +294,9 @@ it, not only the ones past the line. The entry then carries the plain prices, th
 
 Each one requires the other: a `_long_context` price without its threshold cannot be
 applied to any request, and a threshold with nothing billed past it says nothing.
+
+The two suffixes combine in that order: `in_per_mtok_batch_long_context` is the batch
+input rate past the threshold, which Anthropic states for Claude Haiku 5.5.
 
 **Check `batch_derived` before you use a `_batch` figure.** Scaleway states a batch rate
 per model and those are read off it. Mistral states no batch rate beside any model at

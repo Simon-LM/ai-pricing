@@ -80,6 +80,11 @@ KNOWN_PRICE_FIELDS = (
     "out_per_mtok",
     "per_mtok",
     "cache_read_per_mtok",
+    # Writing to a prompt cache, priced apart from reading it back. Anthropic states two
+    # rates, by how long the cache is kept: 5 minutes (1.25x the input rate on
+    # 2026-11-10) or 1 hour (2x). Two keys, because both are sold for the same model.
+    "cache_write_5m_per_mtok",
+    "cache_write_1h_per_mtok",
     "index_per_mtok",
     "train_per_mtok",
     "per_mchars",
@@ -93,6 +98,12 @@ KNOWN_PRICE_FIELDS = (
     "in_per_mtok_long_context",
     "out_per_mtok_long_context",
     "cache_read_per_mtok_long_context",
+    "cache_write_5m_per_mtok_long_context",
+    "cache_write_1h_per_mtok_long_context",
+    # and in batch: Anthropic states Claude Haiku 5.5's batch rates for prompts over
+    # 100,000 tokens as figures of their own.
+    "in_per_mtok_batch_long_context",
+    "out_per_mtok_batch_long_context",
     # document prices
     "per_1k_pages",
     # Mistral's OCR models bill a second, higher rate for pages it also annotates.
@@ -130,6 +141,10 @@ KNOWN_PRICE_FIELDS = (
     "per_conversation_minute",
     # xAI's real-time voice models also bill each text input sent into a conversation.
     "per_text_input",
+    # Anthropic's code execution tool, billed for the time its container runs, and
+    # Claude Managed Agents, billed for the time a session runs.
+    "per_container_hour",
+    "per_session_hour",
     # subscription prices
     "per_model_month",
 )

@@ -33,6 +33,7 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 
 # provider slug -> the test modules only that provider's refresh may name
 PROVIDER_MODULES = {
+    "anthropic": ["tests.scraper_tests.test_anthropic"],
     "edenai": ["tests.scraper_tests.test_edenai"],
     "huggingface": ["tests.scraper_tests.test_huggingface"],
     "mistral": ["tests.scraper_tests.test_mistral"],
@@ -42,7 +43,7 @@ PROVIDER_MODULES = {
     "xai": ["tests.scraper_tests.test_xai"],
 }
 
-# Run by every refresh, because they cover the plumbing all seven share.
+# Run by every refresh, because they cover the plumbing all eight share.
 SHARED_MODULES = [
     "tests.test_pricing_validate",
     "tests.test_provider_runner",
