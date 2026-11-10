@@ -216,6 +216,30 @@
           "maximum": 1000.0,
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
+        "video_in_per_mtok": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "video_out_per_mtok": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "video_cache_read_per_mtok": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "cache_storage_per_mtok_hour": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
         "index_per_mtok": {
           "type": "number",
           "minimum": 0.001,
@@ -277,6 +301,48 @@
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
         "image_cache_read_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "audio_in_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "audio_out_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "audio_cache_read_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "video_in_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "video_out_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "video_cache_read_per_mtok_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "cache_storage_per_mtok_hour_batch": {
           "type": "number",
           "minimum": 0.001,
           "maximum": 1000.0,
@@ -439,6 +505,18 @@
           "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
         },
         "per_image": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "per_image_batch": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 1000.0,
+          "description": "Price in the block's currency, per the unit named by the key. A figure outside [0.001, 1000] normally means a page changed shape and the wrong number was read, not that the price moved."
+        },
+        "per_song": {
           "type": "number",
           "minimum": 0.001,
           "maximum": 1000.0,
@@ -619,6 +697,26 @@
                 },
                 {
                   "required": [
+                    "video_in_per_mtok"
+                  ]
+                },
+                {
+                  "required": [
+                    "video_out_per_mtok"
+                  ]
+                },
+                {
+                  "required": [
+                    "video_cache_read_per_mtok"
+                  ]
+                },
+                {
+                  "required": [
+                    "cache_storage_per_mtok_hour"
+                  ]
+                },
+                {
+                  "required": [
                     "index_per_mtok"
                   ]
                 },
@@ -670,6 +768,41 @@
                 {
                   "required": [
                     "image_cache_read_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "audio_in_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "audio_out_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "audio_cache_read_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "video_in_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "video_out_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "video_cache_read_per_mtok_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "cache_storage_per_mtok_hour_batch"
                   ]
                 },
                 {
@@ -809,6 +942,16 @@
                 },
                 {
                   "required": [
+                    "per_image_batch"
+                  ]
+                },
+                {
+                  "required": [
+                    "per_song"
+                  ]
+                },
+                {
+                  "required": [
                     "per_input_image"
                   ]
                 },
@@ -935,6 +1078,26 @@
               },
               {
                 "required": [
+                  "video_in_per_mtok"
+                ]
+              },
+              {
+                "required": [
+                  "video_out_per_mtok"
+                ]
+              },
+              {
+                "required": [
+                  "video_cache_read_per_mtok"
+                ]
+              },
+              {
+                "required": [
+                  "cache_storage_per_mtok_hour"
+                ]
+              },
+              {
+                "required": [
                   "index_per_mtok"
                 ]
               },
@@ -986,6 +1149,41 @@
               {
                 "required": [
                   "image_cache_read_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "audio_in_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "audio_out_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "audio_cache_read_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "video_in_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "video_out_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "video_cache_read_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "cache_storage_per_mtok_hour_batch"
                 ]
               },
               {
@@ -1125,6 +1323,16 @@
               },
               {
                 "required": [
+                  "per_image_batch"
+                ]
+              },
+              {
+                "required": [
+                  "per_song"
+                ]
+              },
+              {
+                "required": [
                   "per_input_image"
                 ]
               },
@@ -1227,6 +1435,41 @@
               },
               {
                 "required": [
+                  "audio_in_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "audio_out_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "audio_cache_read_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "video_in_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "video_out_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "video_cache_read_per_mtok_batch"
+                ]
+              },
+              {
+                "required": [
+                  "cache_storage_per_mtok_hour_batch"
+                ]
+              },
+              {
+                "required": [
                   "per_1k_pages_batch"
                 ]
               },
@@ -1238,6 +1481,11 @@
               {
                 "required": [
                   "per_audio_minute_batch"
+                ]
+              },
+              {
+                "required": [
+                  "per_image_batch"
                 ]
               }
             ],

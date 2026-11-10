@@ -35,6 +35,7 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 PROVIDER_MODULES = {
     "anthropic": ["tests.scraper_tests.test_anthropic"],
     "edenai": ["tests.scraper_tests.test_edenai"],
+    "google": ["tests.scraper_tests.test_google"],
     "huggingface": ["tests.scraper_tests.test_huggingface"],
     "mistral": ["tests.scraper_tests.test_mistral"],
     "openai": ["tests.scraper_tests.test_openai"],
@@ -44,7 +45,7 @@ PROVIDER_MODULES = {
     "xai": ["tests.scraper_tests.test_xai"],
 }
 
-# Run by every refresh, because they cover the plumbing all nine share.
+# Run by every refresh, because they cover the plumbing all ten share.
 SHARED_MODULES = [
     "tests.test_pricing_validate",
     "tests.test_provider_runner",

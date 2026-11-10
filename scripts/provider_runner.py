@@ -63,6 +63,18 @@ ExtractNewModels = Callable[[Fetcher, JSONDict], "tuple[dict[str, JSONDict], lis
 # says why in a note, which the workflow turns into an issue a human reads.
 HELD = "_held_for_a_human"
 
+# The time this run states as now -- `--now` in tests, the clock otherwise -- set by run()
+# before it asks the provider for its prices. A source that states a price "through
+# November 30" and another "starting December 1" (Google does) is read for the day of the
+# run: reading the clock directly would make that provider's tests pass or fail by date.
+RUN_UTC: str | None = None
+
+
+def run_date() -> _dt.date:
+    """The date of the run under way, or today's, in UTC, when none is."""
+    stamp = RUN_UTC or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _dt.date.fromisoformat(stamp[:10])
+
 
 class ScrapeError(Exception):
     """Anything that means: do not publish, report it, leave the file alone.
@@ -400,9 +412,12 @@ def run(
     # human reconciled a list is what turned an automated tracker into a weekly
     # chore, and it blocked correct prices for every other model in the block.
 
+    now = args.now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    global RUN_UTC
+    RUN_UTC = now
+
     offered_models, notes = extract_new_models(build_fetcher(args, mapping), mapping)
 
-    now = args.now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     today = now[:10]
 
     # A held model keeps what is published, marked, until a human picks; the others go on.

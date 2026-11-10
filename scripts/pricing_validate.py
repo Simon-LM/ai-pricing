@@ -97,6 +97,12 @@ KNOWN_PRICE_FIELDS = (
     "image_in_per_mtok",
     "image_out_per_mtok",
     "image_cache_read_per_mtok",
+    # and video tokens, as Google prices them (Gemini Omni's video output, video input).
+    "video_in_per_mtok",
+    "video_out_per_mtok",
+    "video_cache_read_per_mtok",
+    # Keeping a context cache, as Google bills it: per million tokens kept, per hour.
+    "cache_storage_per_mtok_hour",
     "index_per_mtok",
     "train_per_mtok",
     "per_mchars",
@@ -109,6 +115,13 @@ KNOWN_PRICE_FIELDS = (
     "image_in_per_mtok_batch",
     "image_out_per_mtok_batch",
     "image_cache_read_per_mtok_batch",
+    "audio_in_per_mtok_batch",
+    "audio_out_per_mtok_batch",
+    "audio_cache_read_per_mtok_batch",
+    "video_in_per_mtok_batch",
+    "video_out_per_mtok_batch",
+    "video_cache_read_per_mtok_batch",
+    "cache_storage_per_mtok_hour_batch",
     # token prices past a long-context threshold: once a request's prompt reaches
     # `long_context_threshold` tokens, every token in it is billed at these rates
     # instead (xAI states both, model by model, from 2026; Eden AI states some too).
@@ -151,6 +164,10 @@ KNOWN_PRICE_FIELDS = (
     "per_1k_profiles",
     "per_1k_images",
     "per_image",
+    # Google's Gemini 2.5 Flash Image is also sold in batch, per image.
+    "per_image_batch",
+    # Google's Lyria music models, per song generated.
+    "per_song",
     # xAI's image and video models bill what they are given as well as what they
     # make: so much per image sent in, and per second of video sent in.
     "per_input_image",

@@ -1,0 +1,161 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from Google's public Gemini API pricing page to pricing.json",
+    "entries. No model list is held here: the page lists the models, under their API ids.",
+    "",
+    "`source` is the page's Markdown (Markdoc), which Google serves beside the rendered",
+    "page. Each model section names its ids, then has one table per tab; `speeds` says what",
+    "each tab becomes: standard is the model's entry, batch its `_batch` fields, flex and",
+    "priority an entry of their own, `<id> (flex)`, `<id> (priority)`. Contributor, a tier",
+    "Google offers by invitation only, is not published (null).",
+    "",
+    "`features` names the rows read and which side of a call each prices; `kinds` forces",
+    "the kind of token for a row that names it in its label ('Image input price').",
+    "`features_ignored` are rows known and not read: grounding is read once, from the",
+    "tools section; tuning is not offered. A row in neither list is reported.",
+    "",
+    "`kinds` maps the words a price states its tokens with, '(text / image / video)', to",
+    "kinds of token, and `kind_prefixes` each kind to the prefix of its fields: none for",
+    "text, `image_`, `audio_`, `video_`."
+  ],
+  "source": "https://aistudio.google.com/docs/pricing.md",
+  "sources": [
+    "https://aistudio.google.com/docs/pricing.md"
+  ],
+  "format": "markdown",
+  "currency": "USD",
+  "speeds": {
+    "Standard": "standard",
+    "Batch": "batch",
+    "Flex": "flex",
+    "Priority": "priority",
+    "Contributor": null
+  },
+  "sections_not_read": [
+    "pricing-for-agents",
+    "notes"
+  ],
+  "tools_section": "pricing-for-tools",
+  "min_entries": 30,
+  "features": {
+    "Input price": {
+      "side": "in"
+    },
+    "Input price (text, image, video)": {
+      "side": "in"
+    },
+    "Output price": {
+      "side": "out"
+    },
+    "Output price (including thinking tokens)": {
+      "side": "out"
+    },
+    "Context caching price": {
+      "side": "cache"
+    },
+    "Context caching (storage)": {
+      "side": "cache"
+    },
+    "Text input price": {
+      "side": "in",
+      "kinds": [
+        "text"
+      ]
+    },
+    "Image input price": {
+      "side": "in",
+      "kinds": [
+        "image"
+      ]
+    },
+    "Audio input price": {
+      "side": "in",
+      "kinds": [
+        "audio"
+      ]
+    },
+    "Video input price": {
+      "side": "in",
+      "kinds": [
+        "video"
+      ]
+    }
+  },
+  "features_ignored": [
+    "Grounding with Google Search",
+    "Grounding with Google Maps",
+    "Grounding with Google Web and Image Search",
+    "Used to improve our products",
+    "Tuning price"
+  ],
+  "_comment_prose": [
+    "The only words a price may be followed by, once its kinds of token, its prompt",
+    "length and its dates are read: anything else after a dollar figure fails the run."
+  ],
+  "prose_without_price": ["", ",", "Implicit caching only (explicit caching is not supported)."],
+  "kinds": {
+    "text": [
+      "text"
+    ],
+    "thinking": [
+      "text"
+    ],
+    "image": [
+      "image"
+    ],
+    "images": [
+      "image"
+    ],
+    "video": [
+      "video"
+    ],
+    "audio": [
+      "audio"
+    ]
+  },
+  "kind_prefixes": {
+    "text": "",
+    "image": "image_",
+    "audio": "audio_",
+    "video": "video_"
+  },
+  "_comment_tools": [
+    "Grounding is priced once, in the tools section, by model generation. Each product is",
+    "read by its pattern in the paid tier cell of its row; a row named here that is gone,",
+    "or priced another way, fails the run. The free allowances before the price (1,500",
+    "requests a day, 5,000 a month) have no field; the README states them."
+  ],
+  "tools": [
+    {
+      "row": "Google Search",
+      "key": "google_search (gemini 2.5)",
+      "display_name": "Grounding with Google Search, Gemini 2.5 models",
+      "pattern": "Gemini 2\\.5 models:.*?Then \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / 1,000 grounded prompts"
+    },
+    {
+      "row": "Google Search",
+      "key": "google_search (gemini 3 and newer)",
+      "display_name": "Grounding with Google Search, Gemini 3 and newer models",
+      "pattern": "Gemini 3 and newer models:.*?then \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) per 1,000 requests"
+    },
+    {
+      "row": "Google Maps",
+      "key": "google_maps (gemini 2.5)",
+      "display_name": "Grounding with Google Maps, Gemini 2.5 models",
+      "pattern": "Gemini 2\\.5 models:.*?Then \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / 1,000 grounded prompts"
+    },
+    {
+      "row": "Google Maps",
+      "key": "google_maps (gemini 3 and newer)",
+      "display_name": "Grounding with Google Maps, Gemini 3 and newer models",
+      "pattern": "Gemini 3 and newer models:.*?then \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / 1,000 search queries"
+    }
+  ],
+  "tools_ignored": [
+    "Code execution",
+    "URL context",
+    "Computer use",
+    "File search",
+    "Custom Tools endpoint (Gemini 3.1 Pro Preview)"
+  ]
+}

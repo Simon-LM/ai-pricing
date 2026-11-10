@@ -8,9 +8,10 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
-Today that means seven providers called directly — Anthropic's API, OpenAI's API,
-Mistral, OVH's AI Endpoints catalog, Scaleway's Generative APIs, xAI's API and
-Perplexity's API, which also resells other labs' models — and two aggregators that resell them and others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
+Today that means eight providers called directly — Anthropic's API, OpenAI's API,
+Google's Gemini API, Mistral, OVH's AI Endpoints catalog, Scaleway's Generative APIs,
+xAI's API and Perplexity's API, which also resells other labs' models — and two
+aggregators that resell them and others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
 prices are grouped by **provider**, not just by model: the same model is a different
 bill depending on who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
 `Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
@@ -27,6 +28,7 @@ those numbers is in this file.
 | `perplexity` | USD | called directly; its Agent API also resells 4 upstreams |
 | `anthropic` | USD | called directly |
 | `openai` | USD | called directly |
+| `google` | USD | called directly (Gemini Developer API) |
 
 How many entries each block holds, and how many of them are still on sale, is not
 written here: it follows the source and changes most weeks, so any number in this
@@ -116,6 +118,13 @@ fields; Flex, Fast and Ultrafast each make an entry of their own, `gpt-6-sol (fl
 Models that take or make audio or images carry those tokens' prices in `audio_` and
 `image_` fields beside the text ones. Models sold only to approved organisations
 ("Trusted Access") and fine-tuning, closed to new users, are not published.
+
+Google's figures come from its Gemini API pricing page as Markdown. Its prices are
+sentences, read clause by clause: the kinds of token, the prompt length, and dates --
+"$2.00 through November 30, 2026. $4.00 starting December 1, 2026." publishes the price
+valid on the day of the run. Batch, Flex and Priority are read like OpenAI's speeds; the
+Contributor tier, by invitation only, is not published. Gemma, offered in the free tier
+only, is published as free.
 
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
@@ -210,6 +219,7 @@ convention because there is no single source:
 | `perplexity` | the id the Agent API takes, `provider/model`; a tool's `type` for a tool | `xai/grok-4.7`, `web_search` |
 | `anthropic` | the API id the model deprecations page states; a tool's name for a tool | `claude-opus-5-5`, `claude-opus-4-5-20251101`, `web_search` |
 | `openai` | the API id the pricing page states; `<id> (flex)`, `(fast)`, `(ultrafast)` for another speed; a tool's name for a tool | `gpt-6-sol`, `gpt-6-sol (flex)`, `web_search` |
+| `google` | the API id the pricing page states; `<id> (flex)`, `(priority)` for another speed; a grounding tool by model generation | `gemini-2.5-flash`, `gemini-2.5-flash (flex)`, `google_search (gemini 2.5)` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
 Mistral is the odd one: its source names things for people, not for callers. So its
@@ -236,8 +246,8 @@ two different things -- tell them apart with `kind`:
 
 - on a model, absent means the key itself is the identifier. `ovh`, `scaleway`,
   `edenai`,
-  `huggingface`, `xai`, `perplexity`, `anthropic` and `openai` are all keyed by the exact string
-  their API takes, so they carry no `api_ids` unless there is more to call it by -- an Anthropic id
+  `huggingface`, `xai`, `perplexity`, `anthropic`, `openai` and `google` are all keyed by the exact
+  string their API takes, so they carry no `api_ids` unless there is more to call it by -- an Anthropic id
   with a snapshot date lists the shorter alias the Claude API also accepts for it;
 - on a `"kind": "product"` entry, absent means there is nothing to call. Mistral's web
   search and image generation are billed, but they are not models.
@@ -261,8 +271,10 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `cache_write_1h_per_mtok` | per million tokens written to a prompt cache kept 1 hour (Anthropic) |
 | `cache_write_30m_per_mtok` | per million tokens written to a prompt cache kept 30 minutes (OpenAI) |
 | `cache_write_12h_per_mtok` | per million tokens written to a prompt cache kept 12 hours (OpenAI) |
-| `audio_in_per_mtok`, `audio_out_per_mtok`, `audio_cache_read_per_mtok` | the same three rates for audio tokens, where a model prices them apart from text (OpenAI) |
-| `image_in_per_mtok`, `image_out_per_mtok`, `image_cache_read_per_mtok` | the same three rates for image tokens (OpenAI) |
+| `audio_in_per_mtok`, `audio_out_per_mtok`, `audio_cache_read_per_mtok` | the same three rates for audio tokens, where a model prices them apart from text (OpenAI, Google) |
+| `image_in_per_mtok`, `image_out_per_mtok`, `image_cache_read_per_mtok` | the same three rates for image tokens (OpenAI, Google) |
+| `video_in_per_mtok`, `video_out_per_mtok`, `video_cache_read_per_mtok` | the same three rates for video tokens (Google) |
+| `cache_storage_per_mtok_hour` | per million tokens kept in a context cache, per hour (Google) |
 | `index_per_mtok` | per million tokens indexed |
 | `train_per_mtok` | per million tokens trained on, one-off |
 | `per_1k_pages` | per thousand pages |
@@ -276,7 +288,8 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `per_1k_posts` | per thousand posts returned (xAI's X search) |
 | `per_1k_profiles` | per thousand user profiles returned (xAI's X search) |
 | `per_1k_images` | per thousand images |
-| `per_image` | per image (xAI: per image made) |
+| `per_image` | per image (xAI, Google: per image made) |
+| `per_song` | per song generated (Google's Lyria) |
 | `per_input_image` | per image sent in (xAI's image and video models) |
 | `per_video_second` | per second of video made |
 | `per_input_video_second` | per second of video sent in |
