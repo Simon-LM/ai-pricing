@@ -281,7 +281,9 @@ The marker is the whole of the distinction, so do not read it as decoration: the
 beside it is this repository's arithmetic on a rate Mistral stated, not a rate Mistral
 printed. The percentage is parsed from the page on every run rather than written down
 here, so it follows Mistral if it changes and the run fails if the sentence goes --
-rather than republishing last week's rate as though it were still stated. No `_batch`
+rather than republishing last week's rate as though it were still stated. xAI is the
+same case: it states one discount per model in a table, and its `_batch` figures are
+worked out from it and marked the same way. No `_batch`
 figure without the marker has been derived, and a source that states no batch rate at
 all publishes no `_batch` field.
 

@@ -139,6 +139,19 @@ class TestFigures(ScrapeTestCase):
     def test_the_real_time_voice_models_are_not_published(self) -> None:
         self.assertNotIn("grok-voice-3.0", self.models)
 
+    def test_batch_rates_are_derived_from_the_table_and_say_so(self) -> None:
+        grok = self.models["grok-4.7"]
+        self.assertEqual(
+            (grok["in_per_mtok_batch"], grok["out_per_mtok_batch"], grok["cache_read_per_mtok_batch"]), (1.6, 4.8, 0.4)
+        )
+        self.assertIn("20% off", grok["batch_derived"])
+
+    def test_a_model_the_batch_table_leaves_out_gets_no_batch_rate(self) -> None:
+        """The catalogue gave grok-build-0.1 20%; the table, which says models not
+        listed have no discount, left it out. The table wins."""
+        build = self.models["grok-build-0.1"]
+        self.assertFalse([k for k in build if "batch" in k])
+
 
 class TestFailures(ScrapeTestCase):
     def test_a_page_without_the_catalogue(self) -> None:
@@ -161,6 +174,14 @@ class TestFailures(ScrapeTestCase):
 
 
 class TestNotes(ScrapeTestCase):
+    def test_a_page_without_the_batch_table_still_publishes_every_other_price(self) -> None:
+        code, _, stderr = self.run_scrape(self.page.replace("Batch discounts by model", "Something else"))
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("no batch discount table", self.notes())
+        grok = self.published()["grok-4.7"]
+        self.assertEqual(grok["in_per_mtok"], 2.0)
+        self.assertNotIn("in_per_mtok_batch", grok)
+
     def test_an_audio_model_the_mapping_does_not_name_is_noted(self) -> None:
         mapping = self.mapping_with(audio_skipped=["grok-voice-2.0"])
         code, _, stderr = self.run_scrape(self.page, mapping=mapping)

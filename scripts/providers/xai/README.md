@@ -41,5 +41,16 @@ million characters.
   represent yet.
 - **Tools billed as tokens or elsewhere** ("Token-based", "Imagine API rates"):
   there is no per-call price to publish.
-- **The batch discount** (`batchDiscountPercent`, 20% on 2026-11-09): stated per
-  model, to be published as derived `_batch` figures in a later change.
+- **Long-context rates in batch.** The discount applies to every token type, but the
+  format has no field for a long-context batch rate.
+
+## Batch
+
+The page states a batch discount per model in a table, "Batch discounts by model", and
+says it applies to every token type. For each model listed there, `in_per_mtok_batch`,
+`out_per_mtok_batch` and `cache_read_per_mtok_batch` are worked out from it, and the
+entry says so in `batch_derived`: 20% on 2026-11-09, so grok-4.7's $2.00 input is $1.60
+in batch. The table wins over the catalogue's own `batchDiscountPercent`: on 2026-11-09
+the catalogue gave grok-build-0.1 20%, while the table left it out under the sentence
+"Models not listed above have no batch discount". A page without the table still
+publishes every other price, with no batch figure, and the run says so in a note.

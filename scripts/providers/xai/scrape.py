@@ -216,9 +216,62 @@ def tool_entries(page: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], lis
     return models, notes
 
 
+_MODEL_LINK = re.compile(r'href="/developers/models/([^"/?#]+)"')
+_PERCENT = re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*%")
+BATCH_FIELDS = {"in_per_mtok": "in_per_mtok_batch", "out_per_mtok": "out_per_mtok_batch",
+                "cache_read_per_mtok": "cache_read_per_mtok_batch"}
+
+
+def batch_discounts(page: str) -> tuple[dict[str, Decimal], list[str]]:
+    """The batch discount per model, from the table under "Batch discounts by model".
+
+    The table, not the catalogue's own `batchDiscountPercent`: on 2026-11-09 the
+    catalogue gave grok-build-0.1 20% while the table left it out, under the sentence
+    "Models not listed above have no batch discount" -- and the table is what xAI
+    states to a customer. A page without the table publishes no batch figure and says
+    so in a note; it does not stop the other prices.
+    """
+    at = page.find("Batch discounts by model")
+    table_at = page.find("<table", at) if at >= 0 else -1
+    if table_at < 0:
+        return {}, ["the page has no batch discount table; no batch figure is published this run"]
+    table = page[table_at:page.find("</table>", table_at)]
+    discounts: dict[str, Decimal] = {}
+    notes: list[str] = []
+    for row in _ROW.findall(table):
+        cells = _CELL.findall(row)
+        if len(cells) < 2:
+            continue
+        found = _PERCENT.findall(_text(cells[1]))
+        names = _MODEL_LINK.findall(cells[0])
+        if len(found) != 1 or not 0 < Decimal(found[0]) < 100:
+            notes.append(f"batch discount row for {names} reads {_text(cells[1])!r}, not one percentage; skipped")
+            continue
+        for name in names:
+            discounts[name] = Decimal(found[0])
+    if not discounts and not notes:
+        notes.append("the batch discount table lists no model; no batch figure is published this run")
+    return discounts, notes
+
+
+def add_batch(models: dict[str, JSONDict], discounts: dict[str, Decimal]) -> None:
+    """Derive each listed model's batch rates: the discount applies to every token type."""
+    for model_id, percent in discounts.items():
+        entry = models.get(model_id)
+        if entry is None or "in_per_mtok" not in entry:
+            continue
+        factor = 1 - percent / 100
+        for field, batch_field in BATCH_FIELDS.items():
+            if field in entry:
+                entry[batch_field] = _price(Decimal(repr(entry[field])) * factor, model_id, batch_field)
+        entry["batch_derived"] = f"{percent.normalize():f}% off the stated rate, as xAI's pricing page states for this model"
+
+
 def extract_models(page: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     config = cluster_config(public_catalogue(page), mapping["cluster"])
     models = language_entries(config)
+    discounts, batch_notes = batch_discounts(page)
+    add_batch(models, discounts)
     audio, audio_notes = audio_entries(config, mapping)
     tools, tool_notes = tool_entries(page, mapping)
     for group in (audio, tools):
@@ -226,7 +279,7 @@ def extract_models(page: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], l
         if clash:
             raise ScrapeError(f"{clash} named twice on the page, as a model and as an audio model or tool.")
         models.update(group)
-    return models, audio_notes + tool_notes
+    return models, batch_notes + audio_notes + tool_notes
 
 
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
