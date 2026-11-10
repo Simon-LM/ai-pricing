@@ -110,6 +110,8 @@ KNOWN_PRICE_FIELDS = (
     # per-operation prices
     "per_call",
     "per_1k_calls",
+    # Perplexity bills its sandbox per container session, a 20-minute billing window.
+    "per_session",
     # xAI bills its X search by what a call brings back, not by the call: so many
     # dollars per thousand posts, and another rate per thousand user profiles.
     "per_1k_posts",

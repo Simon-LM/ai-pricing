@@ -8,9 +8,9 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.json
 https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 ```
 
-Today that means four providers called directly — Mistral, OVH's AI Endpoints
-catalog, Scaleway's Generative APIs and xAI's API — and two aggregators that resell them and
-others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
+Today that means five providers called directly — Mistral, OVH's AI Endpoints
+catalog, Scaleway's Generative APIs, xAI's API and Perplexity's API, which also resells
+other labs' models — and two aggregators that resell them and others, Eden AI and Hugging Face's Inference Providers router. That is exactly why
 prices are grouped by **provider**, not just by model: the same model is a different
 bill depending on who you actually paid. `codestral-latest` is $0.30/$0.90 from Mistral and $1.00/$3.00 through Eden AI;
 `Qwen3.6-27B` is €0.40 from OVH directly and $0.47 through Hugging Face. Every one of
@@ -24,6 +24,7 @@ those numbers is in this file.
 | `edenai` | USD | resold, 5 upstreams |
 | `huggingface` | USD | routed, 1 partner: OVHcloud |
 | `xai` | USD | called directly |
+| `perplexity` | USD | called directly; its Agent API also resells 4 upstreams |
 
 How many entries each block holds, and how many of them are still on sale, is not
 written here: it follows the source and changes most weeks, so any number in this
@@ -42,7 +43,7 @@ That day the router stopped routing to Scaleway: a call answers HTTP 402, "Pay-a
 go is not enabled for provider scaleway yet", and the router's listing holds no
 Scaleway route. `huggingface` now covers OVHcloud alone; its Scaleway routes stay in
 the file, marked `absent_since`, so a consumer that still names one finds out. The
-other five providers are covered in full.
+other six providers are covered in full.
 
 When a source lists one model twice at two different prices -- Eden AI did for
 `mistral/mistral-large-4` from 2026-10-06 -- that model alone keeps the prices already
@@ -90,6 +91,13 @@ xAI's figures come from its public pricing page, but not from the tables on it: 
 page embeds xAI's whole catalogue as data, every model with its prices, aliases and
 long-context threshold under explicit field names, and that is what is read. Only its
 server-side tools (web search, X search, code execution...) are read off a table.
+
+Perplexity's figures come from two pages. The Agent API's models are read off the
+tables of its models page, whose headers state the unit. Its tools, the Search API,
+embeddings and the Decisions API come from the rates its pricing calculator carries in
+the pricing page, which state the unit of each section; the run fails if one changes.
+Its Agent API resells Anthropic, OpenAI, Google and xAI models beside Perplexity's own,
+so, as with Eden, a model's price there is Perplexity's, not its maker's.
 
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
@@ -181,6 +189,7 @@ convention because there is no single source:
 | `huggingface` | the exact string the router takes | `openai/gpt-oss-120b:ovhcloud` |
 | `scaleway` | the callable API model id, from the catalogue's own `product` | `glm-5.3` |
 | `xai` | the callable API model id, the catalogue's own `name`; a tool's id for a tool | `grok-4.7`, `x_search` |
+| `perplexity` | the id the Agent API takes, `provider/model`; a tool's `type` for a tool | `xai/grok-4.7`, `web_search` |
 | `mistral` | **the name its source states**, lowercased | `mistral medium 3.5`, `ocr 4.0` |
 
 Mistral is the odd one: its source names things for people, not for callers. So its
@@ -207,7 +216,7 @@ two different things -- tell them apart with `kind`:
 
 - on a model, absent means the key itself is the identifier. `ovh`, `scaleway`,
   `edenai`,
-  `huggingface` and `xai` are all keyed by the exact string their API takes, so they
+  `huggingface`, `xai` and `perplexity` are all keyed by the exact string their API takes, so they
   carry no `api_ids` unless there is more to call it by;
 - on a `"kind": "product"` entry, absent means there is nothing to call. Mistral's web
   search and image generation are billed, but they are not models.
@@ -236,6 +245,7 @@ per-token price to a per-page model. There is deliberately no generic `price` fi
 | `per_audio_second` | per second of audio sent |
 | `per_call` | per API call |
 | `per_1k_calls` | per thousand API calls |
+| `per_session` | per session (Perplexity's code sandbox: a 20-minute billing window per container) |
 | `per_1k_posts` | per thousand posts returned (xAI's X search) |
 | `per_1k_profiles` | per thousand user profiles returned (xAI's X search) |
 | `per_1k_images` | per thousand images |

@@ -1,0 +1,44 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from Perplexity's public API pages to pricing.json entries.",
+    "No model list is held here: the pages list the models.",
+    "",
+    "Two pages are read. `models_source` prices the Agent API's models, one table per",
+    "maker, headed `Model | Input ($/1M) | Output ($/1M) | Cache read ($/1M)`. A model",
+    "priced in two tiers is billed at the high rates past the size its cells state:",
+    "'(<200k) / (≥200k)' publishes long_context_threshold 200000, '(≤272k) / (>272k)'",
+    "272001. 'N% off input' is a cache price worked out from the input rate, per tier.",
+    "",
+    "`source`, the pricing page, carries the rates of its own pricing calculator as data",
+    "(`const[defaultPricing]=useState(()=>({...}))`): the tools, the sandbox, the Search",
+    "API, embeddings and the Decisions API. Its model rates are not read: on 2026-11-10",
+    "they lacked a model the models page lists. The tests use them as a cross-check.",
+    "",
+    "`units` is what the calculator's own `_meta.units` must state, section by section,",
+    "word for word. A section stated in any other unit fails the run: tools are read as",
+    "dollars per invocation (published per thousand calls), the Search API per thousand",
+    "requests, the sandbox per session, embeddings and the Decisions API per million",
+    "tokens. `units_not_read` names the units stated for sections that are known and",
+    "not read; a unit stated for any other section is reported in the run's notes.",
+    "",
+    "Not published: the `presets` (effort levels), whose token and tool counts are",
+    "median examples, not billed values, as Perplexity's note says; the Orchestrator API,",
+    "which neither page prices; and the Decisions API's output, which is free."
+  ],
+  "source": "https://docs.perplexity.ai/docs/getting-started/pricing",
+  "models_source": "https://docs.perplexity.ai/docs/agent-api/models",
+  "sources": [
+    "https://docs.perplexity.ai/docs/getting-started/pricing",
+    "https://docs.perplexity.ai/docs/agent-api/models"
+  ],
+  "format": "html",
+  "currency": "USD",
+  "units": {
+    "tools": "$ per invocation",
+    "sandbox.session": "$ per session (<=20-min billing window)",
+    "search.per1k": "$ per 1,000 requests",
+    "embeddings.rate": "$ per 1,000,000 tokens",
+    "decisions.input": "$ per 1,000,000 input tokens (output tokens are free; no per-request fee)"
+  },
+  "units_not_read": ["model input/output/cache"]
+}
