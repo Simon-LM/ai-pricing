@@ -243,6 +243,34 @@ class TestPayloadFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, 'no string "id"')
 
 
+class TestLongContextPrices(ScrapeTestCase):
+    """Eden states the rates past a prompt size in the field name itself:
+    `input_cost_per_token_above_200k_tokens` is the input rate past 200 000 tokens."""
+
+    MODEL = "xai/grok-4.5"
+
+    def test_rates_and_threshold_are_read_off_the_field_names(self) -> None:
+        code, _, stderr = self.run_scrape(self.models_ok)
+        self.assertEqual(code, 0, stderr)
+        grok = self.candidate_block("stamped.json")["models"][self.MODEL]
+        self.assertEqual(grok["long_context_threshold"], 200000)
+        self.assertEqual((grok["in_per_mtok_long_context"], grok["out_per_mtok_long_context"]), (4.0, 12.0))
+        self.assertEqual(grok["cache_read_per_mtok_long_context"], 0.6)
+
+    def test_a_model_stating_two_thresholds_publishes_neither(self) -> None:
+        """One threshold per entry: picking one would understate the bill past the other."""
+        doc = json.loads(self.models_ok)
+        entry = next(e for e in doc["data"] if e["id"] == self.MODEL)
+        for prices in (entry["pricing"], entry["list_pricing"]):
+            prices["input_cost_per_token_above_128k_tokens"] = 3e-06
+        code, _, stderr = self.run_scrape(json.dumps(doc))
+        self.assertEqual(code, 0, stderr)
+        block = json.loads((self.out_dir / "updated.json").read_text(encoding="utf-8"))["providers"]["edenai"]
+        grok = block["models"][self.MODEL]
+        self.assertFalse([k for k in grok if "long_context" in k])
+        self.assertIn(f"{self.MODEL}: long-context prices stated at 2 thresholds", self.notes())
+
+
 class TestDuplicatedIds(ScrapeTestCase):
     """Eden listed `mistral/mistral-large-4` twice, at two prices, from 2026-10-06, and
     refusing the whole list for it stopped every Eden price for four weeks. A model
@@ -597,7 +625,9 @@ class TestPublishedFileMatchesEdenAI(unittest.TestCase):
         self.assertEqual(published["source"], mapping["source"])
         self.assertEqual(published["currency"], mapping["currency"])
 
-        producible = set(mapping["fields"])
+        # The mapping's fields, and the long-context rates scrape.py reads off Eden's
+        # field names (`_above_<n>k_tokens`) rather than out of the mapping.
+        producible = set(mapping["fields"]) | set(scrape._LONG_CONTEXT_TARGET.values())
         assert_price_fields_are_producible(self, published["models"], producible)
 
     def test_the_model_list_is_declared_a_json_endpoint(self) -> None:

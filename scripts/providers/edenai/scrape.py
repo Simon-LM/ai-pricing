@@ -38,6 +38,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -260,12 +261,59 @@ def pick_entries(
     return catalog, held, notes
 
 
+_LONG_CONTEXT_FIELD = re.compile(
+    r"^(input_cost_per_token|output_cost_per_token|cache_read_input_token_cost)_above_([0-9]+)k_tokens$"
+)
+_LONG_CONTEXT_TARGET = {
+    "input_cost_per_token": "in_per_mtok_long_context",
+    "output_cost_per_token": "out_per_mtok_long_context",
+    "cache_read_input_token_cost": "cache_read_per_mtok_long_context",
+}
+
+
+def long_context_prices(model_id: str, prices: JSONDict) -> tuple[JSONDict, str | None]:
+    """The rates Eden states past a prompt size, and that size, read off the field names.
+
+    Eden writes them as `input_cost_per_token_above_200k_tokens` and the like: the
+    threshold is in the name, in thousands of tokens. On 2026-11-09, 12 published models
+    stated one at 200k and 9 at 128k, and none stated two. A model that one day states
+    two thresholds keeps its plain prices and publishes no long-context one, with a note:
+    the format holds one threshold per entry, and picking one would understate the bill
+    past the other.
+    """
+    found: dict[int, JSONDict] = {}
+    for api_field, raw in prices.items():
+        match = _LONG_CONTEXT_FIELD.match(api_field)
+        if match is None or raw is None:
+            continue
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise ScrapeError(f"{model_id}: {api_field!r} is {type(raw).__name__}, not a number.")
+        target = _LONG_CONTEXT_TARGET[match.group(1)]
+        threshold = int(match.group(2)) * 1000
+        found.setdefault(threshold, {})[target] = check_price(
+            f"{PROVIDER_ID}/{model_id}", target, per_million(float(raw))
+        )
+    if not found:
+        return {}, None
+    if len(found) > 1:
+        return {}, (
+            f"{model_id}: long-context prices stated at {len(found)} thresholds "
+            f"({', '.join(str(t) for t in sorted(found))} tokens); the format holds one, so none is published"
+        )
+    threshold, fields = next(iter(found.items()))
+    return {**fields, "long_context_threshold": threshold}, None
+
+
 def extract_models(
-    catalog: dict[str, JSONDict], mapping: JSONDict, held: "set[str] | frozenset[str]" = frozenset()
+    catalog: dict[str, JSONDict],
+    mapping: JSONDict,
+    held: "set[str] | frozenset[str]" = frozenset(),
+    notes: "list[str] | None" = None,
 ) -> dict[str, JSONDict]:
     """Turn the model list into a `models` block, through the explicit mapping only.
 
     A held id gets the runner's placeholder instead of figures: see `pick_entries`.
+    Notes about a single model (long-context prices it cannot publish) go to `notes`.
     """
     upstreams = mapping["upstreams"]
     field_specs: JSONDict = mapping["fields"]
@@ -346,6 +394,11 @@ def extract_models(
         if not result_entry:
             raise ScrapeError(f"{model_id}: no price field could be read at all.")
 
+        long_fields, long_note = long_context_prices(model_id, prices)
+        result_entry.update(long_fields)
+        if long_note is not None and notes is not None:
+            notes.append(long_note)
+
         display_name = entry.get("model_name")
         result_entry["display_name"] = display_name if isinstance(display_name, str) and display_name else model_id
         models[model_id] = result_entry
@@ -357,11 +410,11 @@ def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSO
     """The one callback provider_runner needs. One source, read once.
 
     Every field this source states is either read or deliberately skipped by the
-    mapping. The only notes are for a model listed twice at different prices, which
-    needs a human's pick (`pick_entries`).
+    mapping. Notes are for a model listed twice at different prices, which needs a
+    human's pick (`pick_entries`), or one whose long-context prices cannot be published.
     """
     catalog, held, notes = pick_entries(parse_model_list(fetch(mapping["source"])), mapping)
-    return extract_models(catalog, mapping, held), notes
+    return extract_models(catalog, mapping, held, notes), notes
 
 
 def main(argv: list[str] | None = None) -> int:

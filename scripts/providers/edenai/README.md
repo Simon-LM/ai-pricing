@@ -90,11 +90,14 @@ them from EUR, and rounding would invent a price.
 
 The API states these and this file does not carry them:
 
-- **Tiered prices** — `input_cost_per_token_above_128k_tokens` (9 models) and the
-  `_above_200k_tokens` variants (6 models). A price that depends on how long the
-  context is has no representation in this schema, and publishing only the first
-  tier as though it were *the* price would understate a long-context bill without
-  ever looking wrong.
+- **A second long-context tier.** Since 2026-11-09 the rates Eden states past a prompt
+  size -- `input_cost_per_token_above_128k_tokens`, the `_above_200k_tokens` variants and
+  their output and cache twins -- are published as `in_per_mtok_long_context`,
+  `out_per_mtok_long_context` and `cache_read_per_mtok_long_context`, with the size read
+  off the field name as `long_context_threshold` (12 models at 200k and 9 at 128k that
+  day). The format holds one threshold per entry, so a model that states two publishes
+  neither, and the run says so in a note: picking one would understate the bill past
+  the other.
 - **`search_context_cost_per_query`** — a per-query web-search charge, and itself an
   object of three sizes rather than one figure.
 - **`output_cost_per_reasoning_token`** and **`citation_cost_per_token`** (one model
