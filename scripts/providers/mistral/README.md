@@ -37,6 +37,29 @@ the source that actually knows. Mistral went on to retire the pricing page itsel
 in October 2026, it began redirecting to the docs site — and nothing of it is read
 any more.
 
+## The docs' "API pricing" page: a fallback, not read today
+
+Where `mistral.ai/pricing/api` redirects now, <https://docs.mistral.ai/inference/pricing>,
+is a page titled "API pricing" that lists every model's price on one page, by family
+(generalist, OCR, audio, code, embedding, moderation, time series), and the Voice
+Agents API per minute of conversation. Checked on 2026-11-10, it is not read, for three
+reasons:
+
+- it states the same model prices the per-model docs pages state, as a summary: the
+  model pages also carry each figure's unit and the `isRetired` flag, which this page
+  does not;
+- its "Batch", "Priority", "EUR" and regional switches show figures the fetched HTML
+  does not contain: only the standard USD prices are in it, the others are worked out
+  in the browser;
+- it prices no product either: web search, code execution, image generation and the
+  rest appear nowhere on it.
+
+It matters in two cases. If the per-model pages go, it is the place to read model
+prices from. And it is the only page that states the Voice Agents API's per-minute
+prices ($0.04 a minute with Mistral Small 4, $0.08 with larger models, on 2026-11-10),
+which this block does not publish yet. Until then it is worth a look by hand when a
+published figure is surprising.
+
 ## The products' page was retired, and they stay published
 
 In October 2026 `mistral.ai/pricing/api` began redirecting to the docs site, which
