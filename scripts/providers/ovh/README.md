@@ -133,7 +133,7 @@ scraper reading one source, an absent row is indistinguishable from a model that
 does not exist. That is exactly how the five withdrawn models above went unnoticed
 until a human compared a stale browser tab against a fresh one.
 
-So once a week, right after the price check, the catalog page is compared
+So every day, right after the price check, the catalog page is compared
 against OVH's own public model list. Three things get reported:
 
 - **sold but not on the catalog page** — OVH serves it, the page does not price
@@ -182,5 +182,5 @@ python3 scripts/providers/ovh/scrape.py --out-dir .ci-out --html tests/fixtures/
 Same rules as every other provider here: no API key, ever; never writes
 `pricing.json` directly; touches only `providers.ovh`, carrying every other
 provider's block through byte-for-byte. `.github/workflows/refresh-ovh.yml`
-runs it weekly and on demand, sharing the `pricing-json-writes` concurrency
+runs it every day and on demand, sharing the `pricing-json-writes` concurrency
 group with Mistral's workflow so the two queue rather than race.

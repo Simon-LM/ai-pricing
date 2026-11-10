@@ -20,11 +20,14 @@ name: Refresh prices (Eden AI)
 # cross-check of providers.mistral or providers.ovh, and a difference between them is
 # expected rather than a bug to reconcile.
 #
-# A commit happens on EVERY successful run, whether or not a figure moved. When
-# nothing moved it is a real statement to consumers ("confirmed unchanged today"),
-# and it is also what keeps this workflow alive: GitHub disables a scheduled
-# workflow after 60 days without repository activity, and only new commits reset
-# that timer -- not tags, not issues, nothing but commits.
+# The check runs every day. A commit happens when a figure moved, and on Mondays
+# whether or not one did: an unchanged run on another day commits nothing, so the
+# history holds one stamp a week per provider rather than seven. The Monday stamp is a
+# real statement to consumers ("confirmed unchanged today"), it is what the 08:00
+# weekly report reads, and it is what keeps this workflow alive: GitHub disables a
+# scheduled workflow after 60 days without repository activity, and only new commits
+# reset that timer -- not tags, not issues, nothing but commits. A run started by hand
+# always commits its stamp.
 #
 # The scraper needs no API key of any kind and must never be given one. It reads a
 # public endpoint. There are no secrets in this workflow beyond the automatic
@@ -33,7 +36,7 @@ name: Refresh prices (Eden AI)
 
 on:
   schedule:
-    - cron: "0 6 * * 1" # Mondays, 06:00 UTC -- an hour after OVH's and two after
+    - cron: "0 6 * * *" # Every day, 06:00 UTC -- an hour after OVH's and two after
     # Mistral's, so the three scheduled runs don't land in the same minute and
     # fight over the pricing-json-writes concurrency group every single week.
   workflow_dispatch: # so a human can force a check
@@ -269,6 +272,11 @@ jobs:
             cp .ci-out/updated.json pricing.json
             MESSAGE="prices: edenai figures changed on $(date -u +%Y-%m-%d)"
           else
+            # Unchanged: commit the stamp on Mondays, or when a human started the run.
+            if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%u)" != "1" ]; then
+              echo "Figures unchanged. An unchanged scheduled run commits its stamp on Mondays only."
+              exit 0
+            fi
             cp .ci-out/stamped.json pricing.json
             MESSAGE="chore: verified edenai prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           fi

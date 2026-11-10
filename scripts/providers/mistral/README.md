@@ -196,7 +196,7 @@ bill, so the list stays short.
 ## What the mapping still holds
 
 No model list, and there must not be one — the docs index says which models exist,
-every week. What `mapping.json` holds is the translation for the things the source
+every day. What `mapping.json` holds is the translation for the things the source
 states in prose rather than in data, plus the one list no page states any more.
 
 **`denominators`** — the docs state a unit per figure, split into `input` and
@@ -249,6 +249,6 @@ quietly reaching the network and passing for the wrong reason.
 
 Same rules as every other provider here: no API key, ever; never writes `pricing.json`
 directly; touches only `providers.mistral`, carrying every other provider's block
-through byte-for-byte. `.github/workflows/refresh-mistral.yml` runs it weekly and on
+through byte-for-byte. `.github/workflows/refresh-mistral.yml` runs it every day and on
 demand, sharing the `pricing-json-writes` concurrency group with the other providers'
 workflows so they queue rather than race.

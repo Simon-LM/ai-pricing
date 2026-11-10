@@ -14,12 +14,14 @@ name: Refresh prices (Anthropic)
 # file follows the exact pattern of refresh-mistral.yml and joins the SAME concurrency
 # group below so the two queue on pricing.json writes instead of racing each other.
 #
-# A commit happens on EVERY successful run, whether or not a figure moved. When
-# nothing moved it is a real statement to consumers ("confirmed unchanged today"),
-# and it is also what keeps this workflow alive: GitHub disables a scheduled
-# workflow after 60 days without repository activity, and only new commits reset
-# that timer -- not tags, not issues, nothing but commits. A repository whose
-# content changes every few months is exactly the profile that gets switched off.
+# The check runs every day. A commit happens when a figure moved, and on Mondays
+# whether or not one did: an unchanged run on another day commits nothing, so the
+# history holds one stamp a week per provider rather than seven. The Monday stamp is a
+# real statement to consumers ("confirmed unchanged today"), it is what the 08:00
+# weekly report reads, and it is what keeps this workflow alive: GitHub disables a
+# scheduled workflow after 60 days without repository activity, and only new commits
+# reset that timer -- not tags, not issues, nothing but commits. A run started by hand
+# always commits its stamp.
 #
 # The scraper needs no API key of any kind and must never be given one. It reads a
 # public page. There are no secrets in this workflow beyond the automatic
@@ -28,7 +30,7 @@ name: Refresh prices (Anthropic)
 
 on:
   schedule:
-    - cron: "30 4 * * 1" # Mondays, 04:30 UTC -- half an hour after Mistral's and half an
+    - cron: "30 4 * * *" # Every day, 04:30 UTC -- half an hour after Mistral's and half an
     # hour before OVH's, so no two scheduled runs land in the same minute and
     # fight over the pricing-json-writes concurrency group every single week. Still
     # before 08:00 on purpose: the weekly report reads every provider's stamp then and
@@ -272,6 +274,11 @@ jobs:
             cp .ci-out/updated.json pricing.json
             MESSAGE="prices: anthropic figures changed on $(date -u +%Y-%m-%d)"
           else
+            # Unchanged: commit the stamp on Mondays, or when a human started the run.
+            if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%u)" != "1" ]; then
+              echo "Figures unchanged. An unchanged scheduled run commits its stamp on Mondays only."
+              exit 0
+            fi
             cp .ci-out/stamped.json pricing.json
             MESSAGE="chore: verified anthropic prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           fi

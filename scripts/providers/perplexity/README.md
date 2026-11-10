@@ -1,6 +1,6 @@
 # Perplexity
 
-`scrape.py` reads two of Perplexity's public pages once a week (Mondays, 06:30 UTC,
+`scrape.py` reads two of Perplexity's public pages every day (06:30 UTC,
 `.github/workflows/refresh-perplexity.yml`) and works out what `providers.perplexity`
 should say. No API key: both pages are public.
 

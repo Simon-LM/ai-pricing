@@ -1,8 +1,8 @@
 # Google (Gemini API)
 
-`scrape.py` reads Google's public Gemini API pricing page and works out what
-`providers.google` should say (`.github/workflows/refresh-google.yml`). No API key: the
-page is public. These are the prices of the Gemini Developer API (Google AI Studio), not
+`scrape.py` reads Google's public Gemini API pricing page every day (03:30 UTC,
+`.github/workflows/refresh-google.yml`) and works out what `providers.google` should
+say. No API key: the page is public. These are the prices of the Gemini Developer API (Google AI Studio), not
 those of Vertex AI or Gemini Enterprise Agent Platform, which the page says may differ.
 
 ## The source: the page's Markdown

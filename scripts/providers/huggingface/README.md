@@ -114,7 +114,7 @@ A route Hugging Face genuinely marks `is_free` is published with the shared
 `"free": true` marker and no price field, exactly as OVH's free models are.
 
 Routes on partners this block does not cover are ignored, not refused — none of its
-business, and no reason to disturb the weekly run.
+business, and no reason to disturb the daily run.
 
 ## Widening the set
 
@@ -132,6 +132,6 @@ python3 scripts/providers/huggingface/scrape.py --out-dir .ci-out --html tests/f
 Same rules as every other provider here: no API key, ever; never writes
 `pricing.json` directly; touches only `providers.huggingface`, carrying every other
 provider's block through byte-for-byte.
-`.github/workflows/refresh-huggingface.yml` runs it weekly and on demand, sharing
+`.github/workflows/refresh-huggingface.yml` runs it every day and on demand, sharing
 the `pricing-json-writes` concurrency group with the other providers' workflows so
 they queue rather than race.

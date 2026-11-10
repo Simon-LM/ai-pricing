@@ -129,7 +129,7 @@ only, is published as free.
 Each provider's own `README.md` under `scripts/providers/<name>/` explains that
 provider's specific situation.
 
-**Everything publishes automatically.** The weekly job for each provider commits
+**Everything publishes automatically.** The daily job for each provider commits
 whatever it read, straight to `main`: a moved price, a model the source has added, a
 model it has withdrawn. There is no review gate and no hand-written list of models to
 reconcile first, because none of that is a decision anyone makes -- the provider
@@ -453,7 +453,7 @@ the original stopped selling it. Read the block for the provider you are actuall
 calling. Nothing here reconciles one provider against another, and nothing should.
 
 A disappearance also sends one email, on the run that first observes it — see
-[How the weekly job behaves](#how-the-weekly-job-behaves).
+[How the daily job behaves](#how-the-daily-job-behaves).
 
 **Within a `schema_version`, no field is ever removed.** An old client may fetch this
 file at any time. Fields get added -- `per_audio_minute` and later `per_audio_second`
@@ -495,7 +495,7 @@ artifact is told the same thing. "It validates" is not "it is sane".
 ## Consuming it
 
 Ship a copy of the file with your package, so a machine with no network still has
-dated figures. Refresh from the URL above at most weekly, cache it locally, never
+dated figures. Refresh from the URL above at most once a day, cache it locally, never
 block on it, and let the user turn it off. Convert at display time only, and always
 attach the date.
 
@@ -513,7 +513,7 @@ that shows up as a price change on an unchanged key -- which is exactly what it 
 Nothing here can warn you that the model behind an alias is not the one you tested.
 
 Each provider's `mapping.json` still holds hand-written things, and it is worth
-knowing which: **not a list of models** -- those are read from the source every week --
+knowing which: **not a list of models** -- those are read from the source every day --
 but a translation table for the things the source states in prose rather than in data.
 OVH's maps `million_input_tokens` to `in_per_mtok`; Mistral's maps the docs unit
 strings its pages state to price fields. Mistral's also holds its products list, the
@@ -538,7 +538,7 @@ Each provider is fully independent in practice, even though they share one file:
 - its own scraper, under `scripts/providers/<name>/`, reading only that provider's
   source and writing only `providers.<name>`;
 - its own explicit mapping, reviewed by a human;
-- its own weekly workflow, `.github/workflows/refresh-<name>.yml`, with the same
+- its own daily workflow, `.github/workflows/refresh-<name>.yml`, with the same
   three outcomes as Mistral's (unchanged -> stamp, changed -> commit, failure -> issue);
 - its own `checked_utc`, `updated`, `source` and `currency`.
 
@@ -563,27 +563,21 @@ the docs index, then one page per model) against
 framework's embedded JSON data chunk) for how differently "read the page" can look
 between two providers, and how little of either file is about anything else.
 
-## How the weekly job behaves
+## How the daily job behaves
 
-Each provider has its own workflow:
-[`.github/workflows/refresh-mistral.yml`](.github/workflows/refresh-mistral.yml) runs
-Mondays at 04:00 UTC, and
-[`.github/workflows/refresh-ovh.yml`](.github/workflows/refresh-ovh.yml) an hour
-later at 05:00, and
-[`.github/workflows/refresh-edenai.yml`](.github/workflows/refresh-edenai.yml) at
-06:00 and
-[`.github/workflows/refresh-huggingface.yml`](.github/workflows/refresh-huggingface.yml)
-at 07:00 --
-[`.github/workflows/refresh-scaleway.yml`](.github/workflows/refresh-scaleway.yml) runs
-at 03:00, an hour before Mistral's, because it has to be inside the same morning
-sequence as the rest rather than after the 08:00 report that reads its stamp -- and
-all five are offset on purpose so the scheduled runs don't land in the same minute and
-immediately queue behind each other every single week. All also run on demand. Every
-provider's workflow has three outcomes and never a fourth:
+Each provider has its own workflow, `.github/workflows/refresh-<name>.yml`, and every
+one runs every day, at its own time: Scaleway at 03:00 UTC, Google 03:30, Mistral 04:00,
+Anthropic 04:30, OVH 05:00, OpenAI 05:30, Eden AI 06:00, Perplexity 06:30, Hugging Face
+07:00, xAI 07:30. They are half an hour apart on purpose, so the scheduled runs don't
+land in the same minute and queue behind each other, and all of them come before the
+08:00 report on Mondays, which reads their stamps. They have run daily since
+2026-11-10, so that a price a provider changes on a given date -- Google announces some
+in advance -- is published that morning. All also run on demand. Every provider's
+workflow has three outcomes and never a fourth:
 
 | outcome | what happens |
 | --- | --- |
-| figures unchanged | that provider's `checked_utc` stamp is committed straight to `main` |
+| figures unchanged | nothing is committed, except on Mondays and on a run started by hand: then that provider's `checked_utc` stamp is committed straight to `main` |
 | anything changed | the new file is committed straight to `main`, with a `::notice::` on the run |
 | a check failed | an issue is opened **and assigned to the repository owner**, the job fails, and `pricing.json` is left **untouched** |
 
@@ -619,7 +613,7 @@ the repository.
 | --- | --- |
 | a scrape fails | an issue per outage, per provider, commented on rather than duplicated on repeated failure. `pricing.json` untouched. |
 | a source's inventory changes | an issue naming what appeared, disappeared or was dropped after a year. Raised **once**, by the run that observes it, never repeated while the entry sits there marked. Nothing is broken and nothing needs fixing; it is a notification. |
-| every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers refreshed and which did not. Closed automatically when all five did. |
+| every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers refreshed and which did not. Closed automatically when every provider did. |
 
 The weekly report exists because the other two report by exception, and no exception
 can be raised by a workflow that never ran -- disabled by GitHub after 60 idle days,
@@ -627,10 +621,10 @@ broken by a bad edit to its own YAML, or silently skipped. `pricing.json` would 
 stop moving while looking exactly as it always did. A receipt that arrives every Monday
 is worth more than silence, because a receipt that *doesn't* arrive is itself the
 alarm, and that is the one alarm no code in this repository could raise.
-[`scripts/weekly_report.py`](scripts/weekly_report.py) reads the five `checked_utc`
-stamps and nothing else; it writes no file and has no permission to.
+[`scripts/weekly_report.py`](scripts/weekly_report.py) reads every provider's
+`checked_utc` stamp and nothing else; it writes no file and has no permission to.
 
-All five providers' workflows share one `concurrency` group, `pricing-json-writes`,
+Every provider's workflow is in one `concurrency` group, `pricing-json-writes`,
 since they all commit to the same file: a second provider's run queues behind the first
 rather than racing it. The weekly report is deliberately not in that group -- it writes
 nothing, so it has no reason to queue behind a scrape and every reason to still run if
@@ -650,12 +644,14 @@ each one has that the other does not. It reads no price, never touches
 every correct price because one model is missing would also suppress the
 `checked_utc` stamp that keeps the schedule alive.
 
-The stamp commit on every run is not only informative. GitHub disables a scheduled
-workflow after 60 days without repository activity, and **only new commits reset that
-timer** -- not tags, not issues, nothing but commits. A repository whose content
-changes every few months is exactly the profile that gets silently switched off.
-Committing `checked_utc` weekly, per provider, is both a real statement to consumers
-and the thing that keeps each schedule alive.
+The Monday stamp commit is not only informative. GitHub disables a scheduled workflow
+after 60 days without repository activity, and **only new commits reset that timer** --
+not tags, not issues, nothing but commits. A repository whose content changes every few
+months is exactly the profile that gets silently switched off. Committing `checked_utc`
+every Monday, per provider, is both a real statement to consumers and the thing that
+keeps each schedule alive. On the other days an unchanged run commits nothing, so the
+history holds one stamp a week per provider rather than seven, and `checked_utc` says
+when a block was last committed as verified, not every time it was checked.
 
 ## Running it yourself
 

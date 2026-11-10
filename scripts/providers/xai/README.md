@@ -1,7 +1,6 @@
 # xAI
 
-`scrape.py` reads <https://docs.x.ai/developers/pricing> once a week (Mondays,
-07:30 UTC, `.github/workflows/refresh-xai.yml`) and works out what `providers.xai`
+`scrape.py` reads <https://docs.x.ai/developers/pricing> every day (07:30 UTC, `.github/workflows/refresh-xai.yml`) and works out what `providers.xai`
 should say. No API key: the page is public.
 
 ## What it reads

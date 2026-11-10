@@ -116,6 +116,6 @@ python3 scripts/providers/edenai/scrape.py --out-dir .ci-out --html tests/fixtur
 Same rules as every other provider here: no API key, ever; never writes
 `pricing.json` directly; touches only `providers.edenai`, carrying every other
 provider's block through byte-for-byte.
-`.github/workflows/refresh-edenai.yml` runs it weekly and on demand, sharing the
+`.github/workflows/refresh-edenai.yml` runs it every day and on demand, sharing the
 `pricing-json-writes` concurrency group with the other providers' workflows so they
 queue rather than race.

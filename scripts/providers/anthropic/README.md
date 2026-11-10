@@ -1,7 +1,6 @@
 # Anthropic
 
-`scrape.py` reads two of Anthropic's public documentation pages once a week (Mondays,
-04:30 UTC, `.github/workflows/refresh-anthropic.yml`) and works out what
+`scrape.py` reads two of Anthropic's public documentation pages every day (04:30 UTC, `.github/workflows/refresh-anthropic.yml`) and works out what
 `providers.anthropic` should say. No API key: both pages are public.
 
 | what | source | read as |

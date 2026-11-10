@@ -25,6 +25,7 @@ runs on workflow_run as the net beneath that. Both are equally easy to drop by a
 
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -56,6 +57,34 @@ SHARED_MODULES = [
 
 def workflow(slug: str) -> str:
     return (WORKFLOWS / f"refresh-{slug}.yml").read_text(encoding="utf-8")
+
+
+class TestEveryRefreshRunsDaily(unittest.TestCase):
+    """Since 2026-11-10 every provider is checked every day, so that a price a provider
+    changes on a stated date is published that morning, and an unchanged scheduled run
+    commits its stamp on Mondays only: the stamp the 08:00 Monday report reads, and the
+    commit that keeps a schedule alive past GitHub's 60 idle days."""
+
+    def test_every_refresh_is_scheduled_every_day(self) -> None:
+        for slug in PROVIDER_MODULES:
+            with self.subTest(provider=slug):
+                crons = re.findall(r'cron: "([^"]+)"', workflow(slug))
+                self.assertEqual(len(crons), 1, crons)
+                self.assertRegex(crons[0], r"^[0-9]+ [0-9]+ \* \* \*$")
+
+    def test_an_unchanged_scheduled_run_commits_on_mondays_only(self) -> None:
+        guard = ('if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%u)" != "1" ]; then')
+        for slug in PROVIDER_MODULES:
+            with self.subTest(provider=slug):
+                text = workflow(slug)
+                self.assertEqual(text.count(guard), 1)
+                # The guard sits in the unchanged branch, before the stamp is copied in.
+                self.assertLess(text.index(guard), text.index("cp .ci-out/stamped.json pricing.json"))
+                self.assertGreater(text.index(guard), text.index("cp .ci-out/updated.json pricing.json"))
+
+    def test_no_two_refreshes_start_in_the_same_minute(self) -> None:
+        crons = [re.findall(r'cron: "([^"]+)"', workflow(slug))[0] for slug in PROVIDER_MODULES]
+        self.assertEqual(len(crons), len(set(crons)), crons)
 
 
 class TestARefreshRunsOnlyItsOwnProvidersTests(unittest.TestCase):

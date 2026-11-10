@@ -122,7 +122,7 @@ scripts/providers/scaleway/scrape.py --out-dir .ci-out \
 python3 -m unittest tests.scraper_tests.test_scaleway
 ```
 
-The weekly job is `.github/workflows/refresh-scaleway.yml`. It never writes
+The daily job is `.github/workflows/refresh-scaleway.yml`. It never writes
 `pricing.json` itself: it writes candidates into `.ci-out/`, and the workflow decides
 which one, if any, to promote.
 

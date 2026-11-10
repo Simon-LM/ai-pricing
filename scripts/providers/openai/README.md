@@ -1,6 +1,6 @@
 # OpenAI
 
-`scrape.py` reads OpenAI's public pricing page once a week (Mondays, 05:30 UTC,
+`scrape.py` reads OpenAI's public pricing page every day (05:30 UTC,
 `.github/workflows/refresh-openai.yml`) and works out what `providers.openai` should say.
 No API key: the page is public.
 
