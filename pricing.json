@@ -2796,6 +2796,1254 @@
           "kind": "product"
         }
       }
+    },
+    "openai": {
+      "checked_utc": "2026-11-10T11:24:08Z",
+      "updated": "2026-11-10",
+      "source": "https://developers.openai.com/api/docs/pricing.md",
+      "sources": [
+        "https://developers.openai.com/api/docs/pricing.md"
+      ],
+      "currency": "USD",
+      "models": {
+        "chat-latest": {
+          "in_per_mtok": 5.0,
+          "out_per_mtok": 30.0,
+          "cache_read_per_mtok": 0.5,
+          "display_name": "chat-latest"
+        },
+        "chatgpt-image-latest": {
+          "in_per_mtok": 5.0,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 1.25,
+          "image_in_per_mtok": 8.0,
+          "image_out_per_mtok": 32.0,
+          "image_cache_read_per_mtok": 2.0,
+          "in_per_mtok_batch": 2.5,
+          "out_per_mtok_batch": 5.0,
+          "cache_read_per_mtok_batch": 0.63,
+          "image_in_per_mtok_batch": 4.0,
+          "image_out_per_mtok_batch": 16.0,
+          "image_cache_read_per_mtok_batch": 1.0,
+          "display_name": "chatgpt-image-latest"
+        },
+        "chatkit (storage)": {
+          "per_gb_day": 0.1,
+          "display_name": "Agent Kit: ChatKit file and image upload storage",
+          "kind": "product"
+        },
+        "containers (1 GB)": {
+          "per_session": 0.03,
+          "display_name": "Containers: Hosted Shell and Code Interpreter, 1 GB",
+          "kind": "product"
+        },
+        "containers (16 GB)": {
+          "per_session": 0.48,
+          "display_name": "Containers: Hosted Shell and Code Interpreter, 16 GB",
+          "kind": "product"
+        },
+        "containers (4 GB)": {
+          "per_session": 0.12,
+          "display_name": "Containers: Hosted Shell and Code Interpreter, 4 GB",
+          "kind": "product"
+        },
+        "containers (64 GB)": {
+          "per_session": 1.92,
+          "display_name": "Containers: Hosted Shell and Code Interpreter, 64 GB",
+          "kind": "product"
+        },
+        "file_search": {
+          "per_1k_calls": 2.5,
+          "display_name": "File search: Tool call",
+          "kind": "product"
+        },
+        "file_search (storage)": {
+          "per_gb_day": 0.1,
+          "display_name": "File search: Storage",
+          "kind": "product"
+        },
+        "gpt-4.1": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 8.0,
+          "cache_read_per_mtok": 0.5,
+          "in_per_mtok_batch": 1.0,
+          "out_per_mtok_batch": 4.0,
+          "display_name": "gpt-4.1"
+        },
+        "gpt-4.1 (fast)": {
+          "in_per_mtok": 3.5,
+          "out_per_mtok": 14.0,
+          "cache_read_per_mtok": 0.875,
+          "display_name": "gpt-4.1 (Fast)",
+          "api_ids": [
+            "gpt-4.1"
+          ]
+        },
+        "gpt-4.1-mini": {
+          "in_per_mtok": 0.4,
+          "out_per_mtok": 1.6,
+          "cache_read_per_mtok": 0.1,
+          "in_per_mtok_batch": 0.2,
+          "out_per_mtok_batch": 0.8,
+          "display_name": "gpt-4.1-mini"
+        },
+        "gpt-4.1-mini (fast)": {
+          "in_per_mtok": 0.7,
+          "out_per_mtok": 2.8,
+          "cache_read_per_mtok": 0.175,
+          "display_name": "gpt-4.1-mini (Fast)",
+          "api_ids": [
+            "gpt-4.1-mini"
+          ]
+        },
+        "gpt-4o": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 1.25,
+          "in_per_mtok_batch": 1.25,
+          "out_per_mtok_batch": 5.0,
+          "display_name": "gpt-4o"
+        },
+        "gpt-4o (fast)": {
+          "in_per_mtok": 4.25,
+          "out_per_mtok": 17.0,
+          "cache_read_per_mtok": 2.125,
+          "display_name": "gpt-4o (Fast)",
+          "api_ids": [
+            "gpt-4o"
+          ]
+        },
+        "gpt-4o-mini": {
+          "in_per_mtok": 0.15,
+          "out_per_mtok": 0.6,
+          "cache_read_per_mtok": 0.075,
+          "in_per_mtok_batch": 0.075,
+          "out_per_mtok_batch": 0.3,
+          "display_name": "gpt-4o-mini"
+        },
+        "gpt-4o-mini (fast)": {
+          "in_per_mtok": 0.25,
+          "out_per_mtok": 1.0,
+          "cache_read_per_mtok": 0.125,
+          "display_name": "gpt-4o-mini (Fast)",
+          "api_ids": [
+            "gpt-4o-mini"
+          ]
+        },
+        "gpt-4o-mini-transcribe": {
+          "in_per_mtok": 1.25,
+          "out_per_mtok": 5.0,
+          "display_name": "gpt-4o-mini-transcribe"
+        },
+        "gpt-4o-mini-tts": {
+          "in_per_mtok": 0.6,
+          "audio_out_per_mtok": 12.0,
+          "display_name": "gpt-4o-mini-tts"
+        },
+        "gpt-4o-transcribe": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 10.0,
+          "display_name": "gpt-4o-transcribe"
+        },
+        "gpt-4o-transcribe-diarize": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 10.0,
+          "display_name": "gpt-4o-transcribe-diarize"
+        },
+        "gpt-5": {
+          "in_per_mtok": 1.25,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 0.125,
+          "in_per_mtok_batch": 0.625,
+          "out_per_mtok_batch": 5.0,
+          "cache_read_per_mtok_batch": 0.0625,
+          "display_name": "gpt-5"
+        },
+        "gpt-5 (fast)": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 20.0,
+          "cache_read_per_mtok": 0.25,
+          "display_name": "gpt-5 (Fast)",
+          "api_ids": [
+            "gpt-5"
+          ]
+        },
+        "gpt-5 (flex)": {
+          "in_per_mtok": 0.625,
+          "out_per_mtok": 5.0,
+          "cache_read_per_mtok": 0.0625,
+          "display_name": "gpt-5 (Flex)",
+          "api_ids": [
+            "gpt-5"
+          ]
+        },
+        "gpt-5-mini": {
+          "in_per_mtok": 0.25,
+          "out_per_mtok": 2.0,
+          "cache_read_per_mtok": 0.025,
+          "in_per_mtok_batch": 0.125,
+          "out_per_mtok_batch": 1.0,
+          "cache_read_per_mtok_batch": 0.0125,
+          "display_name": "gpt-5-mini"
+        },
+        "gpt-5-mini (fast)": {
+          "in_per_mtok": 0.45,
+          "out_per_mtok": 3.6,
+          "cache_read_per_mtok": 0.045,
+          "display_name": "gpt-5-mini (Fast)",
+          "api_ids": [
+            "gpt-5-mini"
+          ]
+        },
+        "gpt-5-mini (flex)": {
+          "in_per_mtok": 0.125,
+          "out_per_mtok": 1.0,
+          "cache_read_per_mtok": 0.0125,
+          "display_name": "gpt-5-mini (Flex)",
+          "api_ids": [
+            "gpt-5-mini"
+          ]
+        },
+        "gpt-5-nano": {
+          "in_per_mtok": 0.05,
+          "out_per_mtok": 0.4,
+          "cache_read_per_mtok": 0.005,
+          "in_per_mtok_batch": 0.025,
+          "out_per_mtok_batch": 0.2,
+          "cache_read_per_mtok_batch": 0.0025,
+          "display_name": "gpt-5-nano"
+        },
+        "gpt-5-nano (flex)": {
+          "in_per_mtok": 0.025,
+          "out_per_mtok": 0.2,
+          "cache_read_per_mtok": 0.0025,
+          "display_name": "gpt-5-nano (Flex)",
+          "api_ids": [
+            "gpt-5-nano"
+          ]
+        },
+        "gpt-5-pro": {
+          "in_per_mtok": 15.0,
+          "out_per_mtok": 120.0,
+          "in_per_mtok_batch": 7.5,
+          "out_per_mtok_batch": 60.0,
+          "display_name": "gpt-5-pro"
+        },
+        "gpt-5-search-api": {
+          "in_per_mtok": 1.25,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 0.125,
+          "display_name": "gpt-5-search-api"
+        },
+        "gpt-5.1": {
+          "in_per_mtok": 1.25,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 0.125,
+          "in_per_mtok_batch": 0.625,
+          "out_per_mtok_batch": 5.0,
+          "cache_read_per_mtok_batch": 0.0625,
+          "display_name": "gpt-5.1"
+        },
+        "gpt-5.1 (fast)": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 20.0,
+          "cache_read_per_mtok": 0.25,
+          "display_name": "gpt-5.1 (Fast)",
+          "api_ids": [
+            "gpt-5.1"
+          ]
+        },
+        "gpt-5.1 (flex)": {
+          "in_per_mtok": 0.625,
+          "out_per_mtok": 5.0,
+          "cache_read_per_mtok": 0.0625,
+          "display_name": "gpt-5.1 (Flex)",
+          "api_ids": [
+            "gpt-5.1"
+          ]
+        },
+        "gpt-5.2": {
+          "in_per_mtok": 1.75,
+          "out_per_mtok": 14.0,
+          "cache_read_per_mtok": 0.175,
+          "in_per_mtok_batch": 0.875,
+          "out_per_mtok_batch": 7.0,
+          "cache_read_per_mtok_batch": 0.0875,
+          "display_name": "gpt-5.2"
+        },
+        "gpt-5.2 (fast)": {
+          "in_per_mtok": 3.5,
+          "out_per_mtok": 28.0,
+          "cache_read_per_mtok": 0.35,
+          "display_name": "gpt-5.2 (Fast)",
+          "api_ids": [
+            "gpt-5.2"
+          ]
+        },
+        "gpt-5.2 (flex)": {
+          "in_per_mtok": 0.875,
+          "out_per_mtok": 7.0,
+          "cache_read_per_mtok": 0.0875,
+          "display_name": "gpt-5.2 (Flex)",
+          "api_ids": [
+            "gpt-5.2"
+          ]
+        },
+        "gpt-5.2-pro": {
+          "in_per_mtok": 21.0,
+          "out_per_mtok": 168.0,
+          "in_per_mtok_batch": 10.5,
+          "out_per_mtok_batch": 84.0,
+          "display_name": "gpt-5.2-pro"
+        },
+        "gpt-5.3-codex": {
+          "in_per_mtok": 1.75,
+          "out_per_mtok": 14.0,
+          "cache_read_per_mtok": 0.175,
+          "display_name": "gpt-5.3-codex"
+        },
+        "gpt-5.3-codex (fast)": {
+          "in_per_mtok": 3.5,
+          "out_per_mtok": 28.0,
+          "cache_read_per_mtok": 0.35,
+          "display_name": "gpt-5.3-codex (Fast)",
+          "api_ids": [
+            "gpt-5.3-codex"
+          ]
+        },
+        "gpt-5.4": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 15.0,
+          "cache_read_per_mtok": 0.25,
+          "in_per_mtok_batch": 1.25,
+          "out_per_mtok_batch": 7.5,
+          "cache_read_per_mtok_batch": 0.13,
+          "in_per_mtok_long_context": 5.0,
+          "out_per_mtok_long_context": 22.5,
+          "cache_read_per_mtok_long_context": 0.5,
+          "in_per_mtok_batch_long_context": 2.5,
+          "out_per_mtok_batch_long_context": 11.25,
+          "cache_read_per_mtok_batch_long_context": 0.25,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.4"
+        },
+        "gpt-5.4 (fast)": {
+          "in_per_mtok": 5.0,
+          "out_per_mtok": 30.0,
+          "cache_read_per_mtok": 0.5,
+          "display_name": "gpt-5.4 (Fast)",
+          "api_ids": [
+            "gpt-5.4"
+          ]
+        },
+        "gpt-5.4 (flex)": {
+          "in_per_mtok": 1.25,
+          "out_per_mtok": 7.5,
+          "cache_read_per_mtok": 0.13,
+          "in_per_mtok_long_context": 2.5,
+          "out_per_mtok_long_context": 11.25,
+          "cache_read_per_mtok_long_context": 0.25,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.4 (Flex)",
+          "api_ids": [
+            "gpt-5.4"
+          ]
+        },
+        "gpt-5.4-mini": {
+          "in_per_mtok": 0.75,
+          "out_per_mtok": 4.5,
+          "cache_read_per_mtok": 0.075,
+          "in_per_mtok_batch": 0.375,
+          "out_per_mtok_batch": 2.25,
+          "cache_read_per_mtok_batch": 0.0375,
+          "display_name": "gpt-5.4-mini"
+        },
+        "gpt-5.4-mini (fast)": {
+          "in_per_mtok": 1.5,
+          "out_per_mtok": 9.0,
+          "cache_read_per_mtok": 0.15,
+          "display_name": "gpt-5.4-mini (Fast)",
+          "api_ids": [
+            "gpt-5.4-mini"
+          ]
+        },
+        "gpt-5.4-mini (flex)": {
+          "in_per_mtok": 0.375,
+          "out_per_mtok": 2.25,
+          "cache_read_per_mtok": 0.0375,
+          "display_name": "gpt-5.4-mini (Flex)",
+          "api_ids": [
+            "gpt-5.4-mini"
+          ]
+        },
+        "gpt-5.4-nano": {
+          "in_per_mtok": 0.2,
+          "out_per_mtok": 1.25,
+          "cache_read_per_mtok": 0.02,
+          "in_per_mtok_batch": 0.1,
+          "out_per_mtok_batch": 0.625,
+          "cache_read_per_mtok_batch": 0.01,
+          "display_name": "gpt-5.4-nano"
+        },
+        "gpt-5.4-nano (flex)": {
+          "in_per_mtok": 0.1,
+          "out_per_mtok": 0.625,
+          "cache_read_per_mtok": 0.01,
+          "display_name": "gpt-5.4-nano (Flex)",
+          "api_ids": [
+            "gpt-5.4-nano"
+          ]
+        },
+        "gpt-5.4-pro": {
+          "in_per_mtok": 30.0,
+          "out_per_mtok": 180.0,
+          "in_per_mtok_batch": 15.0,
+          "out_per_mtok_batch": 90.0,
+          "in_per_mtok_long_context": 60.0,
+          "out_per_mtok_long_context": 270.0,
+          "in_per_mtok_batch_long_context": 30.0,
+          "out_per_mtok_batch_long_context": 135.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.4-pro"
+        },
+        "gpt-5.4-pro (flex)": {
+          "in_per_mtok": 15.0,
+          "out_per_mtok": 90.0,
+          "in_per_mtok_long_context": 30.0,
+          "out_per_mtok_long_context": 135.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.4-pro (Flex)",
+          "api_ids": [
+            "gpt-5.4-pro"
+          ]
+        },
+        "gpt-5.5": {
+          "in_per_mtok": 5.0,
+          "out_per_mtok": 30.0,
+          "cache_read_per_mtok": 0.5,
+          "in_per_mtok_batch": 2.5,
+          "out_per_mtok_batch": 15.0,
+          "cache_read_per_mtok_batch": 0.25,
+          "in_per_mtok_long_context": 10.0,
+          "out_per_mtok_long_context": 45.0,
+          "cache_read_per_mtok_long_context": 1.0,
+          "in_per_mtok_batch_long_context": 5.0,
+          "out_per_mtok_batch_long_context": 22.5,
+          "cache_read_per_mtok_batch_long_context": 0.5,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.5"
+        },
+        "gpt-5.5 (fast)": {
+          "in_per_mtok": 12.5,
+          "out_per_mtok": 75.0,
+          "cache_read_per_mtok": 1.25,
+          "display_name": "gpt-5.5 (Fast)",
+          "api_ids": [
+            "gpt-5.5"
+          ]
+        },
+        "gpt-5.5 (flex)": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 15.0,
+          "cache_read_per_mtok": 0.25,
+          "in_per_mtok_long_context": 5.0,
+          "out_per_mtok_long_context": 22.5,
+          "cache_read_per_mtok_long_context": 0.5,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.5 (Flex)",
+          "api_ids": [
+            "gpt-5.5"
+          ]
+        },
+        "gpt-5.5-pro": {
+          "in_per_mtok": 30.0,
+          "out_per_mtok": 180.0,
+          "in_per_mtok_batch": 15.0,
+          "out_per_mtok_batch": 90.0,
+          "in_per_mtok_long_context": 60.0,
+          "out_per_mtok_long_context": 270.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.5-pro"
+        },
+        "gpt-5.5-pro (flex)": {
+          "in_per_mtok": 15.0,
+          "out_per_mtok": 90.0,
+          "display_name": "gpt-5.5-pro (Flex)",
+          "api_ids": [
+            "gpt-5.5-pro"
+          ]
+        },
+        "gpt-5.6-luna": {
+          "in_per_mtok": 0.2,
+          "out_per_mtok": 1.2,
+          "cache_read_per_mtok": 0.02,
+          "cache_write_30m_per_mtok": 0.25,
+          "cache_write_12h_per_mtok": 0.5,
+          "in_per_mtok_batch": 0.1,
+          "out_per_mtok_batch": 0.6,
+          "cache_read_per_mtok_batch": 0.01,
+          "cache_write_30m_per_mtok_batch": 0.125,
+          "cache_write_12h_per_mtok_batch": 0.25,
+          "in_per_mtok_long_context": 0.4,
+          "out_per_mtok_long_context": 1.8,
+          "cache_read_per_mtok_long_context": 0.04,
+          "cache_write_30m_per_mtok_long_context": 0.5,
+          "cache_write_12h_per_mtok_long_context": 1.0,
+          "in_per_mtok_batch_long_context": 0.2,
+          "out_per_mtok_batch_long_context": 0.9,
+          "cache_read_per_mtok_batch_long_context": 0.02,
+          "cache_write_30m_per_mtok_batch_long_context": 0.25,
+          "cache_write_12h_per_mtok_batch_long_context": 0.5,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-luna"
+        },
+        "gpt-5.6-luna (fast)": {
+          "in_per_mtok": 0.4,
+          "out_per_mtok": 2.4,
+          "cache_read_per_mtok": 0.04,
+          "cache_write_30m_per_mtok": 0.5,
+          "cache_write_12h_per_mtok": 1.0,
+          "in_per_mtok_long_context": 0.8,
+          "out_per_mtok_long_context": 3.6,
+          "cache_read_per_mtok_long_context": 0.08,
+          "cache_write_30m_per_mtok_long_context": 1.0,
+          "cache_write_12h_per_mtok_long_context": 2.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-luna (Fast)",
+          "api_ids": [
+            "gpt-5.6-luna"
+          ]
+        },
+        "gpt-5.6-luna (flex)": {
+          "in_per_mtok": 0.1,
+          "out_per_mtok": 0.6,
+          "cache_read_per_mtok": 0.01,
+          "cache_write_30m_per_mtok": 0.125,
+          "cache_write_12h_per_mtok": 0.25,
+          "in_per_mtok_long_context": 0.2,
+          "out_per_mtok_long_context": 0.9,
+          "cache_read_per_mtok_long_context": 0.02,
+          "cache_write_30m_per_mtok_long_context": 0.25,
+          "cache_write_12h_per_mtok_long_context": 0.5,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-luna (Flex)",
+          "api_ids": [
+            "gpt-5.6-luna"
+          ]
+        },
+        "gpt-5.6-sol": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 20.0,
+          "cache_read_per_mtok": 0.4,
+          "cache_write_30m_per_mtok": 5.0,
+          "cache_write_12h_per_mtok": 10.0,
+          "in_per_mtok_batch": 2.0,
+          "out_per_mtok_batch": 10.0,
+          "cache_read_per_mtok_batch": 0.2,
+          "cache_write_30m_per_mtok_batch": 2.5,
+          "cache_write_12h_per_mtok_batch": 5.0,
+          "in_per_mtok_long_context": 8.0,
+          "out_per_mtok_long_context": 30.0,
+          "cache_read_per_mtok_long_context": 0.8,
+          "cache_write_30m_per_mtok_long_context": 10.0,
+          "cache_write_12h_per_mtok_long_context": 20.0,
+          "in_per_mtok_batch_long_context": 4.0,
+          "out_per_mtok_batch_long_context": 15.0,
+          "cache_read_per_mtok_batch_long_context": 0.4,
+          "cache_write_30m_per_mtok_batch_long_context": 5.0,
+          "cache_write_12h_per_mtok_batch_long_context": 10.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-sol"
+        },
+        "gpt-5.6-sol (fast)": {
+          "in_per_mtok": 8.0,
+          "out_per_mtok": 40.0,
+          "cache_read_per_mtok": 0.8,
+          "cache_write_30m_per_mtok": 10.0,
+          "cache_write_12h_per_mtok": 20.0,
+          "in_per_mtok_long_context": 16.0,
+          "out_per_mtok_long_context": 60.0,
+          "cache_read_per_mtok_long_context": 1.6,
+          "cache_write_30m_per_mtok_long_context": 20.0,
+          "cache_write_12h_per_mtok_long_context": 40.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-sol (Fast)",
+          "api_ids": [
+            "gpt-5.6-sol"
+          ]
+        },
+        "gpt-5.6-sol (flex)": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 0.2,
+          "cache_write_30m_per_mtok": 2.5,
+          "cache_write_12h_per_mtok": 5.0,
+          "in_per_mtok_long_context": 4.0,
+          "out_per_mtok_long_context": 15.0,
+          "cache_read_per_mtok_long_context": 0.4,
+          "cache_write_30m_per_mtok_long_context": 5.0,
+          "cache_write_12h_per_mtok_long_context": 10.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-sol (Flex)",
+          "api_ids": [
+            "gpt-5.6-sol"
+          ]
+        },
+        "gpt-5.6-terra": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 12.0,
+          "cache_read_per_mtok": 0.2,
+          "cache_write_30m_per_mtok": 2.5,
+          "cache_write_12h_per_mtok": 5.0,
+          "in_per_mtok_batch": 1.0,
+          "out_per_mtok_batch": 6.0,
+          "cache_read_per_mtok_batch": 0.1,
+          "cache_write_30m_per_mtok_batch": 1.25,
+          "cache_write_12h_per_mtok_batch": 2.5,
+          "in_per_mtok_long_context": 4.0,
+          "out_per_mtok_long_context": 18.0,
+          "cache_read_per_mtok_long_context": 0.4,
+          "cache_write_30m_per_mtok_long_context": 5.0,
+          "cache_write_12h_per_mtok_long_context": 10.0,
+          "in_per_mtok_batch_long_context": 2.0,
+          "out_per_mtok_batch_long_context": 9.0,
+          "cache_read_per_mtok_batch_long_context": 0.2,
+          "cache_write_30m_per_mtok_batch_long_context": 2.5,
+          "cache_write_12h_per_mtok_batch_long_context": 5.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-terra"
+        },
+        "gpt-5.6-terra (fast)": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 24.0,
+          "cache_read_per_mtok": 0.4,
+          "cache_write_30m_per_mtok": 5.0,
+          "cache_write_12h_per_mtok": 10.0,
+          "in_per_mtok_long_context": 8.0,
+          "out_per_mtok_long_context": 36.0,
+          "cache_read_per_mtok_long_context": 0.8,
+          "cache_write_30m_per_mtok_long_context": 10.0,
+          "cache_write_12h_per_mtok_long_context": 20.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-terra (Fast)",
+          "api_ids": [
+            "gpt-5.6-terra"
+          ]
+        },
+        "gpt-5.6-terra (flex)": {
+          "in_per_mtok": 1.0,
+          "out_per_mtok": 6.0,
+          "cache_read_per_mtok": 0.1,
+          "cache_write_30m_per_mtok": 1.25,
+          "cache_write_12h_per_mtok": 2.5,
+          "in_per_mtok_long_context": 2.0,
+          "out_per_mtok_long_context": 9.0,
+          "cache_read_per_mtok_long_context": 0.2,
+          "cache_write_30m_per_mtok_long_context": 2.5,
+          "cache_write_12h_per_mtok_long_context": 5.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-5.6-terra (Flex)",
+          "api_ids": [
+            "gpt-5.6-terra"
+          ]
+        },
+        "gpt-6-astra": {
+          "in_per_mtok": 10.0,
+          "out_per_mtok": 50.0,
+          "cache_read_per_mtok": 1.0,
+          "cache_write_30m_per_mtok": 12.5,
+          "cache_write_12h_per_mtok": 25.0,
+          "in_per_mtok_batch": 5.0,
+          "out_per_mtok_batch": 25.0,
+          "cache_read_per_mtok_batch": 0.5,
+          "cache_write_30m_per_mtok_batch": 6.25,
+          "cache_write_12h_per_mtok_batch": 12.5,
+          "in_per_mtok_long_context": 20.0,
+          "out_per_mtok_long_context": 75.0,
+          "cache_read_per_mtok_long_context": 2.0,
+          "cache_write_30m_per_mtok_long_context": 25.0,
+          "cache_write_12h_per_mtok_long_context": 50.0,
+          "in_per_mtok_batch_long_context": 10.0,
+          "out_per_mtok_batch_long_context": 37.5,
+          "cache_read_per_mtok_batch_long_context": 1.0,
+          "cache_write_30m_per_mtok_batch_long_context": 12.5,
+          "cache_write_12h_per_mtok_batch_long_context": 25.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-astra"
+        },
+        "gpt-6-astra (fast)": {
+          "in_per_mtok": 20.0,
+          "out_per_mtok": 100.0,
+          "cache_read_per_mtok": 2.0,
+          "cache_write_30m_per_mtok": 25.0,
+          "cache_write_12h_per_mtok": 50.0,
+          "in_per_mtok_long_context": 40.0,
+          "out_per_mtok_long_context": 150.0,
+          "cache_read_per_mtok_long_context": 4.0,
+          "cache_write_30m_per_mtok_long_context": 50.0,
+          "cache_write_12h_per_mtok_long_context": 100.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-astra (Fast)",
+          "api_ids": [
+            "gpt-6-astra"
+          ]
+        },
+        "gpt-6-astra (flex)": {
+          "in_per_mtok": 5.0,
+          "out_per_mtok": 25.0,
+          "cache_read_per_mtok": 0.5,
+          "cache_write_30m_per_mtok": 6.25,
+          "cache_write_12h_per_mtok": 12.5,
+          "in_per_mtok_long_context": 10.0,
+          "out_per_mtok_long_context": 37.5,
+          "cache_read_per_mtok_long_context": 1.0,
+          "cache_write_30m_per_mtok_long_context": 12.5,
+          "cache_write_12h_per_mtok_long_context": 25.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-astra (Flex)",
+          "api_ids": [
+            "gpt-6-astra"
+          ]
+        },
+        "gpt-6-astra (ultrafast)": {
+          "in_per_mtok": 60.0,
+          "out_per_mtok": 300.0,
+          "cache_read_per_mtok": 6.0,
+          "cache_write_30m_per_mtok": 75.0,
+          "cache_write_12h_per_mtok": 150.0,
+          "in_per_mtok_long_context": 120.0,
+          "out_per_mtok_long_context": 450.0,
+          "cache_read_per_mtok_long_context": 12.0,
+          "cache_write_30m_per_mtok_long_context": 150.0,
+          "cache_write_12h_per_mtok_long_context": 300.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-astra (Ultrafast)",
+          "api_ids": [
+            "gpt-6-astra"
+          ]
+        },
+        "gpt-6-astra-law": {
+          "in_per_mtok": 10.0,
+          "out_per_mtok": 50.0,
+          "cache_read_per_mtok": 1.0,
+          "display_name": "gpt-6-astra-law"
+        },
+        "gpt-6-luna": {
+          "in_per_mtok": 0.1,
+          "out_per_mtok": 0.5,
+          "cache_read_per_mtok": 0.01,
+          "cache_write_30m_per_mtok": 0.125,
+          "cache_write_12h_per_mtok": 0.25,
+          "in_per_mtok_batch": 0.05,
+          "out_per_mtok_batch": 0.25,
+          "cache_read_per_mtok_batch": 0.005,
+          "cache_write_30m_per_mtok_batch": 0.0625,
+          "cache_write_12h_per_mtok_batch": 0.125,
+          "in_per_mtok_long_context": 0.2,
+          "out_per_mtok_long_context": 0.75,
+          "cache_read_per_mtok_long_context": 0.02,
+          "cache_write_30m_per_mtok_long_context": 0.25,
+          "cache_write_12h_per_mtok_long_context": 0.5,
+          "in_per_mtok_batch_long_context": 0.1,
+          "out_per_mtok_batch_long_context": 0.375,
+          "cache_read_per_mtok_batch_long_context": 0.01,
+          "cache_write_30m_per_mtok_batch_long_context": 0.125,
+          "cache_write_12h_per_mtok_batch_long_context": 0.25,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-luna"
+        },
+        "gpt-6-luna (fast)": {
+          "in_per_mtok": 0.2,
+          "out_per_mtok": 1.0,
+          "cache_read_per_mtok": 0.02,
+          "cache_write_30m_per_mtok": 0.25,
+          "cache_write_12h_per_mtok": 0.5,
+          "in_per_mtok_long_context": 0.4,
+          "out_per_mtok_long_context": 1.5,
+          "cache_read_per_mtok_long_context": 0.04,
+          "cache_write_30m_per_mtok_long_context": 0.5,
+          "cache_write_12h_per_mtok_long_context": 1.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-luna (Fast)",
+          "api_ids": [
+            "gpt-6-luna"
+          ]
+        },
+        "gpt-6-luna (flex)": {
+          "in_per_mtok": 0.05,
+          "out_per_mtok": 0.25,
+          "cache_read_per_mtok": 0.005,
+          "cache_write_30m_per_mtok": 0.0625,
+          "cache_write_12h_per_mtok": 0.125,
+          "in_per_mtok_long_context": 0.1,
+          "out_per_mtok_long_context": 0.375,
+          "cache_read_per_mtok_long_context": 0.01,
+          "cache_write_30m_per_mtok_long_context": 0.125,
+          "cache_write_12h_per_mtok_long_context": 0.25,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-luna (Flex)",
+          "api_ids": [
+            "gpt-6-luna"
+          ]
+        },
+        "gpt-6-sol": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 0.2,
+          "cache_write_30m_per_mtok": 2.5,
+          "cache_write_12h_per_mtok": 5.0,
+          "in_per_mtok_batch": 1.0,
+          "out_per_mtok_batch": 5.0,
+          "cache_read_per_mtok_batch": 0.1,
+          "cache_write_30m_per_mtok_batch": 1.25,
+          "cache_write_12h_per_mtok_batch": 2.5,
+          "in_per_mtok_long_context": 4.0,
+          "out_per_mtok_long_context": 15.0,
+          "cache_read_per_mtok_long_context": 0.4,
+          "cache_write_30m_per_mtok_long_context": 5.0,
+          "cache_write_12h_per_mtok_long_context": 10.0,
+          "in_per_mtok_batch_long_context": 2.0,
+          "out_per_mtok_batch_long_context": 7.5,
+          "cache_read_per_mtok_batch_long_context": 0.2,
+          "cache_write_30m_per_mtok_batch_long_context": 2.5,
+          "cache_write_12h_per_mtok_batch_long_context": 5.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-sol"
+        },
+        "gpt-6-sol (fast)": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 20.0,
+          "cache_read_per_mtok": 0.4,
+          "cache_write_30m_per_mtok": 5.0,
+          "cache_write_12h_per_mtok": 10.0,
+          "in_per_mtok_long_context": 8.0,
+          "out_per_mtok_long_context": 30.0,
+          "cache_read_per_mtok_long_context": 0.8,
+          "cache_write_30m_per_mtok_long_context": 10.0,
+          "cache_write_12h_per_mtok_long_context": 20.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-sol (Fast)",
+          "api_ids": [
+            "gpt-6-sol"
+          ]
+        },
+        "gpt-6-sol (flex)": {
+          "in_per_mtok": 1.0,
+          "out_per_mtok": 5.0,
+          "cache_read_per_mtok": 0.1,
+          "cache_write_30m_per_mtok": 1.25,
+          "cache_write_12h_per_mtok": 2.5,
+          "in_per_mtok_long_context": 2.0,
+          "out_per_mtok_long_context": 7.5,
+          "cache_read_per_mtok_long_context": 0.2,
+          "cache_write_30m_per_mtok_long_context": 2.5,
+          "cache_write_12h_per_mtok_long_context": 5.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6-sol (Flex)",
+          "api_ids": [
+            "gpt-6-sol"
+          ]
+        },
+        "gpt-6.1-sol": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 0.1,
+          "cache_write_30m_per_mtok": 2.5,
+          "cache_write_12h_per_mtok": 5.0,
+          "in_per_mtok_batch": 1.0,
+          "out_per_mtok_batch": 5.0,
+          "cache_read_per_mtok_batch": 0.05,
+          "cache_write_30m_per_mtok_batch": 1.25,
+          "cache_write_12h_per_mtok_batch": 2.5,
+          "in_per_mtok_long_context": 4.0,
+          "out_per_mtok_long_context": 15.0,
+          "cache_read_per_mtok_long_context": 0.2,
+          "cache_write_30m_per_mtok_long_context": 5.0,
+          "cache_write_12h_per_mtok_long_context": 10.0,
+          "in_per_mtok_batch_long_context": 2.0,
+          "out_per_mtok_batch_long_context": 7.5,
+          "cache_read_per_mtok_batch_long_context": 0.1,
+          "cache_write_30m_per_mtok_batch_long_context": 2.5,
+          "cache_write_12h_per_mtok_batch_long_context": 5.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6.1-sol"
+        },
+        "gpt-6.1-sol (fast)": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 20.0,
+          "cache_read_per_mtok": 0.2,
+          "cache_write_30m_per_mtok": 5.0,
+          "cache_write_12h_per_mtok": 10.0,
+          "in_per_mtok_long_context": 8.0,
+          "out_per_mtok_long_context": 30.0,
+          "cache_read_per_mtok_long_context": 0.4,
+          "cache_write_30m_per_mtok_long_context": 10.0,
+          "cache_write_12h_per_mtok_long_context": 20.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6.1-sol (Fast)",
+          "api_ids": [
+            "gpt-6.1-sol"
+          ]
+        },
+        "gpt-6.1-sol (flex)": {
+          "in_per_mtok": 1.0,
+          "out_per_mtok": 5.0,
+          "cache_read_per_mtok": 0.05,
+          "cache_write_30m_per_mtok": 1.25,
+          "cache_write_12h_per_mtok": 2.5,
+          "in_per_mtok_long_context": 2.0,
+          "out_per_mtok_long_context": 7.5,
+          "cache_read_per_mtok_long_context": 0.1,
+          "cache_write_30m_per_mtok_long_context": 2.5,
+          "cache_write_12h_per_mtok_long_context": 5.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6.1-sol (Flex)",
+          "api_ids": [
+            "gpt-6.1-sol"
+          ]
+        },
+        "gpt-6.1-sol (ultrafast)": {
+          "in_per_mtok": 12.0,
+          "out_per_mtok": 60.0,
+          "cache_read_per_mtok": 0.6,
+          "cache_write_30m_per_mtok": 15.0,
+          "cache_write_12h_per_mtok": 30.0,
+          "in_per_mtok_long_context": 24.0,
+          "out_per_mtok_long_context": 90.0,
+          "cache_read_per_mtok_long_context": 1.2,
+          "cache_write_30m_per_mtok_long_context": 30.0,
+          "cache_write_12h_per_mtok_long_context": 60.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6.1-sol (Ultrafast)",
+          "api_ids": [
+            "gpt-6.1-sol"
+          ]
+        },
+        "gpt-6.1-terra": {
+          "in_per_mtok": 1.0,
+          "out_per_mtok": 5.0,
+          "cache_read_per_mtok": 0.05,
+          "cache_write_30m_per_mtok": 1.25,
+          "cache_write_12h_per_mtok": 2.5,
+          "in_per_mtok_batch": 0.5,
+          "out_per_mtok_batch": 2.5,
+          "cache_read_per_mtok_batch": 0.025,
+          "cache_write_30m_per_mtok_batch": 0.625,
+          "cache_write_12h_per_mtok_batch": 1.25,
+          "in_per_mtok_long_context": 2.0,
+          "out_per_mtok_long_context": 7.5,
+          "cache_read_per_mtok_long_context": 0.1,
+          "cache_write_30m_per_mtok_long_context": 2.5,
+          "cache_write_12h_per_mtok_long_context": 5.0,
+          "in_per_mtok_batch_long_context": 1.0,
+          "out_per_mtok_batch_long_context": 3.75,
+          "cache_read_per_mtok_batch_long_context": 0.05,
+          "cache_write_30m_per_mtok_batch_long_context": 1.25,
+          "cache_write_12h_per_mtok_batch_long_context": 2.5,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6.1-terra"
+        },
+        "gpt-6.1-terra (fast)": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 0.1,
+          "cache_write_30m_per_mtok": 2.5,
+          "cache_write_12h_per_mtok": 5.0,
+          "in_per_mtok_long_context": 4.0,
+          "out_per_mtok_long_context": 15.0,
+          "cache_read_per_mtok_long_context": 0.2,
+          "cache_write_30m_per_mtok_long_context": 5.0,
+          "cache_write_12h_per_mtok_long_context": 10.0,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6.1-terra (Fast)",
+          "api_ids": [
+            "gpt-6.1-terra"
+          ]
+        },
+        "gpt-6.1-terra (flex)": {
+          "in_per_mtok": 0.5,
+          "out_per_mtok": 2.5,
+          "cache_read_per_mtok": 0.025,
+          "cache_write_30m_per_mtok": 0.625,
+          "cache_write_12h_per_mtok": 1.25,
+          "in_per_mtok_long_context": 1.0,
+          "out_per_mtok_long_context": 3.75,
+          "cache_read_per_mtok_long_context": 0.05,
+          "cache_write_30m_per_mtok_long_context": 1.25,
+          "cache_write_12h_per_mtok_long_context": 2.5,
+          "long_context_threshold": 272001,
+          "display_name": "gpt-6.1-terra (Flex)",
+          "api_ids": [
+            "gpt-6.1-terra"
+          ]
+        },
+        "gpt-audio": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 10.0,
+          "audio_in_per_mtok": 32.0,
+          "audio_out_per_mtok": 64.0,
+          "display_name": "gpt-audio"
+        },
+        "gpt-audio-1.5": {
+          "in_per_mtok": 2.5,
+          "out_per_mtok": 10.0,
+          "audio_in_per_mtok": 32.0,
+          "audio_out_per_mtok": 64.0,
+          "display_name": "gpt-audio-1.5"
+        },
+        "gpt-audio-mini": {
+          "in_per_mtok": 0.6,
+          "out_per_mtok": 2.4,
+          "audio_in_per_mtok": 10.0,
+          "audio_out_per_mtok": 20.0,
+          "display_name": "gpt-audio-mini"
+        },
+        "gpt-image-1-mini": {
+          "in_per_mtok": 2.0,
+          "cache_read_per_mtok": 0.2,
+          "image_in_per_mtok": 2.5,
+          "image_out_per_mtok": 8.0,
+          "image_cache_read_per_mtok": 0.25,
+          "in_per_mtok_batch": 1.0,
+          "cache_read_per_mtok_batch": 0.1,
+          "image_in_per_mtok_batch": 1.25,
+          "image_out_per_mtok_batch": 4.0,
+          "image_cache_read_per_mtok_batch": 0.13,
+          "display_name": "gpt-image-1-mini"
+        },
+        "gpt-image-1.5": {
+          "in_per_mtok": 5.0,
+          "out_per_mtok": 10.0,
+          "cache_read_per_mtok": 1.25,
+          "image_in_per_mtok": 8.0,
+          "image_out_per_mtok": 32.0,
+          "image_cache_read_per_mtok": 2.0,
+          "in_per_mtok_batch": 2.5,
+          "out_per_mtok_batch": 5.0,
+          "cache_read_per_mtok_batch": 0.63,
+          "image_in_per_mtok_batch": 4.0,
+          "image_out_per_mtok_batch": 16.0,
+          "image_cache_read_per_mtok_batch": 1.0,
+          "display_name": "gpt-image-1.5"
+        },
+        "gpt-image-2": {
+          "in_per_mtok": 5.0,
+          "cache_read_per_mtok": 1.25,
+          "image_in_per_mtok": 8.0,
+          "image_out_per_mtok": 30.0,
+          "image_cache_read_per_mtok": 2.0,
+          "in_per_mtok_batch": 2.5,
+          "cache_read_per_mtok_batch": 0.625,
+          "image_in_per_mtok_batch": 4.0,
+          "image_out_per_mtok_batch": 15.0,
+          "image_cache_read_per_mtok_batch": 1.0,
+          "display_name": "gpt-image-2"
+        },
+        "gpt-image-2.5-flare": {
+          "in_per_mtok": 5.0,
+          "cache_read_per_mtok": 1.25,
+          "image_in_per_mtok": 8.0,
+          "image_out_per_mtok": 30.0,
+          "image_cache_read_per_mtok": 2.0,
+          "in_per_mtok_batch": 2.5,
+          "cache_read_per_mtok_batch": 0.625,
+          "image_in_per_mtok_batch": 4.0,
+          "image_out_per_mtok_batch": 15.0,
+          "image_cache_read_per_mtok_batch": 1.0,
+          "display_name": "gpt-image-2.5-flare"
+        },
+        "gpt-image-2.5-sunburst": {
+          "in_per_mtok": 5.0,
+          "cache_read_per_mtok": 1.25,
+          "image_in_per_mtok": 8.0,
+          "image_out_per_mtok": 30.0,
+          "image_cache_read_per_mtok": 2.0,
+          "in_per_mtok_batch": 2.5,
+          "cache_read_per_mtok_batch": 0.625,
+          "image_in_per_mtok_batch": 4.0,
+          "image_out_per_mtok_batch": 15.0,
+          "image_cache_read_per_mtok_batch": 1.0,
+          "display_name": "gpt-image-2.5-sunburst"
+        },
+        "gpt-image-2.6-flare": {
+          "in_per_mtok": 5.0,
+          "cache_read_per_mtok": 1.25,
+          "image_in_per_mtok": 8.0,
+          "image_out_per_mtok": 30.0,
+          "image_cache_read_per_mtok": 2.0,
+          "display_name": "gpt-image-2.6-flare"
+        },
+        "gpt-image-2.6-sunburst": {
+          "in_per_mtok": 5.0,
+          "cache_read_per_mtok": 1.25,
+          "image_in_per_mtok": 8.0,
+          "image_out_per_mtok": 30.0,
+          "image_cache_read_per_mtok": 2.0,
+          "display_name": "gpt-image-2.6-sunburst"
+        },
+        "gpt-live-1": {
+          "per_conversation_minute": 0.05,
+          "display_name": "gpt-live-1"
+        },
+        "gpt-live-transcribe": {
+          "per_audio_minute": 0.017,
+          "display_name": "gpt-live-transcribe"
+        },
+        "gpt-realtime": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 16.0,
+          "cache_read_per_mtok": 0.4,
+          "audio_in_per_mtok": 32.0,
+          "audio_out_per_mtok": 64.0,
+          "audio_cache_read_per_mtok": 0.4,
+          "image_in_per_mtok": 5.0,
+          "image_cache_read_per_mtok": 0.5,
+          "display_name": "gpt-realtime"
+        },
+        "gpt-realtime-1.5": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 16.0,
+          "cache_read_per_mtok": 0.4,
+          "audio_in_per_mtok": 32.0,
+          "audio_out_per_mtok": 64.0,
+          "audio_cache_read_per_mtok": 0.4,
+          "image_in_per_mtok": 5.0,
+          "image_cache_read_per_mtok": 0.5,
+          "display_name": "gpt-realtime-1.5"
+        },
+        "gpt-realtime-2": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 24.0,
+          "cache_read_per_mtok": 0.4,
+          "audio_in_per_mtok": 32.0,
+          "audio_out_per_mtok": 64.0,
+          "audio_cache_read_per_mtok": 0.4,
+          "image_in_per_mtok": 5.0,
+          "image_cache_read_per_mtok": 0.5,
+          "display_name": "gpt-realtime-2"
+        },
+        "gpt-realtime-2.1": {
+          "in_per_mtok": 4.0,
+          "out_per_mtok": 24.0,
+          "cache_read_per_mtok": 0.4,
+          "audio_in_per_mtok": 32.0,
+          "audio_out_per_mtok": 64.0,
+          "audio_cache_read_per_mtok": 0.4,
+          "image_in_per_mtok": 5.0,
+          "image_cache_read_per_mtok": 0.5,
+          "display_name": "gpt-realtime-2.1"
+        },
+        "gpt-realtime-2.1-mini": {
+          "in_per_mtok": 0.6,
+          "out_per_mtok": 2.4,
+          "cache_read_per_mtok": 0.06,
+          "audio_in_per_mtok": 10.0,
+          "audio_out_per_mtok": 20.0,
+          "audio_cache_read_per_mtok": 0.3,
+          "image_in_per_mtok": 0.8,
+          "image_cache_read_per_mtok": 0.08,
+          "display_name": "gpt-realtime-2.1-mini"
+        },
+        "gpt-realtime-mini": {
+          "in_per_mtok": 0.6,
+          "out_per_mtok": 2.4,
+          "cache_read_per_mtok": 0.06,
+          "audio_in_per_mtok": 10.0,
+          "audio_out_per_mtok": 20.0,
+          "audio_cache_read_per_mtok": 0.3,
+          "image_in_per_mtok": 0.8,
+          "image_cache_read_per_mtok": 0.08,
+          "display_name": "gpt-realtime-mini"
+        },
+        "gpt-realtime-translate": {
+          "per_audio_minute": 0.034,
+          "display_name": "gpt-realtime-translate"
+        },
+        "gpt-realtime-whisper": {
+          "per_audio_minute": 0.017,
+          "display_name": "gpt-realtime-whisper"
+        },
+        "gpt-transcribe": {
+          "per_audio_minute": 0.0045,
+          "display_name": "gpt-transcribe"
+        },
+        "o3": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 8.0,
+          "cache_read_per_mtok": 0.5,
+          "in_per_mtok_batch": 1.0,
+          "out_per_mtok_batch": 4.0,
+          "display_name": "o3"
+        },
+        "o3 (fast)": {
+          "in_per_mtok": 3.5,
+          "out_per_mtok": 14.0,
+          "cache_read_per_mtok": 0.875,
+          "display_name": "o3 (Fast)",
+          "api_ids": [
+            "o3"
+          ]
+        },
+        "o3 (flex)": {
+          "in_per_mtok": 1.0,
+          "out_per_mtok": 4.0,
+          "cache_read_per_mtok": 0.25,
+          "display_name": "o3 (Flex)",
+          "api_ids": [
+            "o3"
+          ]
+        },
+        "o3-pro": {
+          "in_per_mtok": 20.0,
+          "out_per_mtok": 80.0,
+          "in_per_mtok_batch": 10.0,
+          "out_per_mtok_batch": 40.0,
+          "display_name": "o3-pro"
+        },
+        "omni-moderation-latest": {
+          "free": true,
+          "display_name": "omni-moderation-latest"
+        },
+        "text-embedding-3-large": {
+          "in_per_mtok": 0.13,
+          "display_name": "text-embedding-3-large"
+        },
+        "text-embedding-3-small": {
+          "in_per_mtok": 0.02,
+          "display_name": "text-embedding-3-small"
+        },
+        "text-embedding-ada-002": {
+          "in_per_mtok": 0.1,
+          "display_name": "text-embedding-ada-002"
+        },
+        "tts-1": {
+          "per_mchars": 15.0,
+          "display_name": "tts-1"
+        },
+        "tts-1-hd": {
+          "per_mchars": 30.0,
+          "display_name": "tts-1-hd"
+        },
+        "web_search": {
+          "per_1k_calls": 10.0,
+          "display_name": "Web search: Web search (incl. images)",
+          "kind": "product"
+        },
+        "web_search_preview (other models)": {
+          "per_1k_calls": 25.0,
+          "display_name": "Web search: Web search preview (other models)",
+          "kind": "product"
+        },
+        "web_search_preview (reasoning models)": {
+          "per_1k_calls": 10.0,
+          "display_name": "Web search: Web search preview (reasoning models)",
+          "kind": "product"
+        },
+        "whisper": {
+          "per_audio_minute": 0.006,
+          "display_name": "Whisper"
+        }
+      }
     }
   }
 }

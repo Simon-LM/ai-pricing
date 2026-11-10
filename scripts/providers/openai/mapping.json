@@ -1,0 +1,339 @@
+{
+  "_comment": [
+    "Hand-maintained mapping from OpenAI's public pricing page to pricing.json entries.",
+    "No model list is held here: the page lists the models, under their API ids.",
+    "",
+    "`source` is the page's Markdown, which OpenAI serves beside every docs page (the",
+    "page's address plus .md): every tab of the rendered page, as plain Markdown tables.",
+    "",
+    "`sections` and `speeds` are the lines that head the page's parts: a table belongs to",
+    "the last section and the last speed above it. `tables` names every table read, by",
+    "its section, its speeds and its header row, word for word, and says what its",
+    "columns become. A table the page has and `tables` does not name is reported in the",
+    "run's notes and not read; one named in `required_tables` that the page lacks fails",
+    "the run. A Standard table gives a model's entry, a Batch table the `_batch` fields",
+    "of the same entry, a Flex, Fast or Ultrafast table an entry of its own,",
+    "`<id> (flex)`, `<id> (fast)`, `<id> (ultrafast)`.",
+    "",
+    "`long_context_note` is the sentence that says where long context starts:",
+    "'Short context: ≤272K input tokens. Long context: >272K input tokens.' gives",
+    "long_context_threshold 272001, K read as 1,000.",
+    "",
+    "Not published, and why (scripts/providers/openai/README.md says more): the models",
+    "whose category carries `restricted_marker` ('Trusted Access'), sold only to",
+    "organisations OpenAI approves; the sections in `sections_not_read`: fine-tuning,",
+    "closed to new users, and the cloud platforms, which bill through their own pages."
+  ],
+  "source": "https://developers.openai.com/api/docs/pricing.md",
+  "sources": [
+    "https://developers.openai.com/api/docs/pricing.md"
+  ],
+  "format": "markdown",
+  "currency": "USD",
+  "sections": [
+    "Flagship models",
+    "Images",
+    "GPT-Live",
+    "Realtime & Audio",
+    "Transcription",
+    "Specialized models",
+    "Tools",
+    "Cloud platforms",
+    "Fine-tuning"
+  ],
+  "sections_not_read": [
+    "Fine-tuning",
+    "Cloud platforms"
+  ],
+  "speeds": {
+    "Standard": "Standard",
+    "### Standard pricing data": "Standard",
+    "Batch": "Batch",
+    "### Batch pricing data": "Batch",
+    "#### Batch": "Batch",
+    "#### Flex": "Flex",
+    "Fast": "Fast",
+    "### Fast pricing data": "Fast",
+    "Ultrafast": "Ultrafast",
+    "### Ultrafast pricing data": "Ultrafast"
+  },
+  "long_context_note": "Short context: ≤(?P<short>[0-9]+)K input tokens\\. Long context: >(?P<long>[0-9]+)K input tokens\\.",
+  "restricted_marker": "Trusted Access",
+  "required_tables": [
+    "flagship-context",
+    "flagship-flat",
+    "tools"
+  ],
+  "tables": [
+    {
+      "name": "flagship-context",
+      "kind": "context",
+      "sections": [
+        "Flagship models"
+      ],
+      "speeds": [
+        "Standard",
+        "Batch",
+        "Flex",
+        "Fast",
+        "Ultrafast"
+      ],
+      "header": [
+        "Model",
+        "Short context input",
+        "Short context output",
+        "Short context cached input",
+        "Short context 30m write",
+        "Short context 12h write",
+        "Long context input",
+        "Long context output",
+        "Long context cached input",
+        "Long context 30m write",
+        "Long context 12h write"
+      ],
+      "fields": [
+        "in_per_mtok",
+        "out_per_mtok",
+        "cache_read_per_mtok",
+        "cache_write_30m_per_mtok",
+        "cache_write_12h_per_mtok"
+      ]
+    },
+    {
+      "name": "flagship-flat",
+      "kind": "flat",
+      "sections": [
+        "Flagship models"
+      ],
+      "speeds": [
+        "Standard",
+        "Batch",
+        "Flex",
+        "Fast",
+        "Ultrafast"
+      ],
+      "header": [
+        "Model",
+        "Input",
+        "Output",
+        "Cached input"
+      ],
+      "fields": [
+        "in_per_mtok",
+        "out_per_mtok",
+        "cache_read_per_mtok"
+      ]
+    },
+    {
+      "name": "images",
+      "kind": "modality",
+      "sections": [
+        "Images"
+      ],
+      "speeds": [
+        "Standard",
+        "Batch"
+      ],
+      "header": [
+        "Model",
+        "Modality",
+        "Input",
+        "Output",
+        "Cached input"
+      ],
+      "fields": [
+        "in_per_mtok",
+        "out_per_mtok",
+        "cache_read_per_mtok"
+      ],
+      "modalities": {
+        "Text": "",
+        "Image": "image_"
+      }
+    },
+    {
+      "name": "realtime-and-audio",
+      "kind": "modality",
+      "sections": [
+        "Realtime & Audio"
+      ],
+      "speeds": [
+        "Standard"
+      ],
+      "header": [
+        "Model",
+        "Modality",
+        "Input",
+        "Output",
+        "Cached input"
+      ],
+      "fields": [
+        "in_per_mtok",
+        "out_per_mtok",
+        "cache_read_per_mtok"
+      ],
+      "modalities": {
+        "Text": "",
+        "Audio": "audio_",
+        "Image": "image_"
+      }
+    },
+    {
+      "name": "gpt-live",
+      "kind": "per_minute",
+      "sections": [
+        "GPT-Live"
+      ],
+      "speeds": [
+        "Standard"
+      ],
+      "header": [
+        "Model",
+        "Price per minute"
+      ],
+      "field": "per_conversation_minute"
+    },
+    {
+      "name": "transcription",
+      "kind": "transcription",
+      "sections": [
+        "Transcription"
+      ],
+      "speeds": [
+        "Standard"
+      ],
+      "header": [
+        "Model",
+        "Use case",
+        "Input",
+        "Output",
+        "Estimated cost"
+      ],
+      "field": "per_audio_minute"
+    },
+    {
+      "name": "specialized",
+      "kind": "specialized",
+      "sections": [
+        "Specialized models"
+      ],
+      "speeds": [
+        "Standard"
+      ],
+      "header": [
+        "Category",
+        "Model",
+        "Input",
+        "Output",
+        "Cached input",
+        "30m write",
+        "12h write"
+      ],
+      "fields": [
+        "in_per_mtok",
+        "out_per_mtok",
+        "cache_read_per_mtok",
+        "cache_write_30m_per_mtok",
+        "cache_write_12h_per_mtok"
+      ]
+    },
+    {
+      "name": "specialized-fast",
+      "kind": "specialized",
+      "sections": [
+        "Specialized models"
+      ],
+      "speeds": [
+        "Fast"
+      ],
+      "header": [
+        "Category",
+        "Model",
+        "Input",
+        "Output",
+        "Cached input"
+      ],
+      "fields": [
+        "in_per_mtok",
+        "out_per_mtok",
+        "cache_read_per_mtok"
+      ]
+    },
+    {
+      "name": "tools",
+      "kind": "tools",
+      "sections": [
+        "Tools"
+      ],
+      "speeds": [
+        "Standard"
+      ],
+      "header": [
+        "Tool",
+        "Details",
+        "Pricing"
+      ]
+    }
+  ],
+  "_comment_tools": [
+    "The tools table prices each row in a sentence. Each row read is named here by its",
+    "Tool and Details cells, with the pattern its price must match (`amount` is the",
+    "figure) and the field it becomes. A row not named here is reported and not read; a",
+    "row named here that the table lacks, or prices another way, fails the run.",
+    "Containers state one price per memory size, `variant`, each published as its own",
+    "entry, `containers (4 GB)`, priced per 20-minute session as the page states it."
+  ],
+  "tools": [
+    {
+      "tool": "Web search",
+      "details": "Web search (incl. images)",
+      "key": "web_search",
+      "pattern": "\\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / 1k calls",
+      "field": "per_1k_calls"
+    },
+    {
+      "tool": "Web search",
+      "details": "Web search preview (reasoning models)",
+      "key": "web_search_preview (reasoning models)",
+      "pattern": "\\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / 1k calls",
+      "field": "per_1k_calls"
+    },
+    {
+      "tool": "Web search",
+      "details": "Web search preview (other models)",
+      "key": "web_search_preview (other models)",
+      "pattern": "\\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / 1k calls",
+      "field": "per_1k_calls"
+    },
+    {
+      "tool": "Containers",
+      "details": "Hosted Shell and Code Interpreter",
+      "key": "containers",
+      "pattern": "(?P<size>[0-9]+) GB \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?)",
+      "variant": "size",
+      "unit": "per 20-minute session per container",
+      "field": "per_session"
+    },
+    {
+      "tool": "File search",
+      "details": "Storage",
+      "key": "file_search (storage)",
+      "pattern": "\\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / GB per day",
+      "field": "per_gb_day"
+    },
+    {
+      "tool": "File search",
+      "details": "Tool call",
+      "key": "file_search",
+      "pattern": "\\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / 1k calls",
+      "field": "per_1k_calls"
+    },
+    {
+      "tool": "Agent Kit",
+      "details": "ChatKit file and image upload storage",
+      "key": "chatkit (storage)",
+      "pattern": "\\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) / GB-day",
+      "field": "per_gb_day"
+    }
+  ]
+}

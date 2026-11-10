@@ -85,6 +85,18 @@ KNOWN_PRICE_FIELDS = (
     # 2026-11-10) or 1 hour (2x). Two keys, because both are sold for the same model.
     "cache_write_5m_per_mtok",
     "cache_write_1h_per_mtok",
+    # OpenAI keeps a written prompt cache 30 minutes or 12 hours, each at its own rate.
+    "cache_write_30m_per_mtok",
+    "cache_write_12h_per_mtok",
+    # Tokens that are not text, priced apart from text by the same model: OpenAI's
+    # real-time and audio models bill audio tokens, its image and real-time models
+    # image tokens. The plain in/out/cache_read fields stay the text rates.
+    "audio_in_per_mtok",
+    "audio_out_per_mtok",
+    "audio_cache_read_per_mtok",
+    "image_in_per_mtok",
+    "image_out_per_mtok",
+    "image_cache_read_per_mtok",
     "index_per_mtok",
     "train_per_mtok",
     "per_mchars",
@@ -92,6 +104,11 @@ KNOWN_PRICE_FIELDS = (
     "in_per_mtok_batch",
     "out_per_mtok_batch",
     "cache_read_per_mtok_batch",
+    "cache_write_30m_per_mtok_batch",
+    "cache_write_12h_per_mtok_batch",
+    "image_in_per_mtok_batch",
+    "image_out_per_mtok_batch",
+    "image_cache_read_per_mtok_batch",
     # token prices past a long-context threshold: once a request's prompt reaches
     # `long_context_threshold` tokens, every token in it is billed at these rates
     # instead (xAI states both, model by model, from 2026; Eden AI states some too).
@@ -100,10 +117,15 @@ KNOWN_PRICE_FIELDS = (
     "cache_read_per_mtok_long_context",
     "cache_write_5m_per_mtok_long_context",
     "cache_write_1h_per_mtok_long_context",
+    "cache_write_30m_per_mtok_long_context",
+    "cache_write_12h_per_mtok_long_context",
     # and in batch: Anthropic states Claude Haiku 5.5's batch rates for prompts over
     # 100,000 tokens as figures of their own.
     "in_per_mtok_batch_long_context",
     "out_per_mtok_batch_long_context",
+    "cache_read_per_mtok_batch_long_context",
+    "cache_write_30m_per_mtok_batch_long_context",
+    "cache_write_12h_per_mtok_batch_long_context",
     # document prices
     "per_1k_pages",
     # Mistral's OCR models bill a second, higher rate for pages it also annotates.
@@ -145,6 +167,8 @@ KNOWN_PRICE_FIELDS = (
     # Claude Managed Agents, billed for the time a session runs.
     "per_container_hour",
     "per_session_hour",
+    # Storage, per gigabyte and per day: OpenAI's file search and ChatKit uploads.
+    "per_gb_day",
     # subscription prices
     "per_model_month",
 )

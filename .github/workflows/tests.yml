@@ -24,6 +24,7 @@ on:
       - "Refresh prices (Hugging Face)"
       - "Refresh prices (Mistral)"
       - "Refresh prices (OVH)"
+      - "Refresh prices (OpenAI)"
       - "Refresh prices (Perplexity)"
       - "Refresh prices (Scaleway)"
       - "Refresh prices (xAI)"

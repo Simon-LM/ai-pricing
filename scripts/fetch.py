@@ -28,7 +28,7 @@ MIN_PAGE_BYTES = 10_000
 # marketing page. The 10 kB floor above would reject a perfectly good response.
 MIN_JSON_BYTES = 100
 
-# The two shapes a source comes in, and what each implies for the request. A source
+# The shapes a source comes in, and what each implies for the request. A source
 # is declared once, in its provider's mapping.json, rather than each scraper guessing
 # from the URL: `html` is the fail-safe default, because reading a JSON endpoint as a
 # page fails loudly on the size floor instead of quietly accepting a wrong answer.
@@ -41,6 +41,9 @@ MIN_JSON_BYTES = 100
 SOURCE_FORMATS: dict[str, dict[str, Any]] = {
     "html": {"accept": "text/html", "min_bytes": MIN_PAGE_BYTES},
     "json": {"accept": "application/json", "min_bytes": MIN_JSON_BYTES},
+    # A documentation page served as Markdown: a page all the same, with a page's floor.
+    # OpenAI publishes one beside each of its docs pages (append `.md` to the URL).
+    "markdown": {"accept": "text/markdown", "min_bytes": MIN_PAGE_BYTES},
 }
 
 

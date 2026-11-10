@@ -11,7 +11,7 @@ a scrape that breaks opens an issue. But a scheduled workflow that never ran at 
 silently skipped -- produces no failure to report, and pricing.json simply stops
 moving while looking exactly as it always did.
 
-So this reads the eight `checked_utc` stamps and reports what it finds either way:
+So this reads the nine `checked_utc` stamps and reports what it finds either way:
 every provider verified today, or which ones were not. It is a receipt, sent whether
 or not anything is wrong, and the absence of the receipt is itself the alarm.
 

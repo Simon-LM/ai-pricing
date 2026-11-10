@@ -37,13 +37,14 @@ PROVIDER_MODULES = {
     "edenai": ["tests.scraper_tests.test_edenai"],
     "huggingface": ["tests.scraper_tests.test_huggingface"],
     "mistral": ["tests.scraper_tests.test_mistral"],
+    "openai": ["tests.scraper_tests.test_openai"],
     "ovh": ["tests.scraper_tests.test_ovh", "tests.scraper_tests.test_ovh_coverage"],
     "perplexity": ["tests.scraper_tests.test_perplexity"],
     "scaleway": ["tests.scraper_tests.test_scaleway"],
     "xai": ["tests.scraper_tests.test_xai"],
 }
 
-# Run by every refresh, because they cover the plumbing all eight share.
+# Run by every refresh, because they cover the plumbing all nine share.
 SHARED_MODULES = [
     "tests.test_pricing_validate",
     "tests.test_provider_runner",

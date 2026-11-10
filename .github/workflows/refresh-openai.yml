@@ -1,0 +1,370 @@
+name: Refresh prices (OpenAI)
+
+# Reads OpenAI's public pricing page, as Markdown, once a week and works out whether
+# pricing.json's providers.openai block should change. It has exactly three
+# outcomes, and never a fourth:
+#
+#   figures unchanged  -> commit the checked_utc stamp straight to main
+#   a figure changed   -> commit the new figures straight to main
+#   fetch/parse failed -> open an issue, fail the job, leave pricing.json untouched
+#
+# pricing.json holds one block per provider under `providers.<name>`. This workflow
+# only ever touches `providers.openai`; every other provider's block is carried
+# through by the scraper itself (merge_provider_block()) exactly as committed. This
+# file follows the exact pattern of refresh-mistral.yml and joins the SAME concurrency
+# group below so the two queue on pricing.json writes instead of racing each other.
+#
+# A commit happens on EVERY successful run, whether or not a figure moved. When
+# nothing moved it is a real statement to consumers ("confirmed unchanged today"),
+# and it is also what keeps this workflow alive: GitHub disables a scheduled
+# workflow after 60 days without repository activity, and only new commits reset
+# that timer -- not tags, not issues, nothing but commits. A repository whose
+# content changes every few months is exactly the profile that gets switched off.
+#
+# The scraper needs no API key of any kind and must never be given one. It reads a
+# public page. There are no secrets in this workflow beyond the automatic
+# GITHUB_TOKEN, which is used only to commit, and to file and assign an issue
+# when the check fails.
+
+on:
+  schedule:
+    - cron: "30 5 * * 1" # Mondays, 05:30 UTC -- half an hour after OVH's and half an
+    # hour before Eden AI's, so no two scheduled runs land in the same minute and
+    # fight over the pricing-json-writes concurrency group every single week. Still
+    # before 08:00 on purpose: the weekly report reads every provider's stamp then and
+    # calls one that did not refresh stale, so this check has to be in the same
+    # morning sequence, not after the report has already read it.
+  workflow_dispatch: # so a human can force a check
+    inputs:
+      dry_run:
+        description: "Check the source and report, but commit nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  # Shared with every other provider's refresh-<name>.yml on purpose: they all
+  # write to the same pricing.json, so they must queue, never run concurrently.
+  group: pricing-json-writes
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # A scraper whose own tests fail has no business publishing a number. Its own,
+      # and not somebody else's: this runs the shared tests plus OpenAI's, never the
+      # other providers'. Discovering the whole suite here made every provider a single
+      # point of failure for the others, and on 2026-09-07 that is exactly what
+      # happened -- OVH put one new model on sale, an OVH fixture went stale, and Eden
+      # AI and Hugging Face stopped publishing for a week over it. The full suite still
+      # runs on every push, in tests.yml, which is where a cross-provider regression
+      # belongs.
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 -m unittest -v \
+            tests.test_pricing_validate \
+            tests.test_provider_runner \
+            tests.test_nextjs_flight \
+            tests.test_weekly_report \
+            tests.scraper_tests.test_openai 2>&1 | tee /tmp/tests.log
+
+      - name: Read the OpenAI pricing page
+        id: scrape
+        continue-on-error: true
+        run: python3 scripts/providers/openai/scrape.py --out-dir .ci-out
+
+      # ---------------------------------------------------------------------------
+      # The tests above ran against the committed pricing.json -- the file as it stood
+      # BEFORE this scrape. What the commit step below publishes is a candidate built
+      # after it, and until 2026-09-14 nothing ever tested that candidate. That day a
+      # block its own tests reject was committed to main and stayed red there, because
+      # the one job that runs the full suite never sees these commits: a push made with
+      # GITHUB_TOKEN triggers no workflow.
+      #
+      # So the same tests run a second time, pointed at the bytes about to be published.
+      # The scraper already checked them against the schema; this adds everything the
+      # schema cannot express -- that the block still agrees with its mapping, that the
+      # cross-source price band holds, and that Monday's report can still be built.
+      # ---------------------------------------------------------------------------
+      - name: Test the file that is about to be published
+        id: verify
+        if: steps.tests.outcome == 'success' && steps.scrape.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            CANDIDATE="$PWD/.ci-out/updated.json"
+          else
+            CANDIDATE="$PWD/.ci-out/stamped.json"
+          fi
+          echo "Testing $CANDIDATE -- the exact file this run would commit."
+
+          # AI_PRICING_FILE is read once at import; unset it means the committed file,
+          # so a typo here would quietly re-test what is already on main and prove
+          # nothing. tests/published.py fails loudly on a path that does not exist.
+          AI_PRICING_FILE="$CANDIDATE" python3 -m unittest -v \
+            tests.test_weekly_report \
+            tests.scraper_tests.test_openai 2>&1 | tee /tmp/candidate.log
+
+      # ---------------------------------------------------------------------------
+      # Outcome 3: something failed. Report it, change nothing, fail the job.
+      # ---------------------------------------------------------------------------
+      - name: Report failure and stop
+        if: steps.tests.outcome == 'failure' || steps.scrape.outcome == 'failure'
+          || steps.verify.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ "${{ steps.tests.outcome }}" = "failure" ]; then
+            # Naming the test is the whole point: "the test suite failed" on its own
+            # sends the reader to the run log to find out what this is even about.
+            {
+              echo "The test suite failed, so the scraper was not trusted to publish anything."
+              echo
+              grep -E '^(FAIL|ERROR): ' /tmp/tests.log \
+                || echo "(no FAIL line in the test log -- see the run)"
+            } > /tmp/reason.txt
+          elif [ "${{ steps.verify.outcome }}" = "failure" ]; then
+            {
+              echo "The scrape succeeded, but the file it was about to commit does not"
+              echo "pass the tests that describe a published file. Nothing was committed."
+              echo
+              grep -E '^(FAIL|ERROR): ' /tmp/candidate.log \
+                || echo "(no FAIL line in the candidate log -- see the run)"
+            } > /tmp/reason.txt
+          elif [ -s .ci-out/error.txt ]; then
+            cp .ci-out/error.txt /tmp/reason.txt
+          else
+            echo "The scraper failed without writing a reason. See the run log." > /tmp/reason.txt
+          fi
+
+          # Built by concatenation, never by interpolating the reason into a shell string:
+          # the reason quotes text taken from an endpoint this repository does not control.
+          {
+            cat <<'INTRO'
+          The weekly OpenAI price check did not complete. `pricing.json` has **not** been
+          modified: providers.openai still shows the figures last successfully verified, and its
+          `checked_utc` still shows when they were last actually verified.
+
+          ```
+          INTRO
+            cat /tmp/reason.txt
+            echo '```'
+            echo
+            echo "Run: ${RUN_URL}"
+            echo "Page: https://developers.openai.com/api/docs/pricing.md"
+            cat <<'OUTRO'
+
+          The reason is quoted above, and it is one of three things.
+
+          **A test failed.** Its name is in the block above. This refresh runs the shared
+          tests plus OpenAI's own and no others, so the fault is here -- in this scraper,
+          in its fixtures, or in the block it publishes -- and not in another provider's.
+          Reproduce it with the command this run's "Run tests" step shows.
+
+          **The file about to be published failed its own tests.** The scrape worked
+          and the figures are probably fine. What failed is a check on the candidate:
+          the block no longer agrees with its mapping, the cross-source price band
+          broke, or the weekly report could not be built from it. Nothing was
+          committed, so the published file is still the last one that passed.
+          Reproduce it by scraping into a directory and pointing the tests at the
+          result: `AI_PRICING_FILE=$PWD/.ci-out/updated.json python3 -m unittest ...`,
+          the command this run's "Test the file that is about to be published" shows.
+
+          **The scrape failed.** The page changed shape rather than a price changing --
+          this reads the Markdown tables of the pricing page, each found by its section, its
+          speed and its header row word for word, so a renamed column, a new way of writing
+          a price or a tools row priced another way is the usual cause. A table the mapping
+          does not name is only reported; one it requires and cannot find fails the run.
+          `scripts/providers/openai/mapping.json` states the sections, the headers and the
+          tool rows expected, and holds no list of models. Compare it against the page, fix
+          it by hand, and re-run this workflow from the Actions tab.
+
+          A model appearing or disappearing is neither of those, and needs nothing from
+          you: a new one publishes itself on the next run, and a withdrawn one keeps the
+          last prices actually observed under an `absent_since` date until it is dropped a
+          year later.
+          OUTRO
+          } > /tmp/issue-body.md
+
+          # One issue per outage, not one per week: comment on the open one if there is one.
+          # Scoped to an OpenAI-specific label so a stuck Mistral failure never suppresses a
+          # fresh OpenAI notification or vice versa.
+          EXISTING="$(gh issue list --label scraper-failure:openai --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file /tmp/issue-body.md
+            echo "Commented on existing issue #$EXISTING"
+          else
+            gh label create scraper-failure:openai --color d73a4a --description "The OpenAI price scraper could not complete" 2>/dev/null || true
+            # --assignee, not just the label: being assigned notifies the owner
+            # through a different channel than watching the repository, one that is
+            # on by default and that a busy notification inbox does not bury. It also
+            # subscribes them to the issue, so the `gh issue comment` path above --
+            # taken on every repeat failure -- notifies them too.
+            gh issue create \
+              --assignee ${{ github.repository_owner }} \
+              --title "OpenAI price check failed on $(date -u +%Y-%m-%d)" \
+              --label scraper-failure:openai \
+              --body-file /tmp/issue-body.md
+          fi
+
+          echo "::error::The OpenAI price check failed. pricing.json was left untouched."
+          exit 1
+
+      - name: Report what was found
+        run: |
+          {
+            echo "### OpenAI price check"
+            echo '```'
+            cat .ci-out/summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat .ci-out/summary.txt
+
+      - name: Dry run - stopping before anything is written
+        if: inputs.dry_run
+        run: |
+          echo "::notice::Dry run - nothing committed, nothing published."
+
+      # ---------------------------------------------------------------------------
+      # Every successful run commits, straight to main. Whether a figure moved only
+      # changes WHICH candidate is promoted and what the message says -- there is no
+      # review gate, on purpose.
+      #
+      # A price moving is not a decision anybody makes: the provider already changed
+      # it, and refusing to publish only means shipping a figure known to be stale.
+      # What a reviewer would actually have caught -- a misparse -- is caught earlier
+      # and harder, by bounds and the change-factor limit in pricing_validate.py, and
+      # that path fails the job instead of reaching here. Anything that gets this far
+      # is a plausible figure within a factor of 5 of the last one.
+      #
+      # The commit is the record. `git log -- pricing.json` shows every price move,
+      # dated, with the figures in the diff.
+      # ---------------------------------------------------------------------------
+      - name: Commit the figures
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            # updated.json carries the new figures AND the fresh checked_utc, so this
+            # is one commit, not a stamp followed by a correction.
+            cp .ci-out/updated.json pricing.json
+            MESSAGE="prices: openai figures changed on $(date -u +%Y-%m-%d)"
+          else
+            cp .ci-out/stamped.json pricing.json
+            MESSAGE="chore: verified openai prices unchanged at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- pricing.json; then
+            echo "Nothing to commit; pricing.json is already current."
+            exit 0
+          fi
+
+          git add pricing.json
+          git commit -m "$MESSAGE"
+
+          # A human pushing to main while this job runs makes this push non-fast-forward
+          # and fails it, which opens a failure issue about nothing at all: the figures
+          # are right and the only quarrel is position in history. Rebase onto whatever
+          # landed and try again. No other provider can be mid-write -- they share the
+          # pricing-json-writes concurrency group -- so the only possible conflict is
+          # with a human edit to pricing.json, and `set -e` makes that fail loudly here
+          # rather than loop.
+          pushed=""
+          for attempt in 1 2 3; do
+            if git push; then
+              pushed=yes
+              break
+            fi
+            echo "Push rejected on attempt ${attempt}; rebasing onto origin/main."
+            git pull --rebase origin main
+          done
+          if [ -z "$pushed" ]; then
+            echo "::error::pricing.json was committed but could not be pushed after three tries."
+            exit 1
+          fi
+          # Note: a push made with GITHUB_TOKEN triggers no workflow, which is why
+          # tests.yml watches these runs with `workflow_run` instead. Nothing in this
+          # job depends on the push triggering anything.
+
+          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+            echo "::notice::openai prices changed and are now published. See the job summary for the diff."
+          fi
+
+      # ---------------------------------------------------------------------------
+      # A change to WHAT the source offers, rather than to a price. Not a failure --
+      # the prices published above are correct and were published -- but not something
+      # to absorb in silence either: a project reading pricing.json should not be the
+      # last to learn that a model it names is gone.
+      #
+      # Assigning the issue is what makes this an email. It is raised by the one run
+      # that observes the change and never repeated: an entry that is still absent next
+      # week already carries `absent_since` and says nothing further. A weekly reminder
+      # of a decision already taken is how an alert channel gets muted, and this one has
+      # to still work the day something real happens.
+      # ---------------------------------------------------------------------------
+      - name: Report inventory changes
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -s .ci-out/notes.txt ]; then
+            echo "The source offers the same things it did last week."
+            exit 0
+          fi
+
+          # Built by concatenation, never by interpolating the notes into a shell string:
+          # they quote model ids and labels taken from an endpoint this repository does
+          # not control.
+          {
+            cat <<'INTRO'
+          The weekly OpenAI check completed and published normally. It also found a change to
+          **what the source offers**, not just to a price:
+
+          ```
+          INTRO
+            cat .ci-out/notes.txt
+            echo '```'
+            echo
+            echo "Run: ${RUN_URL}"
+            cat <<'OUTRO'
+
+          Nothing is broken and nothing here needs fixing. An entry the source stopped offering
+          keeps the last prices that were actually observed, gains an `absent_since` date, and is
+          dropped a year later; one that came back has had its prices refreshed and the marker
+          removed. This issue exists so the change reaches a human by email. Close it once read.
+          OUTRO
+          } > /tmp/notes-body.md
+
+          gh label create inventory-change --color 0e8a16 \
+            --description "A source added, dropped or renamed something" 2>/dev/null || true
+          gh issue create \
+            --assignee ${{ github.repository_owner }} \
+            --title "OpenAI inventory changed on $(date -u +%Y-%m-%d)" \
+            --label inventory-change \
+            --body-file /tmp/notes-body.md
