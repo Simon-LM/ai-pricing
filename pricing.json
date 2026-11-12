@@ -2266,8 +2266,8 @@
       }
     },
     "perplexity": {
-      "checked_utc": "2026-11-11T06:37:07Z",
-      "updated": "2026-11-11",
+      "checked_utc": "2026-11-12T06:37:50Z",
+      "updated": "2026-11-12",
       "source": "https://docs.perplexity.ai/docs/getting-started/pricing",
       "sources": [
         "https://docs.perplexity.ai/docs/getting-started/pricing",
@@ -2279,13 +2279,15 @@
           "in_per_mtok": 10.0,
           "out_per_mtok": 50.0,
           "cache_read_per_mtok": 1.0,
-          "display_name": "anthropic/claude-fable-5"
+          "display_name": "anthropic/claude-fable-5",
+          "absent_since": "2026-11-12"
         },
         "anthropic/claude-fable-5-1": {
           "in_per_mtok": 10.0,
           "out_per_mtok": 50.0,
           "cache_read_per_mtok": 0.25,
-          "display_name": "anthropic/claude-fable-5-1"
+          "display_name": "anthropic/claude-fable-5-1",
+          "absent_since": "2026-11-12"
         },
         "anthropic/claude-fable-5-2": {
           "in_per_mtok": 8.0,
@@ -2307,7 +2309,8 @@
           "in_per_mtok": 5.0,
           "out_per_mtok": 25.0,
           "cache_read_per_mtok": 0.5,
-          "display_name": "anthropic/claude-opus-5"
+          "display_name": "anthropic/claude-opus-5",
+          "absent_since": "2026-11-12"
         },
         "anthropic/claude-opus-5-5": {
           "in_per_mtok": 4.0,
@@ -2319,7 +2322,8 @@
           "in_per_mtok": 2.0,
           "out_per_mtok": 10.0,
           "cache_read_per_mtok": 0.2,
-          "display_name": "anthropic/claude-sonnet-5"
+          "display_name": "anthropic/claude-sonnet-5",
+          "absent_since": "2026-11-12"
         },
         "anthropic/claude-sonnet-5-5": {
           "in_per_mtok": 2.0,
