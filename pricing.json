@@ -519,8 +519,8 @@
       }
     },
     "edenai": {
-      "checked_utc": "2026-11-11T06:02:15Z",
-      "updated": "2026-11-11",
+      "checked_utc": "2026-11-12T06:02:08Z",
+      "updated": "2026-11-12",
       "source": "https://api.edenai.run/v3/models",
       "currency": "USD",
       "models": {
@@ -1266,9 +1266,9 @@
           "display_name": "sonar-reasoning-pro"
         },
         "scaleway/deepseek-v4-flash-0731": {
-          "in_per_mtok": 0.4485602337895938,
-          "out_per_mtok": 0.8971204675791877,
-          "cache_read_per_mtok": 0.08971204675791877,
+          "in_per_mtok": 0.4450799196630745,
+          "out_per_mtok": 0.890159839326149,
+          "cache_read_per_mtok": 0.0890159839326149,
           "display_name": "deepseek-v4-flash-0731"
         },
         "scaleway/deepseek-v4.1-flash": {
@@ -1278,9 +1278,9 @@
           "display_name": "deepseek-v4.1-flash"
         },
         "scaleway/deepseek-v4.1-flash-1017": {
-          "in_per_mtok": 0.6728403506843906,
-          "out_per_mtok": 2.018521052053172,
-          "cache_read_per_mtok": 0.13456807013687816,
+          "in_per_mtok": 0.6676198794946115,
+          "out_per_mtok": 2.0028596384838346,
+          "cache_read_per_mtok": 0.13352397589892237,
           "display_name": "deepseek-v4.1-flash-1017"
         },
         "scaleway/devstral-2-123b-instruct-2512": {
@@ -1294,23 +1294,23 @@
           "display_name": "gemma-3-27b-it"
         },
         "scaleway/gemma-4-26b-a4b-it": {
-          "in_per_mtok": 0.2803501461184961,
-          "out_per_mtok": 0.5607002922369922,
+          "in_per_mtok": 0.27817494978942153,
+          "out_per_mtok": 0.5563498995788431,
           "display_name": "gemma-4-26b-a4b-it"
         },
         "scaleway/glm-5.2": {
-          "in_per_mtok": 2.018521052053172,
-          "out_per_mtok": 6.167703214606915,
+          "in_per_mtok": 2.0028596384838346,
+          "out_per_mtok": 6.119848895367274,
           "display_name": "glm-5.2"
         },
         "scaleway/glm-5.3": {
-          "in_per_mtok": 2.018521052053172,
-          "out_per_mtok": 6.167703214606915,
+          "in_per_mtok": 2.0028596384838346,
+          "out_per_mtok": 6.119848895367274,
           "display_name": "glm-5.3"
         },
         "scaleway/gpt-oss-120b": {
-          "in_per_mtok": 0.16821008767109766,
-          "out_per_mtok": 0.6728403506843906,
+          "in_per_mtok": 0.1669049698736529,
+          "out_per_mtok": 0.6676198794946115,
           "display_name": "gpt-oss-120b"
         },
         "scaleway/holo2-30b-a3b": {
@@ -1319,18 +1319,18 @@
           "display_name": "holo2-30b-a3b"
         },
         "scaleway/llama-3.3-70b-instruct": {
-          "in_per_mtok": 1.009260526026586,
-          "out_per_mtok": 1.009260526026586,
+          "in_per_mtok": 1.0014298192419173,
+          "out_per_mtok": 1.0014298192419173,
           "display_name": "llama-3.3-70b-instruct"
         },
         "scaleway/mistral-medium-3.5-128b": {
-          "in_per_mtok": 1.6821008767109769,
-          "out_per_mtok": 8.410504383554883,
+          "in_per_mtok": 1.6690496987365293,
+          "out_per_mtok": 8.345248493682647,
           "display_name": "mistral-medium-3.5-128b"
         },
         "scaleway/mistral-small-3.2-24b-instruct-2506": {
-          "in_per_mtok": 0.16821008767109766,
-          "out_per_mtok": 0.39249020456589456,
+          "in_per_mtok": 0.1669049698736529,
+          "out_per_mtok": 0.3894449297051901,
           "display_name": "mistral-small-3.2-24b-instruct-2506"
         },
         "scaleway/pixtral-12b-2409": {
@@ -1339,8 +1339,8 @@
           "display_name": "pixtral-12b-2409"
         },
         "scaleway/qwen3-235b-a22b-instruct-2507": {
-          "in_per_mtok": 0.8410504383554884,
-          "out_per_mtok": 2.5231513150664644,
+          "in_per_mtok": 0.8345248493682647,
+          "out_per_mtok": 2.5035745481047935,
           "display_name": "qwen3-235b-a22b-instruct-2507"
         },
         "scaleway/qwen3-coder-30b-a3b-instruct": {
@@ -1349,19 +1349,19 @@
           "display_name": "qwen3-coder-30b-a3b-instruct"
         },
         "scaleway/qwen3.5-397b-a17b": {
-          "in_per_mtok": 0.6728403506843906,
-          "out_per_mtok": 4.037042104106344,
+          "in_per_mtok": 0.6676198794946115,
+          "out_per_mtok": 4.005719276967669,
           "display_name": "qwen3.5-397b-a17b"
         },
         "scaleway/qwen3.6-35b-a3b": {
-          "in_per_mtok": 0.2803501461184961,
-          "out_per_mtok": 1.6821008767109769,
+          "in_per_mtok": 0.27817494978942153,
+          "out_per_mtok": 1.6690496987365293,
           "display_name": "qwen3.6-35b-a3b"
         },
         "scaleway/qwen3.8-27b": {
-          "in_per_mtok": 0.6728403506843906,
-          "out_per_mtok": 3.700621928764149,
-          "cache_read_per_mtok": 0.13456807013687816,
+          "in_per_mtok": 0.6676198794946115,
+          "out_per_mtok": 3.6719093372203644,
+          "cache_read_per_mtok": 0.13352397589892237,
           "display_name": "qwen3.8-27b"
         },
         "scaleway/voxtral-small-24b-2507": {
