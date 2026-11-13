@@ -2267,8 +2267,8 @@
       }
     },
     "perplexity": {
-      "checked_utc": "2026-11-12T06:37:50Z",
-      "updated": "2026-11-12",
+      "checked_utc": "2026-11-13T06:37:33Z",
+      "updated": "2026-11-13",
       "source": "https://docs.perplexity.ai/docs/getting-started/pricing",
       "sources": [
         "https://docs.perplexity.ai/docs/getting-started/pricing",
@@ -2502,9 +2502,17 @@
           "in_per_mtok": 0.01,
           "display_name": "pplx-decider-flash-v1.2"
         },
+        "pplx-decider-flash-v1.3": {
+          "in_per_mtok": 0.01,
+          "display_name": "pplx-decider-flash-v1.3"
+        },
         "pplx-decider-v1.2": {
           "in_per_mtok": 0.02,
           "display_name": "pplx-decider-v1.2"
+        },
+        "pplx-decider-v1.3": {
+          "in_per_mtok": 0.02,
+          "display_name": "pplx-decider-v1.3"
         },
         "pplx-embed-context-v1-0.6b": {
           "in_per_mtok": 0.008,
