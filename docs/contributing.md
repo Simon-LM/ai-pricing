@@ -54,6 +54,37 @@ A scraper **never writes `pricing.json`**. It writes candidate files into `--out
 failed) and says which one the workflow should promote. `--now` sets the date of the run,
 for a source that states prices by date.
 
+## A fixture, and cutting it again
+
+A provider's tests read a fixture: a copy of the page, under `tests/fixtures/<key>/`, so
+that what the scraper is tested against is a file in this repository and not whatever the
+page happens to serve today. When a provider changes the shape of its page, the scraper
+fails on the live run and the fixture has to be cut again -- a fixture that still holds the
+old shape cannot fail, which is how a page change can go unnoticed for as long as it takes
+someone to read the failure.
+
+```sh
+python3 scripts/trim_fixture.py \
+    --url https://platform.claude.com/docs/en/about-claude/pricing \
+    --served 2026-11-15 --from-heading "Model pricing" \
+    --out tests/fixtures/anthropic/pricing_ok.html
+```
+
+It fetches the page exactly as the scraper does, keeps the text, the tables, the page's own
+comments and the badges' `aria-label`, drops scripts, styles, icons and the attributes no
+fixture carries, starts at the first heading the tests read, and writes a comment saying
+which page and which day it is. `--page FILE` cuts from a copy you already have,
+`--keep-attr` and `--drop-tag` adjust what is kept, and `--comment` says what the fixture's
+own comment reports.
+
+Then run the scraper offline over the new fixture and the provider's tests, and read the
+diff: a figure that moves is the page moving, and is the point of the exercise.
+
+The fixtures under `tests/fixtures/anthropic/` are what that command produces, byte for
+byte, and `tests/test_trim_fixture.py` checks it -- so a fixture corrected by hand is
+caught rather than trusted. A provider whose page is not a table, or whose fixture keeps
+other attributes, needs its own options rather than another tool.
+
 ## Adding a field or a unit
 
 After the issue is agreed:
@@ -86,12 +117,13 @@ After the issue is agreed, and after reading the provider's pricing pages yourse
    `format`: `json` for an API, `markdown` for a Markdown page, `html` for a page.
 4. **Refuse rather than guess.** A figure in a form the scraper does not know fails the
    run, or is reported and left out; it is never placed by guess.
-5. **Test it.** A fixture of the real page under `tests/fixtures/<key>/`, a
-   `baseline.json` built from it, and `tests/scraper_tests/test_<key>.py` checking the
-   figures as a human reads them on the page, and failing when the page changes shape.
-   Import the scraper as `from providers.<key> import scrape`: every scraper is named
-   `scrape.py`, and a bare `import scrape` loads the wrong one when the suite runs
-   together.
+5. **Test it.** A fixture of the real page under `tests/fixtures/<key>/` (cut it with
+   `scripts/trim_fixture.py` when the source is an HTML page: see
+   [A fixture, and cutting it again](#a-fixture-and-cutting-it-again)), a `baseline.json`
+   built from it, and `tests/scraper_tests/test_<key>.py` checking the figures as a human
+   reads them on the page, and failing when the page changes shape. Import the scraper as
+   `from providers.<key> import scrape`: every scraper is named `scrape.py`, and a bare
+   `import scrape` loads the wrong one when the suite runs together.
 6. **Schedule it**: `.github/workflows/refresh-<key>.yml`, copied from another provider's,
    at a free half hour before 08:00 UTC; add it to the `workflow_run` list of
    `tests.yml` and to `PROVIDER_MODULES` in `tests/test_workflows.py`.
