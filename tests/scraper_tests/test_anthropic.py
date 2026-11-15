@@ -1,15 +1,16 @@
 """Tests for scripts/providers/anthropic/scrape.py.
 
-Two fixtures, both as served on 2026-11-10, with scripts, styles, icons and attributes
-stripped and the text and tables kept:
+Two fixtures, both as served on 2026-11-15, with scripts, styles, icons and most
+attributes stripped and the text and tables kept:
 
 - `pricing_ok.html`, the pricing page: the model, batch, fast mode and Claude Managed
   Agents tables, and the sentences that price web search, code execution and web fetch;
 - `deprecations_ok.html`, the model deprecations page: the status table that states
   each model's API id and whether it is Active, Deprecated or Retired.
 
-The figures asserted below were read off the page by a human on 2026-11-10, and every
-model row of the pricing page is checked against what is published.
+The figures asserted below were read off the page by a human on 2026-11-10, and the page
+still states them unchanged on 2026-11-15: every model row of the pricing page is checked
+against what is published.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import json
 import re
 import sys
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -46,7 +48,9 @@ FIXED_NOW = "2026-11-10T10:00:00Z"
 
 
 def status_row(model_id: str, state: str) -> str:
-    return f"<tr><td><button>{model_id}</button></td><td>{state}</td>"
+    """A status table row as the page writes it: the id in the button that copies it, then
+    the state. The first two cells only: the tests edit the row they find."""
+    return f'<tr><td><button aria-label="Copy model ID {model_id}">{model_id}</button></td><td>{state}</td>'
 
 
 class ScrapeTestCase(unittest.TestCase):
@@ -210,6 +214,36 @@ class TestFigures(ScrapeTestCase):
         self.assertEqual(checked, 14, "every flat row of a model still sold and not held back")
 
 
+class TestCellText(unittest.TestCase):
+    """What a cell's text is. The page writes a cell's parts in separate elements with no
+    space of its own between them, so the space this scraper reads is what an element
+    boundary becomes -- and that may not depend on knowing the element's name."""
+
+    def text_of(self, cell_html: str) -> str:
+        page = f"<table><tbody><tr><td>{cell_html}</td></tr></tbody></table>"
+        return scrape.tables(page)[0][0][0].text
+
+    def test_no_element_can_weld_two_texts_together(self) -> None:
+        """Claude Haiku 5.5's tier caption, as the page writes it: "$0.10 / MTok" and
+        "for prompts up to 100,000 tokens" are separate elements with nothing between
+        them. On 2026-11-15 the page wrapped both in <small>, where it had used <span>,
+        and a scraper that knew only the elements it had seen read the two as
+        "$0.10 / MTokfor prompts up to 100,000 tokens". No element may do that again."""
+        cell = "$0.10<!-- --> <{element}>/ MTok</{element}><{element}>for prompts up to 100,000 tokens</{element}>"
+        for element in ("span", "small", "abbr", "b", "x-untouched"):
+            with self.subTest(element=element):
+                text = self.text_of(cell.format(element=element))
+                self.assertEqual(text, "$0.10 / MTok for prompts up to 100,000 tokens")
+                self.assertEqual(scrape._price(text, "a cell"), (Decimal("0.10"), "up to", 100000))
+
+    def test_the_unit_reads_through_the_elements_wrapped_around_it(self) -> None:
+        """The model table braces its unit with elements of its own, a tooltip button
+        among them: "$8<!-- --> <small>/ <button>MTok</button></small>"."""
+        text = self.text_of("$8<!-- --> <small>/ <button>MTok</button></small>")
+        self.assertEqual(text, "$8 / MTok")
+        self.assertEqual(scrape._price(text, "a cell"), (Decimal("8"), None, None))
+
+
 class TestFailures(ScrapeTestCase):
     def test_a_renamed_column(self) -> None:
         page = self.edited(self.pricing_page, "<button>5m writes</button>", "<button>5-minute writes</button>")
@@ -222,16 +256,16 @@ class TestFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, "not a price per MTok this can read")
 
     def test_two_tiers_that_do_not_meet(self) -> None:
-        page = self.edited(self.pricing_page, "for prompts over 100,000 tokens</span></div></td><td><div>$2.50",
-                           "for prompts over 200,000 tokens</span></div></td><td><div>$2.50")
+        page = self.edited(self.pricing_page, "for prompts over 100,000 tokens</small></div></td><td><div>$2.50",
+                           "for prompts over 200,000 tokens</small></div></td><td><div>$2.50")
         code, _, stderr = self.run_scrape(pricing=page)
         self.assert_failed(code, stderr, "not one price, nor 'up to N' then 'over N'")
 
     def test_batch_and_model_tables_changing_price_at_different_sizes(self) -> None:
-        page = self.edited(self.pricing_page, "$0.05<!-- --> <span>/ MTok</span><span>for prompts up to 100,000 tokens",
-                           "$0.05<!-- --> <span>/ MTok</span><span>for prompts up to 200,000 tokens")
-        page = self.edited(page, "$0.25<!-- --> <span>/ MTok</span><span>for prompts over 100,000 tokens",
-                           "$0.25<!-- --> <span>/ MTok</span><span>for prompts over 200,000 tokens")
+        page = self.edited(self.pricing_page, "$0.05<!-- --> <small>/ MTok</small><small>for prompts up to 100,000 tokens",
+                           "$0.05<!-- --> <small>/ MTok</small><small>for prompts up to 200,000 tokens")
+        page = self.edited(page, "$0.25<!-- --> <small>/ MTok</small><small>for prompts over 100,000 tokens",
+                           "$0.25<!-- --> <small>/ MTok</small><small>for prompts over 200,000 tokens")
         code, _, stderr = self.run_scrape(pricing=page)
         self.assert_failed(code, stderr, "One threshold per model")
 

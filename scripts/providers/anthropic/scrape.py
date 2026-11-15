@@ -66,6 +66,14 @@ CLI_SUMMARY = "Read Anthropic's public pricing page and work out what providers.
 # The page's tables, as text
 # --------------------------------------------------------------------------------------
 
+# The elements that hold the cells rather than sit inside one: the only ones an element
+# boundary inside a cell cannot come from. Every other element, named here or not, ends a
+# run of text and so is worth a space. A list of the elements seen so far is what broke the
+# run of 2026-11-15: the page wrapped each price's unit and its tier caption in <small>
+# instead of <span>, and the two labels welded into "$0.10 / MTokfor prompts up to
+# 100,000 tokens", which is not a price this scraper reads.
+_STRUCTURE = ("table", "tr", "td", "th")
+
 
 class Cell:
     def __init__(self, header: bool, rowspan: int) -> None:
@@ -85,6 +93,9 @@ class _Tables(HTMLParser):
     """Every <table> on a page: its rows, each a list of cells with their text.
 
     Comments are dropped, which is what joins "$8<!-- --> / MTok" back into "$8 / MTok".
+    Every element boundary inside a cell becomes a space: a cell's text is its text nodes
+    joined, and the page separates "$0.10 / MTok" from "for prompts up to 100,000 tokens"
+    with an element, not with a space. See `_STRUCTURE` for why the rule names no element.
     A nested table is not expected on these pages and would be read into its parent.
     """
 
@@ -107,7 +118,7 @@ class _Tables(HTMLParser):
             span = dict(attrs).get("rowspan") or "1"
             self._cell = Cell(tag == "th", int(span) if span.isdigit() else 1)
             self._row.append(self._cell)
-        elif self._cell is not None and tag in ("br", "div", "p", "span", "a", "button"):
+        elif self._cell is not None and tag not in _STRUCTURE:
             self._cell.parts.append(" ")
         if self._cell is not None and tag not in ("td", "th"):
             label = dict(attrs).get("aria-label")
@@ -121,7 +132,7 @@ class _Tables(HTMLParser):
             self._cell = None
         elif tag == "tr":
             self._row = None
-        elif self._cell is not None and tag in ("div", "p", "span", "a", "button"):
+        elif self._cell is not None and tag not in _STRUCTURE:
             self._cell.parts.append(" ")
 
     def handle_data(self, data: str) -> None:
