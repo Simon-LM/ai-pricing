@@ -44,6 +44,9 @@
     "Input price (text, image, video)": {
       "side": "in"
     },
+    "Input price (text, image, video, audio, PDF)": {
+      "side": "in"
+    },
     "Output price": {
       "side": "out"
     },
