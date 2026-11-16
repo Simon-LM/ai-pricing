@@ -2,7 +2,7 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-11-14T04:10:23Z",
+      "checked_utc": "2026-11-16T04:11:51Z",
       "updated": "2026-11-14",
       "source": "https://docs.mistral.ai/models",
       "sources": [
