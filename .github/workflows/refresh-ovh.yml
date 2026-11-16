@@ -1,12 +1,13 @@
 name: Refresh prices (OVH)
 
-# Reads OVH's public AI Endpoints catalog once a week and works out whether
-# pricing.json's providers.ovh block should change. It has exactly three
-# outcomes, and never a fourth:
+# Reads OVH's public AI Endpoints catalog every day and works out whether
+# pricing.json's providers.ovh block should change. It has exactly four
+# outcomes, and never a fifth:
 #
 #   figures unchanged  -> commit the checked_utc stamp straight to main
 #   a figure changed   -> commit the new figures straight to main
 #   fetch/parse failed -> open an issue, fail the job, leave pricing.json untouched
+#   push refused       -> open an issue, fail the job, leave the figures to the next run
 #
 # pricing.json holds one block per provider under `providers.<name>`. This workflow
 # only ever touches `providers.ovh`; every other provider's block is carried through
@@ -299,6 +300,11 @@ jobs:
       # ---------------------------------------------------------------------------
       - name: Commit the figures
         if: ${{ !inputs.dry_run }}
+        env:
+          # A refused push opens an issue: the token to call gh with, and the run to
+          # point the reader at.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
 
@@ -337,7 +343,7 @@ jobs:
           # rather than loop.
           pushed=""
           for attempt in 1 2 3; do
-            if git push; then
+            if git push 2>/tmp/push-error.txt; then
               pushed=yes
               break
             fi
@@ -345,6 +351,17 @@ jobs:
             git pull --rebase origin main
           done
           if [ -z "$pushed" ]; then
+            # The other failure, and a different one to diagnose: the figures are right and
+            # committed, and what was refused is the publish. On 2026-11-16 the Google run
+            # was told "Permission to Simon-LM/ai-pricing.git denied to github-actions[bot]"
+            # on all three attempts while the runs minutes before and after it pushed fine,
+            # and a red mark nobody reads was the only sign -- which is how a provider goes
+            # on reading as refreshed while its figures age. Same treatment as a failed
+            # scrape: an issue that names the provider, carries what git said, is assigned.
+            python3 scripts/report_push_failure.py \
+              --provider "OVH" --slug ovh \
+              --run-url "$RUN_URL" --detail-file /tmp/push-error.txt \
+              --assignee "${{ github.repository_owner }}" || true
             echo "::error::pricing.json was committed but could not be pushed after three tries."
             exit 1
           fi

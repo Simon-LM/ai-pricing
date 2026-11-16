@@ -205,6 +205,78 @@ class TestARefreshSurvivesAHumanPushingAtTheSameTime(unittest.TestCase):
             )
 
 
+class TestARefusedPushIsReported(unittest.TestCase):
+    """Since 2026-11-16. Google's run read its page, found the figures unchanged,
+    committed its stamp and had the push refused on all three attempts -- "Permission to
+    Simon-LM/ai-pricing.git denied to github-actions[bot]" -- while the runs minutes
+    before and after it pushed fine. The run went red and nothing else said so: Google
+    went on reading as refreshed while its figures aged, and the only other word was the
+    Monday report a week later. A refused push now gets what a failed scrape gets, an
+    issue naming the provider and what git answered. The push is still retried first,
+    because a human pushing mid-run is the ordinary reason a push is rejected and the
+    figures are right either way.
+    """
+
+    def test_every_refresh_reports_a_refused_push(self) -> None:
+        for slug in PROVIDER_MODULES:
+            with self.subTest(provider=slug):
+                text = workflow(slug)
+                self.assertIn(
+                    "scripts/report_push_failure.py",
+                    text,
+                    f"refresh-{slug}.yml fails silently when GitHub refuses its push.",
+                )
+                self.assertLess(
+                    text.index('if [ -z "$pushed" ]'),
+                    text.index("scripts/report_push_failure.py"),
+                    f"refresh-{slug}.yml reports a push failure it does not have.",
+                )
+
+    def test_the_report_comes_before_the_run_is_failed(self) -> None:
+        for slug in PROVIDER_MODULES:
+            text = workflow(slug)
+            self.assertLess(
+                text.index("scripts/report_push_failure.py"),
+                text.index("could not be pushed after three tries"),
+                f"refresh-{slug}.yml exits before it reports the refusal.",
+            )
+
+    def test_the_refusal_is_captured_for_the_issue(self) -> None:
+        """Without git's own words the issue cannot say whether the refusal was a
+        permission one, a network one, or a repository rule."""
+        for slug in PROVIDER_MODULES:
+            self.assertIn(
+                "git push 2>",
+                workflow(slug),
+                f"refresh-{slug}.yml throws away what git said about the refusal.",
+            )
+
+    def test_the_step_that_reports_can_call_gh(self) -> None:
+        """`gh` reads its token from the environment, and this step is not the one that
+        files the scraper-failure issue, so the token has to be on it."""
+        for slug in PROVIDER_MODULES:
+            text = workflow(slug)
+            step = text.index("- name: Commit the figures")
+            call = text.index("scripts/report_push_failure.py")
+            self.assertIn(
+                "GH_TOKEN:",
+                text[step:call],
+                f"refresh-{slug}.yml calls gh with no token, so the issue it opens "
+                f"would never be opened.",
+            )
+
+    def test_it_names_the_provider_it_is_reporting(self) -> None:
+        """One issue per provider: a shared label would let a stuck xAI push suppress a
+        fresh Google one."""
+        for slug in PROVIDER_MODULES:
+            after = workflow(slug).split("scripts/report_push_failure.py", 1)[1]
+            self.assertIn(
+                f"--slug {slug}",
+                after,
+                f"refresh-{slug}.yml reports a push failure under another provider's name.",
+            )
+
+
 class TestTypeCheckingNeverGatesAPrice(unittest.TestCase):
     """pyright checks source code. Whether a price was read correctly is a different
     question, and letting a type error stop the weekly publication would be the same

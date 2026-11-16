@@ -42,13 +42,14 @@ Anthropic 04:30, OVH 05:00, OpenAI 05:30, Eden AI 06:00, Perplexity 06:30, Huggi
 one concurrency group, `pricing-json-writes`, since they write the same file: a second
 run waits for the first instead of racing it.
 
-A run has three outcomes, never a fourth:
+A run has four outcomes, never a fifth:
 
 | outcome | what happens |
 | --- | --- |
 | nothing changed | nothing is committed, except on Mondays and on a run started by hand, when the block's `checked_utc` stamp is committed |
 | something changed | the new file is committed to `main`, the same morning |
 | a check failed | nothing is written, the job fails, and an issue is opened |
+| the publish was refused | the figures were read and are right, and `git push` would not take them: `main` keeps the block's last figures and stamp, the job fails, and an issue is opened |
 
 "Something changed" is wider than "a price moved": a model added, withdrawn or renamed
 publishes too. **There is no review gate.** The provider already changed its price;
@@ -92,6 +93,7 @@ without anyone watching the repository.
 | when | what |
 | --- | --- |
 | a run fails | one issue per outage and per provider, commented on each day it keeps failing; `pricing.json` untouched |
+| a run cannot publish | one issue per provider, naming the run and carrying what `git push` answered, when the figures were read and committed but the push was refused. Added 2026-11-16: Google's run was refused that morning while its neighbours pushed fine, and a provider that cannot publish goes on reading as refreshed while its figures age |
 | what a source offers changes | one issue naming what appeared, disappeared, went unpriced or was dropped after a year, raised once by the run that sees it |
 | every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers were checked that morning; closed when every one was |
 
