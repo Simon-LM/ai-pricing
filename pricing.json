@@ -4087,8 +4087,8 @@
       }
     },
     "google": {
-      "checked_utc": "2026-11-16T10:21:45Z",
-      "updated": "2026-11-13",
+      "checked_utc": "2026-11-16T10:22:17Z",
+      "updated": "2026-11-16",
       "source": "https://aistudio.google.com/docs/pricing.md",
       "sources": [
         "https://aistudio.google.com/docs/pricing.md"
@@ -4809,6 +4809,10 @@
           "api_ids": [
             "gemini-4-hydrogen"
           ]
+        },
+        "gemini-decision-1": {
+          "in_per_mtok": 0.1,
+          "display_name": "gemini-decision-1"
         },
         "gemini-embedding-001": {
           "in_per_mtok": 0.15,
