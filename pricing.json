@@ -517,7 +517,7 @@
       }
     },
     "edenai": {
-      "checked_utc": "2026-11-14T06:01:37Z",
+      "checked_utc": "2026-11-16T06:02:06Z",
       "updated": "2026-11-14",
       "source": "https://api.edenai.run/v3/models",
       "currency": "USD",
