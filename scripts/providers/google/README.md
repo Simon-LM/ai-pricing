@@ -23,6 +23,15 @@ model ids, then one table per tab, each row a feature ("Input price", "Output pr
 A section that names several ids (the Live models) gives each the same prices. A section
 whose rows each name a model (Lyria 3) gives each id its row, in order.
 
+A row is named in `mapping.json` by what it says before any parenthesis. Google qualifies
+the input row as it adds what that row covers -- "Input price", "Input price (text, image,
+video)", and from 2026-11-12 "Input price (text, image, video, audio, PDF)" on Gemini
+Decision 1 -- and each of those is one price for every kind it names, so the qualifier is
+dropped before the mapping is consulted and a modality Google adds needs no entry there.
+That last label went unread for five days and `gemini-decision-1` was published nowhere,
+which is what the daily inventory note reported. A row whose label is unknown even then is
+reported, never guessed at.
+
 ## The paid tier cell: prose, read clause by clause
 
 The prices are written as sentences, and each dollar figure is read with what follows it:

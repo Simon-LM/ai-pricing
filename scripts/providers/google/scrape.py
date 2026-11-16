@@ -14,7 +14,10 @@ Google serves beside the rendered page: the rendered page builds its tables in t
 browser, the Markdown holds them all. It is Markdoc: one `##` section per model or family,
 a line naming the model ids, then one table per tab ("Standard", "Batch", "Flex",
 "Priority", "Contributor"), each row a feature ("Input price", "Output price"...) with a
-free tier cell and a paid tier cell.
+free tier cell and a paid tier cell. A row's name is what it says before any parenthesis:
+Google qualifies the input row as it adds what that row covers, and each of those labels
+is one price for every kind it names, so the qualifier is dropped rather than parsed (see
+`feature_spec`).
 
 THE PAID TIER CELL IS PROSE, read clause by clause. A clause is a dollar figure and what
 follows it, up to the next one:
@@ -236,11 +239,31 @@ def row_fields(side: str, forced: list[str] | None, cell: str, mapping: JSONDict
     return fields, (sizes.pop() * 1000 + 1 if sizes else None)
 
 
+def feature_spec(feature: str, mapping: JSONDict) -> JSONDict | None:
+    """What the mapping says a row prices, or None if it names no such row.
+
+    Read by name, then by name with a trailing qualifier dropped, because Google qualifies
+    the row as it adds what the row covers: the same price appears as "Input price", as
+    "Input price (text, image, video)", and -- from 2026-11-12 on Gemini Decision 1 -- as
+    "Input price (text, image, video, audio, PDF)". Each of those is one price for every
+    kind it names, so the words in the parenthesis are not parsed as kinds; a row that
+    names kinds one price at a time ("Image input price") is listed with them instead.
+
+    Dropping the qualifier can only turn a row the mapping does not name into one it does.
+    A row that is still unknown is reported by its caller, never guessed at, and two rows
+    that fold onto one field with different figures fail the run.
+    """
+    features = cast("dict[str, JSONDict]", mapping["features"])
+    known = features.get(feature)
+    if known is not None:
+        return known
+    return features.get(re.sub(r"\s*\([^)]*\)\s*$", "", feature))
+
+
 def tab_entry(section: Section, rows: list[list[str]], mapping: JSONDict, day: dt.date,
               where: str) -> tuple[list[tuple[str, JSONDict]], list[str]]:
     """One tab's table: the entry for every model of the section, or, for a section whose rows
     each name a model (Lyria 3), one entry per row."""
-    features = cast("dict[str, JSONDict]", mapping["features"])
     ignored = set(cast("list[str]", mapping["features_ignored"]))
     header = rows[0] if rows else []
     if header[:2] != ["Feature", "Free Tier"] or len(header) != 3 or not header[2].startswith("Paid Tier"):
@@ -256,7 +279,7 @@ def tab_entry(section: Section, rows: list[list[str]], mapping: JSONDict, day: d
         feature, free, paid = cells
         if feature in ignored:
             continue
-        spec = features.get(feature)
+        spec = feature_spec(feature, mapping)
         if spec is None:
             if re.search(r"\$[0-9]", paid) and re.search(r"per (song|image)", paid):
                 fields, _ = row_fields("out", None, paid, mapping, day, where)

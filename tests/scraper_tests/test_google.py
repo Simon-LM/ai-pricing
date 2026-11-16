@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -229,6 +230,60 @@ class TestNotes(ScrapeTestCase):
         self.assertIn("a tab 'Turbo' the mapping does not name; not read", self.notes())
 
 
+class TestARowIsReadByItsShape(ScrapeTestCase):
+    """The mapping names a row, not every label Google writes for it. Google qualifies the
+    input row's parenthesis as it adds a modality -- "Input price", "Input price (text,
+    image, video)", and from 2026-11-12 "Input price (text, image, video, audio, PDF)" on
+    Gemini Decision 1. The mapping knew the first two by name, so that third label was
+    reported as unread and the model was published nowhere for five days, one issue a day
+    (#45, #47, #48, #50, #53). Each of those labels is one price for every kind it names,
+    which is why the qualifier is dropped rather than parsed as kinds.
+    """
+
+    QUALIFIED = "Input price (text, image, video)"
+
+    def test_a_qualifier_the_mapping_has_never_seen_is_read(self) -> None:
+        page = self.edited(self.QUALIFIED, "Input price (text, image, video, audio, PDF)",
+                           count=self.page.count(self.QUALIFIED))
+        code, stdout, stderr = self.run_scrape(page=page)
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("unchanged", stdout, "the rows are the same price under a longer name")
+        self.assertEqual(self.notes(), "")
+
+    def test_a_row_named_another_way_is_still_reported(self) -> None:
+        """A qualifier is dropped; the row's own name is never invented."""
+        page = self.edited(self.QUALIFIED, "Admission price (text, image, video)",
+                           count=self.page.count(self.QUALIFIED))
+        code, _, stderr = self.run_scrape(page=page)
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("a row 'Admission price (text, image, video)' the mapping does not name; not read",
+                      self.notes())
+
+
+class TestTheRowLookup(unittest.TestCase):
+    """feature_spec alone, without a page: the one rule that decides what a row prices."""
+
+    def side_of(self, label: str) -> str:
+        spec = scrape.feature_spec(label, MAPPING)
+        self.assertIsNotNone(spec, label)
+        assert spec is not None
+        return str(spec["side"])
+
+    def test_a_qualifier_is_dropped(self) -> None:
+        for label in ("Input price (text, image, video, audio, PDF)", "Input price (audio)"):
+            with self.subTest(label=label):
+                self.assertEqual(self.side_of(label), "in")
+
+    def test_a_row_listed_with_its_kind_is_not_folded(self) -> None:
+        """"Image input price" prices one kind; it must not become the blended "Input price"."""
+        spec = scrape.feature_spec("Image input price", MAPPING)
+        assert spec is not None
+        self.assertEqual(spec["kinds"], ["image"])
+
+    def test_an_unknown_row_is_none(self) -> None:
+        self.assertIsNone(scrape.feature_spec("Hologram input price", MAPPING))
+
+
 class TestMapping(unittest.TestCase):
     def test_the_source_is_the_markdown_page(self) -> None:
         self.assertEqual(MAPPING["sources"], [MAPPING["source"]])
@@ -247,6 +302,17 @@ class TestMapping(unittest.TestCase):
 
     def test_contributor_is_not_published(self) -> None:
         self.assertIsNone(MAPPING["speeds"]["Contributor"])
+
+    def test_no_row_is_listed_under_a_qualifier(self) -> None:
+        """A trailing qualifier is dropped before the lookup, so "Input price (text, image,
+        video)" listed beside "Input price" would be dead weight, and a second place to keep
+        current every time Google adds a modality."""
+        for name in MAPPING["features"]:
+            bare = re.sub(r"\s*\([^)]*\)\s*$", "", name)
+            if bare == name:
+                continue
+            self.assertNotIn(bare, MAPPING["features"],
+                             f"{name!r} is {bare!r} with a qualifier; name the bare row only")
 
 
 class TestPublishedFile(unittest.TestCase):

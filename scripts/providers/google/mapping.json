@@ -9,10 +9,14 @@
     "priority an entry of their own, `<id> (flex)`, `<id> (priority)`. Contributor, a tier",
     "Google offers by invitation only, is not published (null).",
     "",
-    "`features` names the rows read and which side of a call each prices; `kinds` forces",
-    "the kind of token for a row that names it in its label ('Image input price').",
-    "`features_ignored` are rows known and not read: grounding is read once, from the",
-    "tools section; tuning is not offered. A row in neither list is reported.",
+    "`features` names the rows read and which side of a call each prices, under the name",
+    "Google writes it with any qualifier in a parenthesis dropped: `Input price` also reads",
+    "'Input price (text, image, video)' and 'Input price (text, image, video, audio, PDF)',",
+    "each of which is one price for every kind it names, so a modality Google adds to that",
+    "parenthesis needs no entry here. `kinds` forces the kind of token for a row that names",
+    "it in its label ('Image input price'). `features_ignored` are rows known and not read:",
+    "grounding is read once, from the tools section; tuning is not offered. A row in neither",
+    "list is reported.",
     "",
     "`kinds` maps the words a price states its tokens with, '(text / image / video)', to",
     "kinds of token, and `kind_prefixes` each kind to the prefix of its fields: none for",
@@ -41,16 +45,7 @@
     "Input price": {
       "side": "in"
     },
-    "Input price (text, image, video)": {
-      "side": "in"
-    },
-    "Input price (text, image, video, audio, PDF)": {
-      "side": "in"
-    },
     "Output price": {
-      "side": "out"
-    },
-    "Output price (including thinking tokens)": {
       "side": "out"
     },
     "Context caching price": {
