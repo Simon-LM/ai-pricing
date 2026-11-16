@@ -1,4 +1,4 @@
-"""What the weekly workflows are allowed to run, and where the full suite still runs.
+"""What the daily workflows are allowed to run, and where the full suite still runs.
 
 Standard library only, like everything else here -- these read the YAML as text rather
 than parsing it, because a PyYAML dependency would have to be installed on a runner that
@@ -21,6 +21,12 @@ its own tests reject reached main and stayed red there, unnoticed because the on
 that runs the full suite is never triggered by a push made with GITHUB_TOKEN. Each
 refresh now re-runs its checks against the candidate before committing, and tests.yml
 runs on workflow_run as the net beneath that. Both are equally easy to drop by accident.
+
+A third joined on 2026-11-16. An inventory note -- a source adding, dropping or renaming
+something -- used to open an issue every time it was raised, and one unread row on
+Google's page was raised on five consecutive days. Each refresh now looks for its own
+open note first and comments on it instead, which is a two-line condition that a later
+edit can quietly put back.
 """
 
 from __future__ import annotations
@@ -275,6 +281,73 @@ class TestARefusedPushIsReported(unittest.TestCase):
                 after,
                 f"refresh-{slug}.yml reports a push failure under another provider's name.",
             )
+
+
+class TestAnInventoryChangeIsReportedOnce(unittest.TestCase):
+    """Since 2026-11-16. An inventory note is raised when a source adds, drops or
+    renames something, and the run that sees it used to open a new issue every time.
+    Google's page carried one row its mapping did not name from 2026-11-12, and five
+    days meant five issues -- #45, #47, #48, #50, #53 -- four of which were closed
+    unread, saying the same thing as the fifth. A note now comments on the provider's
+    open issue if there is one, scoped to inventory-change:<slug> as scraper-failure is
+    scoped, so a second provider's note is never buried in the first one's thread.
+    """
+
+    def inventory_step(self, slug: str) -> str:
+        """The Report inventory changes step alone, up to the next step in the file."""
+        text = workflow(slug)
+        start = text.index("- name: Report inventory changes")
+        rest = text[start:]
+        end = rest.find("\n      - ", 1)
+        return rest if end == -1 else rest[:end]
+
+    def test_every_refresh_comments_on_the_open_issue(self) -> None:
+        for slug in PROVIDER_MODULES:
+            with self.subTest(provider=slug):
+                step = self.inventory_step(slug)
+                self.assertIn(
+                    f"--label inventory-change:{slug}",
+                    step,
+                    f"refresh-{slug}.yml does not look for its own open issue, so a "
+                    f"standing note opens one issue per day.",
+                )
+                self.assertLess(
+                    step.index("EXISTING="),
+                    step.index("gh issue create"),
+                    f"refresh-{slug}.yml decides to open an issue before it looks "
+                    f"whether one is already open.",
+                )
+                self.assertIn(
+                    "gh issue comment",
+                    step,
+                    f"refresh-{slug}.yml cannot comment, so a repeat note duplicates.",
+                )
+
+    def test_a_new_issue_is_labelled_for_its_provider(self) -> None:
+        """Without the provider's own label the next run cannot find it."""
+        for slug in PROVIDER_MODULES:
+            with self.subTest(provider=slug):
+                step = self.inventory_step(slug)
+                after = step.split("gh issue create", 1)[1]
+                self.assertIn(
+                    f"--label inventory-change:{slug}",
+                    after,
+                    f"refresh-{slug}.yml opens an issue the next run cannot find.",
+                )
+                self.assertIn(
+                    "--label inventory-change ",
+                    after,
+                    f"refresh-{slug}.yml drops the shared label a reader filters on.",
+                )
+
+    def test_no_step_still_calls_the_check_weekly(self) -> None:
+        """The checks are daily since 2026-11-10; a body saying otherwise dates the
+        reader's copy of the file wrongly."""
+        for slug in PROVIDER_MODULES:
+            with self.subTest(provider=slug):
+                step = self.inventory_step(slug).lower()
+                self.assertNotIn("weekly", step)
+                self.assertNotIn("last week", step)
 
 
 class TestTypeCheckingNeverGatesAPrice(unittest.TestCase):

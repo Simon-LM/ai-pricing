@@ -167,7 +167,7 @@ jobs:
           # the reason quotes text taken from a service this repository does not control.
           {
             cat <<'INTRO'
-          The weekly Hugging Face price check did not complete. `pricing.json` has **not**
+          The daily Hugging Face price check did not complete. `pricing.json` has **not**
           been modified: providers.huggingface still shows the figures a human last reviewed,
           and its `checked_utc` still shows when they were last actually verified.
 
@@ -344,11 +344,12 @@ jobs:
       # to absorb in silence either: a project reading pricing.json should not be the
       # last to learn that a model it names is gone.
       #
-      # Assigning the issue is what makes this an email. It is raised by the one run
-      # that observes the change and never repeated: an entry that is still absent next
-      # week already carries `absent_since` and says nothing further. A weekly reminder
-      # of a decision already taken is how an alert channel gets muted, and this one has
-      # to still work the day something real happens.
+      # Assigning the issue is what makes this an email. It is raised by the first run
+      # that observes the change; a later run that still observes it comments on that
+      # issue rather than opening another, because five days of the same unread Google
+      # row became five issues, four of them closed unread. An entry that is still absent
+      # next week already carries `absent_since` and says nothing further; what repeats is
+      # a row the mapping has not been taught to read, which is a decision still waiting.
       # ---------------------------------------------------------------------------
       - name: Report inventory changes
         if: ${{ !inputs.dry_run }}
@@ -359,7 +360,7 @@ jobs:
           set -euo pipefail
 
           if [ ! -s .ci-out/notes.txt ]; then
-            echo "The source offers the same things it did last week."
+            echo "The source offers the same things it did at the last check."
             exit 0
           fi
 
@@ -368,7 +369,7 @@ jobs:
           # control.
           {
             cat <<'INTRO'
-          The weekly Hugging Face check completed and published normally. It also found a change to
+          The daily Hugging Face check completed and published normally. It also found a change to
           **what the source offers**, not just to a price:
 
           ```
@@ -386,10 +387,25 @@ jobs:
           OUTRO
           } > /tmp/notes-body.md
 
-          gh label create inventory-change --color 0e8a16 \
-            --description "A source added, dropped or renamed something" 2>/dev/null || true
-          gh issue create \
-            --assignee ${{ github.repository_owner }} \
-            --title "Hugging Face inventory changed on $(date -u +%Y-%m-%d)" \
-            --label inventory-change \
-            --body-file /tmp/notes-body.md
+          # One issue per provider, not one per day. The same unread row opened an issue
+          # on each of the five days from 2026-11-12 to 2026-11-16, all of them Google's,
+          # and four closed copies teach a reader nothing the fifth did not say. Scoped to
+          # a provider's own label, as scraper-failure is, so one provider's standing
+          # note never buries another provider's news.
+          EXISTING="$(gh issue list --label inventory-change:huggingface --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            { echo "Reported again on $(date -u +%Y-%m-%d):"; echo; cat /tmp/notes-body.md; } > /tmp/notes-comment.md
+            gh issue comment "$EXISTING" --body-file /tmp/notes-comment.md
+            echo "Commented on existing issue #$EXISTING"
+          else
+            gh label create inventory-change --color 0e8a16 \
+              --description "A source added, dropped or renamed something" 2>/dev/null || true
+            gh label create inventory-change:huggingface --color 0e8a16 \
+              --description "The Hugging Face inventory changed in a way worth reading" 2>/dev/null || true
+            gh issue create \
+              --assignee ${{ github.repository_owner }} \
+              --title "Hugging Face inventory changed on $(date -u +%Y-%m-%d)" \
+              --label inventory-change \
+              --label inventory-change:huggingface \
+              --body-file /tmp/notes-body.md
+          fi

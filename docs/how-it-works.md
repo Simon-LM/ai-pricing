@@ -94,7 +94,7 @@ without anyone watching the repository.
 | --- | --- |
 | a run fails | one issue per outage and per provider, commented on each day it keeps failing; `pricing.json` untouched |
 | a run cannot publish | one issue per provider, naming the run and carrying what `git push` answered, when the figures were read and committed but the push was refused. Added 2026-11-16: Google's run was refused that morning while its neighbours pushed fine, and a provider that cannot publish goes on reading as refreshed while its figures age |
-| what a source offers changes | one issue naming what appeared, disappeared, went unpriced or was dropped after a year, raised once by the run that sees it |
+| what a source offers changes | one issue per provider, naming what appeared, disappeared, went unpriced or was dropped after a year, commented on while the note still stands rather than opened again. Scoped to `inventory-change:<provider>`, as a failure is to `scraper-failure:<provider>`: until 2026-11-16 the run that saw a change raised a fresh issue each time, and one unread row on Google's page became five issues in five days |
 | every Monday at 08:00 UTC | one report, whether or not anything is wrong, saying which providers were checked that morning; closed when every one was |
 
 **The Monday report exists because silence proves nothing.** A workflow that never ran,
