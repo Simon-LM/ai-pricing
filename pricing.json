@@ -410,7 +410,7 @@
       }
     },
     "ovh": {
-      "checked_utc": "2026-11-17T19:34:43Z",
+      "checked_utc": "2026-11-17T19:38:26Z",
       "updated": "2026-11-17",
       "source": "https://catalog.endpoints.ai.ovh.net/rest/v1/models_v2",
       "currency": "EUR",
