@@ -1781,8 +1781,8 @@
       }
     },
     "scaleway": {
-      "checked_utc": "2026-11-16T03:01:48Z",
-      "updated": "2026-11-03",
+      "checked_utc": "2026-11-17T03:01:52Z",
+      "updated": "2026-11-17",
       "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=generative_apis&page_size=500",
       "currency": "EUR",
       "models": {
@@ -1821,7 +1821,8 @@
           "out_per_mtok": 5.5,
           "in_per_mtok_batch": 0.9,
           "out_per_mtok_batch": 2.7,
-          "display_name": "glm-5.2"
+          "display_name": "glm-5.2",
+          "absent_since": "2026-11-17"
         },
         "glm-5.3": {
           "in_per_mtok": 1.8,
