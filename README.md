@@ -22,7 +22,7 @@ own provider.
 | `google` | Gemini API: Gemini, Gemma, Lyria, grounding | USD | pricing page, as Markdown | [README](scripts/providers/google/README.md) |
 | `googlecloud` | Google Cloud Speech-to-Text | USD | pricing page | [README](scripts/providers/googlecloud/README.md) |
 | `mistral` | Mistral models, Voice Agents | USD | documentation site | [README](scripts/providers/mistral/README.md) |
-| `ovh` | OVHcloud AI Endpoints | EUR | catalog page | [README](scripts/providers/ovh/README.md) |
+| `ovh` | OVHcloud AI Endpoints | EUR | catalog API | [README](scripts/providers/ovh/README.md) |
 | `scaleway` | Scaleway Generative APIs | EUR | public catalogue API | [README](scripts/providers/scaleway/README.md) |
 | `xai` | Grok, image, video and voice models, tools | USD | pricing page | [README](scripts/providers/xai/README.md) |
 | `perplexity` | Agent API (with resold models), Search API, tools | USD | pricing and models pages | [README](scripts/providers/perplexity/README.md) |

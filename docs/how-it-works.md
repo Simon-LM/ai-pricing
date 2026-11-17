@@ -25,8 +25,8 @@ No scraper is given an API key, ever. Every source is public:
 
 | how the prices are stated | providers |
 | --- | --- |
-| a public JSON API | Eden AI, Hugging Face's router, Scaleway's product catalogue |
-| data embedded in a page (a Next.js or Mintlify payload) | Mistral's documentation, OVH's catalog, xAI's pricing page, Perplexity's pricing calculator |
+| a public JSON API | Eden AI, Hugging Face's router, OVH's catalog, Scaleway's product catalogue |
+| data embedded in a page (a Next.js or Mintlify payload) | Mistral's documentation, xAI's pricing page, Perplexity's pricing calculator |
 | a page's Markdown version | OpenAI, Google's Gemini API |
 | tables and sentences of a rendered page | Anthropic, Google Cloud, Perplexity's models page |
 
@@ -110,10 +110,11 @@ committed every Monday, is both a statement to consumers ("verified unchanged to
 and what keeps its workflow running. On the other days an unchanged run commits nothing,
 so the history holds one stamp a week per provider rather than seven.
 
-**A missing model is looked for too, where a second list exists.** A scraper sees a model
-disappear from its page, but not a model the provider sells that its page never names.
-OVH's workflow also compares its catalog page with OVH's public list of models and
-reports what one has and the other does not, without holding back any price.
+**A second source is read where the first one lags.** OVH serves its catalog both as a
+page and as a public JSON API, and the page trails the API: on 2026-11-17 nine models
+reached the API at 10:23 and 10:53 UTC and the page still did not list them hours later.
+The scraper reads the API, so a model OVH puts on sale is published on the next run
+rather than whenever the page catches up.
 
 ## Why a repository, and not a scraper in each program
 

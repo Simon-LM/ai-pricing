@@ -47,7 +47,7 @@ PROVIDER_MODULES = {
     "huggingface": ["tests.scraper_tests.test_huggingface"],
     "mistral": ["tests.scraper_tests.test_mistral"],
     "openai": ["tests.scraper_tests.test_openai"],
-    "ovh": ["tests.scraper_tests.test_ovh", "tests.scraper_tests.test_ovh_coverage"],
+    "ovh": ["tests.scraper_tests.test_ovh"],
     "perplexity": ["tests.scraper_tests.test_perplexity"],
     "scaleway": ["tests.scraper_tests.test_scaleway"],
     "xai": ["tests.scraper_tests.test_xai"],

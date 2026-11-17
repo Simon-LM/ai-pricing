@@ -7,12 +7,10 @@ pricing.json is byte-for-byte what it was. That is the property the whole design
 exists to protect -- a stale price whose date the user can see is far better than a
 wrong one they cannot.
 
-The failure scenarios are derived from tests/fixtures/ovh/catalog_ok.html, which is
-one real captured "push" data chunk from OVH's catalog page (a Next.js React Server
-Components payload, not scrapeable card markup the way Mistral's page is), by
-explicit mutation. `mutate` refuses to run when there was nothing to replace, so a
-fixture that drifts away from the page fails the tests loudly instead of quietly
-testing nothing.
+The failure scenarios are derived from tests/fixtures/ovh/catalog_api.json -- one real,
+unedited response from OVH's catalog API, 30 models -- by explicit mutation. `mutate`
+and `mutate_price` refuse to run when there was nothing to replace, so a fixture that
+drifts away from the API fails the tests loudly instead of quietly testing nothing.
 
 Cross-file consistency checks -- does providers.ovh in the committed pricing.json
 actually match scripts/providers/ovh/mapping.json -- live here too: they are
@@ -49,10 +47,10 @@ from tests.published import (  # noqa: E402
 )
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "ovh"
-CATALOG_OK = FIXTURES / "catalog_ok.html"
+CATALOG_OK = FIXTURES / "catalog_api.json"
 
-# The scrape scenarios compare the fixture page against a baseline pinned to that
-# same page, never against the live pricing.json. Otherwise every genuine price
+# The scrape scenarios compare the fixture response against a baseline pinned to that
+# same capture, never against the live pricing.json. Otherwise every genuine price
 # change would fail the test suite until somebody re-captured the fixture, which
 # would put friction on exactly the path that must stay quick: a price correction
 # reaching consumers. The two only move together when the fixture is
@@ -85,7 +83,7 @@ def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> s
 
     `expected_count` is an exact number where uniqueness is the point of the test --
     a mutation that silently hit two entries would prove nothing. Pass None for
-    structural mutations that sweep the whole page, where the count is incidental;
+    structural mutations that sweep the whole response, where the count is incidental;
     those still refuse to run against zero matches, which is the failure that would
     leave a test testing nothing.
     """
@@ -93,9 +91,51 @@ def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> s
     if found == 0 or (expected_count is not None and found != expected_count):
         raise AssertionError(
             f"fixture drift: expected {expected_count or 'at least one'} occurrence(s) of "
-            f"{old!r}, found {found}. Re-capture tests/fixtures/ovh/catalog_ok.html from the live page."
+            f"{old!r}, found {found}. Re-capture tests/fixtures/ovh/catalog_api.json from the live API."
         )
     return source.replace(old, new)
+
+
+def pricing_of(models: list[JSONDict], model: str) -> list[JSONDict]:
+    """One catalog entry's `metadata.usage_information.pricing` list, or a loud failure.
+
+    The model has to be in the fixture for a test to mean anything, and the API wraps
+    the list three keys down; asking for it in one place keeps every failure message
+    pointing at the same drift.
+    """
+    entry = next((e for e in models if e.get("name") == model), None)
+    if entry is None:
+        raise AssertionError(
+            f"fixture drift: the catalog no longer lists {model!r}. Re-capture "
+            f"tests/fixtures/ovh/catalog_api.json from the live API."
+        )
+    pricing = entry.get("metadata", {}).get("usage_information", {}).get("pricing")
+    if not isinstance(pricing, list) or not pricing:
+        raise AssertionError(f"fixture drift: {model!r} states no pricing list any more.")
+    return pricing
+
+
+def mutate_price(source: str, model: str, price_unit: str, price: float) -> str:
+    """Move one model's price per `price_unit`, and return the catalog as text.
+
+    A JSON round trip rather than a string replacement: the API states ten currency
+    siblings (`price_usd`, `price_aud`...) around each figure, so the text anchor a
+    readable mutation would use -- `"price":0.4,` -- belongs to three different models
+    in this capture. The list is re-serialised exactly as the endpoint sends it: one
+    line, no space after a colon.
+    """
+    models = json.loads(source)
+    pricing = pricing_of(models, model)
+
+    targets = [p for p in pricing if p.get("price_unit") == price_unit]
+    if len(targets) != 1:
+        raise AssertionError(
+            f"fixture drift: {model!r} has {len(targets)} pricing entries per {price_unit!r}, "
+            f"expected exactly one."
+        )
+
+    targets[0]["price"] = price
+    return json.dumps(models, separators=(",", ":"))
 
 
 class ScrapeTestCase(unittest.TestCase):
@@ -115,18 +155,18 @@ class ScrapeTestCase(unittest.TestCase):
         shutil.copy2(BASELINE_JSON, self.current)
         self.current_bytes = self.current.read_bytes()
 
-        self.page = self.tmp / "catalog.html"
+        self.catalog = self.tmp / "catalog.json"
 
     # -- helpers ------------------------------------------------------------------
 
-    def run_scrape(self, html: str, now: str = FIXED_NOW) -> tuple[int, str, str]:
-        """Run the script end to end on `html`. Returns (exit_code, stdout, stderr)."""
-        self.page.write_text(html, encoding="utf-8")
+    def run_scrape(self, catalog: str, now: str = FIXED_NOW) -> tuple[int, str, str]:
+        """Run the script end to end on `catalog`. Returns (exit_code, stdout, stderr)."""
+        self.catalog.write_text(catalog, encoding="utf-8")
         argv = [
             "--out-dir", str(self.out_dir),
             "--current", str(self.current),
             "--mapping", str(MAPPING_JSON),
-            "--html", str(self.page),
+            "--html", str(self.catalog),
             "--now", now,
         ]
         out, err = io.StringIO(), io.StringIO()
@@ -170,7 +210,7 @@ class ScrapeTestCase(unittest.TestCase):
 
 
 class TestUnchanged(ScrapeTestCase):
-    def test_unchanged_page_stamps_and_publishes_nothing_new(self) -> None:
+    def test_unchanged_catalog_stamps_and_publishes_nothing_new(self) -> None:
         code, stdout, _ = self.run_scrape(self.catalog_ok)
 
         self.assertEqual(code, 0)
@@ -185,7 +225,7 @@ class TestUnchanged(ScrapeTestCase):
         self.assertEqual(stamped["models"], published["models"])
         self.assert_current_untouched()
 
-    def test_baseline_matches_the_fixture_page(self) -> None:
+    def test_baseline_matches_the_fixture_response(self) -> None:
         """The fixture and its baseline are two views of the same capture; keep them so."""
         code, stdout, _ = self.run_scrape(self.catalog_ok)
         self.assertEqual(code, 0)
@@ -194,7 +234,7 @@ class TestUnchanged(ScrapeTestCase):
     def test_every_catalog_entry_reaches_the_output(self) -> None:
         """There is no list to reconcile: every model the catalog states a price for is
         published, keyed by the callable id the catalog puts in `name`. A model quietly
-        dropping out between the page and the file is the one failure mode this
+        dropping out between the response and the file is the one failure mode this
         repository must not have."""
         self.run_scrape(self.catalog_ok)
         catalog = scrape.extract_catalog_models(self.catalog_ok)
@@ -204,10 +244,10 @@ class TestUnchanged(ScrapeTestCase):
         )
 
     def test_free_models_are_published_as_free_and_never_as_zero(self) -> None:
-        """The catalog states 0 for these and the page renders the word "Gratuit".
-        Both facts are real, and `"free": true` is the only one of the two this file
-        can publish honestly: a literal 0 is indistinguishable from the number a
-        parser reads off a page whose layout moved."""
+        """The catalog states 0 for these, in every unit it lists them in. `"free": true`
+        is the only way this file can publish that honestly: a literal 0 is
+        indistinguishable from the number a parser reads off a source whose layout
+        moved."""
         self.run_scrape(self.catalog_ok)
         published = self.candidate_block("stamped.json")["models"]
         for model_id in FREE_MODELS:
@@ -225,12 +265,12 @@ class TestUnchanged(ScrapeTestCase):
         key with today's price, the old one frozen and dated -- because a consumer
         still calling the old id needs to find out, and a consumer calling the new one
         needs a price."""
-        html = mutate(
+        catalog = mutate(
             self.catalog_ok,
-            'name\\":\\"Qwen3.6-27B\\"',
-            'name\\":\\"Qwen3.6-27B-v2\\"',
+            '"name":"Qwen3.6-27B"',
+            '"name":"Qwen3.6-27B-v2"',
         )
-        code, stdout, _ = self.run_scrape(html)
+        code, stdout, _ = self.run_scrape(catalog)
         self.assertEqual(code, 0)
 
         models = self.candidate_block("updated.json")["models"]
@@ -251,13 +291,8 @@ class TestUnchanged(ScrapeTestCase):
         """The free marker is a claim about the catalog, and the catalog is re-read
         every week -- never remembered. The day OVH prices one of these, the price
         simply appears and the marker simply goes."""
-        html = mutate(
-            self.catalog_ok,
-            '\\"price\\":0,\\"price_unit\\":\\"million_input_chars\\"',
-            '\\"price\\":0.5,\\"price_unit\\":\\"million_input_chars\\"',
-            expected_count=None,
-        )
-        code, stdout, _ = self.run_scrape(html)
+        catalog = mutate_price(self.catalog_ok, "nvr-tts-en-us", "million_input_chars", 0.5)
+        code, stdout, _ = self.run_scrape(catalog)
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
 
@@ -300,10 +335,9 @@ class TestUnchanged(ScrapeTestCase):
 
 class TestPriceChange(ScrapeTestCase):
     def test_normal_price_change_produces_a_candidate_not_a_publication(self) -> None:
-        html = mutate(self.catalog_ok, '\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"',
-                       '\\"price\\":0.12,\\"price_unit\\":\\"million_input_tokens\\"')
+        catalog = mutate_price(self.catalog_ok, "gpt-oss-120b", "million_input_tokens", 0.12)
 
-        code, stdout, _ = self.run_scrape(html)
+        code, stdout, _ = self.run_scrape(catalog)
 
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
@@ -326,9 +360,8 @@ class TestPriceChange(ScrapeTestCase):
         self.assert_current_untouched()
 
     def test_a_price_going_down_is_also_a_change(self) -> None:
-        html = mutate(self.catalog_ok, '\\"price\\":0.4,\\"price_unit\\":\\"million_output_tokens\\"',
-                       '\\"price\\":0.2,\\"price_unit\\":\\"million_output_tokens\\"')
-        code, stdout, _ = self.run_scrape(html)
+        catalog = mutate_price(self.catalog_ok, "gpt-oss-120b", "million_output_tokens", 0.2)
+        code, stdout, _ = self.run_scrape(catalog)
         self.assertEqual(code, 0)
         self.assertIn("gpt-oss-120b.out_per_mtok", stdout)
         self.assertEqual(self.candidate_block("updated.json")["models"]["gpt-oss-120b"]["out_per_mtok"], 0.2)
@@ -339,8 +372,8 @@ class TestPriceChange(ScrapeTestCase):
         calls. Nothing published here is keyed off it, so OVH reorganising its own URLs
         must not show up in pricing.json at all -- not as a change, and certainly not
         as a failure."""
-        html = mutate(self.catalog_ok, '\\"id\\":\\"gpt-oss-120b\\"', '\\"id\\":\\"gpt-oss-120b-v2\\"')
-        code, stdout, _ = self.run_scrape(html)
+        catalog = mutate(self.catalog_ok, '"id":"gpt-oss-120b"', '"id":"gpt-oss-120b-v2"')
+        code, stdout, _ = self.run_scrape(catalog)
         self.assertEqual(code, 0)
         self.assertIn("unchanged", stdout)
         self.assertFalse((self.out_dir / "updated.json").exists())
@@ -352,47 +385,51 @@ class TestPriceChange(ScrapeTestCase):
 # ======================================================================================
 
 
-class TestLayoutFailures(ScrapeTestCase):
-    def test_page_without_any_push_chunks(self) -> None:
-        code, _, stderr = self.run_scrape("<html><body>nothing here</body></html>")
-        self.assert_failed(code, stderr, "no self.__next_f.push")
+class TestShapeFailures(ScrapeTestCase):
+    """The response is not what this scraper expects. Each of these is something the
+    API could plausibly answer with one day: an error document, a read cut short, an
+    entry list that stopped being a list."""
 
-    def test_page_with_push_chunks_but_no_models_key(self) -> None:
-        html = mutate(self.catalog_ok, '\\"models\\":[', '\\"notmodels\\":[')
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, 'contain a "models" array')
+    def test_a_response_that_is_not_json(self) -> None:
+        code, _, stderr = self.run_scrape("<html><body>502 Bad Gateway</body></html>")
+        self.assert_failed(code, stderr, "not valid JSON")
 
-    def test_unbalanced_models_array_does_not_parse(self) -> None:
-        # Drop the closing bracket of one model's pricing array. "models":[ is left
-        # intact -- this is not "no models key", it is "the array's JSON is broken" --
-        # so the bracket-matching extractor keeps scanning past where the real array
-        # ends and hands json.loads a string that cannot possibly parse.
-        html = mutate(
-            self.catalog_ok,
-            '\\"pricing\\":[{\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"},'
-            '{\\"price\\":0.4,\\"price_unit\\":\\"million_output_tokens\\"}]',
-            '\\"pricing\\":[{\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"},'
-            '{\\"price\\":0.4,\\"price_unit\\":\\"million_output_tokens\\"}',
-        )
-        code, _, stderr = self.run_scrape(html)
-        self.assert_failed(code, stderr, '"models" array could not be parsed')
+    def test_a_response_that_is_not_an_array(self) -> None:
+        """What an error document looks like: valid JSON, wrong shape."""
+        code, _, stderr = self.run_scrape('{"message":"Not Found"}')
+        self.assert_failed(code, stderr, "not a non-empty JSON array")
+
+    def test_an_empty_array_is_refused(self) -> None:
+        code, _, stderr = self.run_scrape("[]")
+        self.assert_failed(code, stderr, "not a non-empty JSON array")
+
+    def test_a_truncated_response_does_not_parse(self) -> None:
+        # The array's closing bracket is missing, as a dropped connection leaves it.
+        # Nothing else about the payload is disturbed: this is "the JSON is broken",
+        # not "the shape changed", and the two must not be reported as one thing.
+        code, _, stderr = self.run_scrape(self.catalog_ok[:-1])
+        self.assert_failed(code, stderr, "not valid JSON")
+
+    def test_a_catalog_entry_that_is_not_an_object(self) -> None:
+        code, _, stderr = self.run_scrape('[{"id":"a","name":"A"},"oops"]')
+        self.assert_failed(code, stderr, "not an object")
 
     def test_a_catalog_entry_without_an_id(self) -> None:
-        html = mutate(self.catalog_ok, '\\"id\\":\\"gpt-oss-120b\\"', '\\"noId\\":\\"gpt-oss-120b\\"')
-        code, _, stderr = self.run_scrape(html)
+        catalog = mutate(self.catalog_ok, '"id":"gpt-oss-120b"', '"noId":"gpt-oss-120b"')
+        code, _, stderr = self.run_scrape(catalog)
         self.assert_failed(code, stderr, 'missing a string "id"')
 
     def test_a_duplicate_model_name_is_refused(self) -> None:
         """`name` is the key everything is published under, so two entries claiming the
         same one is an ambiguity about which price is real -- and that is the one class
         of problem this job refuses to guess through."""
-        html = mutate(self.catalog_ok, 'name\\":\\"gpt-oss-20b\\"', 'name\\":\\"gpt-oss-120b\\"')
-        code, _, stderr = self.run_scrape(html)
+        catalog = mutate(self.catalog_ok, '"name":"gpt-oss-20b"', '"name":"gpt-oss-120b"')
+        code, _, stderr = self.run_scrape(catalog)
         self.assert_failed(code, stderr, "two entries named 'gpt-oss-120b'")
 
     def test_an_entry_without_a_name_is_refused(self) -> None:
-        html = mutate(self.catalog_ok, 'name\\":\\"gpt-oss-120b\\"', 'label\\":\\"gpt-oss-120b\\"')
-        code, _, stderr = self.run_scrape(html)
+        catalog = mutate(self.catalog_ok, '"name":"gpt-oss-120b"', '"label":"gpt-oss-120b"')
+        code, _, stderr = self.run_scrape(catalog)
         self.assert_failed(code, stderr, "has no string 'name'")
 
 
@@ -402,7 +439,7 @@ class TestWithdrawnModel(ScrapeTestCase):
 
     def withdraw_gpt_oss_120b(self) -> str:
         return mutate(
-            self.catalog_ok, 'name\\":\\"gpt-oss-120b\\"', 'name\\":\\"gpt-oss-120b-renamed\\"'
+            self.catalog_ok, '"name":"gpt-oss-120b"', '"name":"gpt-oss-120b-renamed"'
         )
 
     def test_it_is_kept_with_its_last_prices_and_a_date(self) -> None:
@@ -418,11 +455,20 @@ class TestWithdrawnModel(ScrapeTestCase):
 
     def test_every_other_model_is_still_published(self) -> None:
         """The point of the whole change: one model going away is not a reason to
-        withhold eighteen correct prices."""
-        self.run_scrape(self.withdraw_gpt_oss_120b())
+        withhold the other twenty-nine correct prices.
+
+        Asserted against the mutated catalog rather than a count written down here: the
+        API lists 30 models today and a number in this file would have to be edited
+        every time OVH adds one.
+        """
+        catalog = self.withdraw_gpt_oss_120b()
+        self.run_scrape(catalog)
         models = self.candidate_block("updated.json")["models"]
-        still_offered = [m for m in models if "absent_since" not in models[m]]
-        self.assertEqual(len(still_offered), 19)
+        still_offered = {m for m in models if "absent_since" not in models[m]}
+        self.assertEqual(
+            still_offered,
+            {entry["name"] for entry in scrape.extract_catalog_models(catalog)},
+        )
         self.assertIn("gpt-oss-120b-renamed", still_offered)
 
     def test_it_is_reported_once_and_not_again(self) -> None:
@@ -479,18 +525,16 @@ class TestWithdrawnModel(ScrapeTestCase):
 
 class TestSanityBounds(ScrapeTestCase):
     def test_out_of_bounds_figure_is_refused(self) -> None:
-        html = mutate(self.catalog_ok, '\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"',
-                       '\\"price\\":4000,\\"price_unit\\":\\"million_input_tokens\\"')
-        code, _, stderr = self.run_scrape(html)
+        catalog = mutate_price(self.catalog_ok, "gpt-oss-120b", "million_input_tokens", 4000)
+        code, _, stderr = self.run_scrape(catalog)
         self.assert_failed(code, stderr, "outside the plausible range")
 
     def test_a_lone_zero_beside_a_real_price_is_not_published(self) -> None:
         """Free means free in every unit, and it is checked that way. A single 0 next to
-        a real price is either a giveaway this schema cannot express or a misparse; both
+        a real price is either a giveaway this schema cannot express or a misread; both
         get reported and neither gets published as a number."""
-        html = mutate(self.catalog_ok, '\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"',
-                       '\\"price\\":0,\\"price_unit\\":\\"million_input_tokens\\"')
-        code, _, _ = self.run_scrape(html)
+        catalog = mutate_price(self.catalog_ok, "gpt-oss-120b", "million_input_tokens", 0)
+        code, _, _ = self.run_scrape(catalog)
         self.assertEqual(code, 0)
 
         entry = self.candidate_block("updated.json")["models"]["gpt-oss-120b"]
@@ -502,15 +546,13 @@ class TestSanityBounds(ScrapeTestCase):
     def test_plausible_figure_that_moved_implausibly_is_refused(self) -> None:
         """1.0 is a perfectly ordinary price for this unit. Going 0.08 -> 1.0 in one
         week is not."""
-        html = mutate(self.catalog_ok, '\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"',
-                       '\\"price\\":1.0,\\"price_unit\\":\\"million_input_tokens\\"')
-        code, _, stderr = self.run_scrape(html)
+        catalog = mutate_price(self.catalog_ok, "gpt-oss-120b", "million_input_tokens", 1.0)
+        code, _, stderr = self.run_scrape(catalog)
         self.assert_failed(code, stderr, "factor of", "Refusing to publish")
 
     def test_a_change_just_under_the_factor_limit_is_allowed_through(self) -> None:
-        html = mutate(self.catalog_ok, '\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"',
-                       '\\"price\\":0.3,\\"price_unit\\":\\"million_input_tokens\\"')
-        code, stdout, _ = self.run_scrape(html)
+        catalog = mutate_price(self.catalog_ok, "gpt-oss-120b", "million_input_tokens", 0.3)
+        code, stdout, _ = self.run_scrape(catalog)
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
         self.assert_current_untouched()
@@ -518,41 +560,41 @@ class TestSanityBounds(ScrapeTestCase):
     def test_an_unknown_price_unit_is_reported_and_never_guessed_at(self) -> None:
         """per_audio_second must not keep its name if the catalog stops meaning seconds.
         There is no honest field to put a per-minute figure in, so that price is not
-        published at all -- but the other eighteen models' prices are, because the unit
-        of an audio model says nothing about whether a token price was read correctly.
+        published at all -- but the other models' prices are, because the unit of an
+        audio model says nothing about whether a token price was read correctly.
 
         The model is marked `unpriced_since`, NOT `absent_since`. OVH still sells it;
         it is this repository that cannot name the unit. Saying "no longer offered"
         would be a false statement about the source, and it would send whoever reads it
         looking at OVH rather than at the mapping, which is where the fix belongs. The
         last prices actually observed stay beside the marker either way."""
-        html = mutate(self.catalog_ok, '\\"price_unit\\":\\"audio_duration_seconds\\"',
-                       '\\"price_unit\\":\\"audio_duration_minutes\\"', expected_count=2)
-        code, _, _ = self.run_scrape(html)
+        catalog = mutate(self.catalog_ok, '"price_unit":"audio_duration_seconds"',
+                         '"price_unit":"audio_duration_minutes"', expected_count=3)
+        code, _, _ = self.run_scrape(catalog)
         self.assertEqual(code, 0)
 
         models = self.candidate_block("updated.json")["models"]
         self.assertIn("audio_duration_minutes", self.notes())
         self.assertIn("no publishable price", self.notes())
-        for model_id in ("whisper-large-v3", "whisper-large-v3-turbo"):
+        for model_id, last_price in (
+            ("whisper-large-v3", 4.083e-05),
+            ("whisper-large-v3-turbo", 1.278e-05),
+            ("solaria-3", 0.00018889),
+        ):
             self.assertEqual(models[model_id]["unpriced_since"], FIXED_NOW[:10])
             self.assertNotIn("absent_since", models[model_id], "OVH still offers it")
-            self.assertEqual(models[model_id]["per_audio_second"], 4.083e-05 if model_id == "whisper-large-v3" else 1.278e-05)
+            self.assertEqual(models[model_id]["per_audio_second"], last_price)
         self.assertEqual(models["gpt-oss-120b"]["in_per_mtok"], 0.08)
 
     def test_a_duplicate_price_unit_is_refused(self) -> None:
         """Two pricing entries for the same model claiming the same unit is exactly
         the kind of ambiguity this job must refuse to guess through, not just a
-        theoretical case -- OVH's data is a list, nothing stops it from happening."""
-        html = mutate(
-            self.catalog_ok,
-            '\\"pricing\\":[{\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"},'
-            '{\\"price\\":0.4,\\"price_unit\\":\\"million_output_tokens\\"}]',
-            '\\"pricing\\":[{\\"price\\":0.08,\\"price_unit\\":\\"million_input_tokens\\"},'
-            '{\\"price\\":0.09,\\"price_unit\\":\\"million_input_tokens\\"},'
-            '{\\"price\\":0.4,\\"price_unit\\":\\"million_output_tokens\\"}]',
-        )
-        code, _, stderr = self.run_scrape(html)
+        theoretical case -- the API's data is a list, nothing stops it from happening."""
+        models = json.loads(self.catalog_ok)
+        pricing_of(models, "gpt-oss-120b").append(dict(pricing_of(models, "gpt-oss-120b")[0]))
+        catalog = json.dumps(models, separators=(",", ":"))
+
+        code, _, stderr = self.run_scrape(catalog)
         self.assert_failed(code, stderr, "two pricing entries mapping to it", "in_per_mtok")
 
 
@@ -648,7 +690,7 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
         refreshes for a week over a fixture that has nothing to do with either.
 
         Fixtures going stale is a real worry and this was never the thing that caught
-        it. The weekly run reads the live page: if OVH restructures it, the scraper
+        it. The weekly run reads the live API: if OVH restructures it, the scraper
         raises and opens an issue within seven days.
         """
         published = self.ovh_block()["models"]
@@ -681,11 +723,12 @@ class TestPublishedFileMatchesOVH(unittest.TestCase):
         producible = set(mapping["units"].values())
         assert_price_fields_are_producible(self, published["models"], producible)
 
-    def test_the_catalog_is_declared_a_page(self) -> None:
-        """OVH's model list arrives embedded in a rendered catalog page, not from an
-        endpoint, so the page floor is the right guard."""
+    def test_the_catalog_is_declared_a_json_api(self) -> None:
+        """OVH's model list comes from a keyless JSON endpoint, not a rendered page, so
+        the JSON floor is the right guard -- and declaring it a page would make every
+        run fail on the page floor instead."""
         mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(mapping["format"], "html")
+        self.assertEqual(mapping["format"], "json")
 
     def test_the_published_figures_have_room_to_fall(self) -> None:
         """Guards the floor against the figures actually published: if a price ever sits

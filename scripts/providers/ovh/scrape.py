@@ -2,7 +2,7 @@
 """Read OVH's AI Endpoints catalog and work out what pricing.json's providers.ovh
 block should say.
 
-Standard library only. Reads a public web page and nothing else: it takes no API
+Standard library only. Reads a public catalog API and nothing else: it takes no API
 key, must never be given one, and never touches anyone's OVH account.
 
 This script DOES NOT WRITE pricing.json. It writes candidate files into an output
@@ -16,16 +16,22 @@ only ever reads and writes `providers.ovh`: every other provider's block is carr
 through the candidate files byte-for-byte, untouched. The plumbing that makes that
 true -- reading, merging, writing, the three outcomes -- is shared with every other
 provider and lives in scripts/provider_runner.py. This file supplies only what is
-genuinely OVH-specific: how to read OVH's catalog page.
+genuinely OVH-specific: how to read OVH's catalog API.
 
-OVH's catalog is a Next.js app. Unlike Mistral's page, the price is not something a
-CSS selector reads off rendered card markup: the full model list -- id, display
-name, and a machine-readable `metadata.usage_information.pricing` list -- is
-embedded in the page as JSON, inside a React Server Components ("Flight") data
-chunk (`self.__next_f.push([1, "..."])`). The rendered "0.08€/Mtoken" text a
-browser shows is derived from that same JSON at render time; reading the JSON
-directly is more robust than re-parsing a formatted, French-language price string,
-and it is what this scraper does.
+OVH's catalog is also served by a public, keyless API, and that -- not the marketing
+page -- is what this scraper reads:
+
+    https://catalog.endpoints.ai.ovh.net/rest/v1/models_v2
+
+It answers with a JSON array of models, each carrying the callable model id in `name`
+and a machine-readable `metadata.usage_information.pricing` list. The catalog page is
+rendered from the same data, states the same figures for the models it lists, and
+lags it: on 2026-11-17 OVH published nine models to the API at 10:23 and 10:53 UTC and
+the page still did not mention them hours later, so a page-reading scraper reported
+the catalog as unchanged. Reading the API removes that delay, and the JSON is a
+better source than the page's embedded React Flight payload that this scraper used to
+parse: no layout to latch onto, and the same figures the "0.08€/Mtoken" card in a
+browser is derived from.
 
 Outcomes, matching the three the workflow must implement:
 
@@ -34,8 +40,8 @@ Outcomes, matching the three the workflow must implement:
   failure    fetch, parse or validation failed -> out/error.txt, exit code 1, no candidates
 
 Usage:
-    scripts/providers/ovh/scrape.py --out-dir .ci-out                  # fetch the live page
-    scripts/providers/ovh/scrape.py --out-dir .ci-out --html page.html # offline, for tests
+    scripts/providers/ovh/scrape.py --out-dir .ci-out                        # fetch the live API
+    scripts/providers/ovh/scrape.py --out-dir .ci-out --html catalog.json    # offline, for tests
 """
 
 from __future__ import annotations
@@ -48,7 +54,6 @@ from typing import Any, cast
 _SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_SCRIPTS_DIR))
 
-import nextjs_flight  # noqa: E402
 import provider_runner  # noqa: E402
 from provider_runner import Fetcher, ScrapeError  # noqa: E402
 from pricing_validate import JSONDict, check_price  # noqa: E402
@@ -64,39 +69,27 @@ DEFAULT_CURRENT = REPO_ROOT / "pricing.json"
 # for a reason with nothing to do with argparse.
 CLI_SUMMARY = "Read OVH's AI Endpoints catalog and work out what providers.ovh should say."
 
-def extract_catalog_models(html_text: str) -> list[JSONDict]:
-    """Pull the full model catalog out of the page's embedded React Flight data."""
+def extract_catalog_models(body: str) -> list[JSONDict]:
+    """Pull the full model catalog out of the catalog API's response.
+
+    Raises ScrapeError, never returns something partial: every shape assumption is
+    checked here so that the mapping step below can read plain fields.
+    """
     try:
-        chunks = nextjs_flight.push_chunks(html_text)
-    except Exception as exc:  # a scan crash is a layout failure like any other
-        raise ScrapeError(f"the page could not be scanned for its embedded data: {exc}") from exc
+        payload = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise ScrapeError(f"the catalog is not valid JSON: {exc}") from exc
 
-    if not chunks:
+    if not isinstance(payload, list) or not payload:
         raise ScrapeError(
-            'no self.__next_f.push([1,"...")] data chunks found on the page. The layout '
-            "has changed: this scraper expects OVH's catalog to embed its model list as "
-            "a Next.js React Server Components payload."
+            "the catalog is not a non-empty JSON array. OVH's catalog API has changed "
+            "shape, or answered with an error document."
         )
-
-    target = next((c for c in nextjs_flight.decoded_chunks(html_text) if '"models":[' in c), None)
-    if target is None:
-        raise ScrapeError(
-            'none of the page\'s embedded data chunks contain a "models" array. '
-            "The catalog's data shape has changed."
-        )
-
-    try:
-        models = nextjs_flight.decode_after(target, "models")
-    except (ValueError, json.JSONDecodeError) as exc:
-        raise ScrapeError(f'the "models" array could not be parsed: {exc}') from exc
-
-    if not isinstance(models, list) or not models:
-        raise ScrapeError('the "models" array is empty or not a list -- the catalog looks empty.')
-    models = cast("list[Any]", models)
+    models = cast("list[Any]", payload)
 
     for entry in models:
         if not isinstance(entry, dict):
-            raise ScrapeError('a catalog entry is missing a string "id" -- the data shape has changed.')
+            raise ScrapeError("a catalog entry is not an object -- the data shape has changed.")
         entry = cast(JSONDict, entry)
         if not isinstance(entry.get("id"), str):
             raise ScrapeError('a catalog entry is missing a string "id" -- the data shape has changed.')
@@ -236,15 +229,15 @@ def extract_models(
     if not any("unpriced" not in e for e in models.values()):
         raise ScrapeError(
             "the catalog priced not a single model this scraper could publish. Either "
-            "OVH restructured it, or the page is not what it looks like. Refusing to "
-            "republish the whole block as unpriced on the strength of one bad read."
+            "OVH restructured it, or the response is not what it looks like. Refusing "
+            "to republish the whole block as unpriced on the strength of one bad read."
         )
 
     return models, notes
 
 
 def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs. One page, read once."""
+    """The one callback provider_runner needs. One request, read once."""
     return extract_models(extract_catalog_models(fetch(mapping["source"])), mapping)
 
 

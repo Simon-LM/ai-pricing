@@ -2,15 +2,25 @@
   "schema_version": 2,
   "providers": {
     "ovh": {
-      "checked_utc": "2026-08-03T18:00:00Z",
-      "updated": "2026-08-03",
-      "source": "https://www.ovhcloud.com/fr/public-cloud/ai-endpoints/catalog/",
+      "checked_utc": "2026-08-10T04:00:00Z",
+      "updated": "2026-08-10",
+      "source": "https://catalog.endpoints.ai.ovh.net/rest/v1/models_v2",
       "currency": "EUR",
       "models": {
+        "DeepSeek-V4.1-Flash-1017": {
+          "in_per_mtok": 0.27,
+          "out_per_mtok": 1.08,
+          "display_name": "DeepSeek-V4.1-Flash-1017"
+        },
         "Meta-Llama-3_3-70B-Instruct": {
           "in_per_mtok": 0.67,
           "out_per_mtok": 0.67,
           "display_name": "Meta-Llama-3_3-70B-Instruct"
+        },
+        "Mistral-Small-3.2-24B-Instruct-2506": {
+          "in_per_mtok": 0.09,
+          "out_per_mtok": 0.28,
+          "display_name": "Mistral-Small-3.2-24B-Instruct-2506"
         },
         "Qwen2.5-VL-72B-Instruct": {
           "in_per_mtok": 0.91,
@@ -36,6 +46,11 @@
           "out_per_mtok": 2.7,
           "display_name": "Qwen3.6-27B"
         },
+        "Qwen3.8-27B": {
+          "in_per_mtok": 0.4,
+          "out_per_mtok": 2.7,
+          "display_name": "Qwen3.8-27B"
+        },
         "Qwen3Guard-Gen-0.6B": {
           "free": true,
           "display_name": "Qwen3Guard-Gen-0.6B"
@@ -52,6 +67,15 @@
           "in_per_mtok": 0.01,
           "display_name": "bge-multilingual-gemma2"
         },
+        "clef-flash": {
+          "in_per_mtok": 0.03255,
+          "display_name": "clef-flash"
+        },
+        "gemma-4-26b-a4b": {
+          "in_per_mtok": 0.09,
+          "out_per_mtok": 0.35,
+          "display_name": "gemma-4-26b-a4b"
+        },
         "gpt-oss-120b": {
           "in_per_mtok": 0.08,
           "out_per_mtok": 0.4,
@@ -61,6 +85,21 @@
           "in_per_mtok": 0.04,
           "out_per_mtok": 0.15,
           "display_name": "gpt-oss-20b"
+        },
+        "laguna-xs-2.1": {
+          "in_per_mtok": 0.05,
+          "out_per_mtok": 0.1,
+          "display_name": "laguna-xs-2.1"
+        },
+        "nemotron3-nano-30b": {
+          "in_per_mtok": 0.05,
+          "out_per_mtok": 0.2,
+          "display_name": "nemotron3-nano-30b"
+        },
+        "nemotron3-omni-30b": {
+          "in_per_mtok": 0.16,
+          "out_per_mtok": 0.49,
+          "display_name": "nemotron3-omni-30b"
         },
         "nvr-tts-de-de": {
           "free": true,
@@ -77,6 +116,20 @@
         "nvr-tts-it-it": {
           "free": true,
           "display_name": "nvr-tts-it-it"
+        },
+        "qwen3-vl-30b-a3b": {
+          "in_per_mtok": 0.13,
+          "out_per_mtok": 0.5,
+          "display_name": "qwen3-vl-30b-a3b"
+        },
+        "qwen3.6-35b-a3b": {
+          "in_per_mtok": 0.17,
+          "out_per_mtok": 1.15,
+          "display_name": "qwen3.6-35b-a3b"
+        },
+        "solaria-3": {
+          "per_audio_second": 0.00018889,
+          "display_name": "solaria-3"
         },
         "stable-diffusion-xl-base-v10": {
           "free": true,
