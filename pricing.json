@@ -1712,8 +1712,8 @@
       }
     },
     "huggingface": {
-      "checked_utc": "2026-11-16T07:11:29Z",
-      "updated": "2026-11-09",
+      "checked_utc": "2026-11-18T07:06:04Z",
+      "updated": "2026-11-18",
       "source": "https://router.huggingface.co/v1/models",
       "currency": "USD",
       "models": {
@@ -1753,7 +1753,8 @@
         "Qwen/Qwen3.6-27B:ovhcloud": {
           "in_per_mtok": 0.47,
           "out_per_mtok": 3.19,
-          "display_name": "Qwen/Qwen3.6-27B:ovhcloud"
+          "display_name": "Qwen/Qwen3.6-27B:ovhcloud",
+          "absent_since": "2026-11-18"
         },
         "Qwen/Qwen3.6-35B-A3B:scaleway": {
           "in_per_mtok": 0.285,
@@ -1764,7 +1765,8 @@
         "Qwen/Qwen3.8-27B:ovhcloud": {
           "in_per_mtok": 0.47,
           "out_per_mtok": 3.19,
-          "display_name": "Qwen/Qwen3.8-27B:ovhcloud"
+          "display_name": "Qwen/Qwen3.8-27B:ovhcloud",
+          "absent_since": "2026-11-18"
         },
         "Qwen/Qwen3.8-27B:scaleway": {
           "display_name": "Qwen/Qwen3.8-27B:scaleway",
@@ -1775,6 +1777,10 @@
           "display_name": "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway",
           "absent_since": "2026-11-09",
           "unpriced_since": "2026-09-14"
+        },
+        "deepseek-ai/DeepSeek-V4.1-Flash-1017:ovhcloud": {
+          "display_name": "deepseek-ai/DeepSeek-V4.1-Flash-1017:ovhcloud",
+          "unpriced_since": "2026-11-18"
         },
         "deepseek-ai/DeepSeek-V4.1-Flash-1017:scaleway": {
           "display_name": "deepseek-ai/DeepSeek-V4.1-Flash-1017:scaleway",
@@ -1790,7 +1796,8 @@
         "meta-llama/Llama-3.3-70B-Instruct:ovhcloud": {
           "in_per_mtok": 0.74,
           "out_per_mtok": 0.74,
-          "display_name": "meta-llama/Llama-3.3-70B-Instruct:ovhcloud"
+          "display_name": "meta-llama/Llama-3.3-70B-Instruct:ovhcloud",
+          "absent_since": "2026-11-18"
         },
         "meta-llama/Llama-3.3-70B-Instruct:scaleway": {
           "in_per_mtok": 1.026,
