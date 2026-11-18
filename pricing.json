@@ -560,8 +560,8 @@
       }
     },
     "edenai": {
-      "checked_utc": "2026-11-17T06:02:06Z",
-      "updated": "2026-11-17",
+      "checked_utc": "2026-11-18T06:02:14Z",
+      "updated": "2026-11-18",
       "source": "https://api.edenai.run/v3/models",
       "currency": "USD",
       "models": {
@@ -600,15 +600,15 @@
           "display_name": "codestral-latest"
         },
         "mistral/deepseek-v4-1-flash-1017": {
-          "in_per_mtok": 0.3,
-          "out_per_mtok": 1.2,
-          "cache_read_per_mtok": 0.007,
+          "in_per_mtok": 0.24,
+          "out_per_mtok": 0.96,
+          "cache_read_per_mtok": 0.0056,
           "display_name": "deepseek-v4-1-flash-1017"
         },
         "mistral/deepseek-v4-1-flash-1017@eu": {
-          "in_per_mtok": 0.33,
-          "out_per_mtok": 1.32,
-          "cache_read_per_mtok": 0.0077,
+          "in_per_mtok": 0.264,
+          "out_per_mtok": 1.056,
+          "cache_read_per_mtok": 0.00616,
           "display_name": "deepseek-v4-1-flash-1017"
         },
         "mistral/devstral-2512": {
@@ -900,22 +900,26 @@
         "mistral/mistral-medium-2505": {
           "in_per_mtok": 0.4,
           "out_per_mtok": 2.0,
-          "display_name": "mistral-medium-2505"
+          "display_name": "mistral-medium-2505",
+          "absent_since": "2026-11-18"
         },
         "mistral/mistral-medium-2505@eu": {
           "in_per_mtok": 0.44,
           "out_per_mtok": 2.2,
-          "display_name": "mistral-medium-2505"
+          "display_name": "mistral-medium-2505",
+          "absent_since": "2026-11-18"
         },
         "mistral/mistral-medium-2508": {
           "in_per_mtok": 0.4,
           "out_per_mtok": 2.0,
-          "display_name": "mistral-medium-2508"
+          "display_name": "mistral-medium-2508",
+          "absent_since": "2026-11-18"
         },
         "mistral/mistral-medium-2508@eu": {
           "in_per_mtok": 0.44,
           "out_per_mtok": 2.2,
-          "display_name": "mistral-medium-2508"
+          "display_name": "mistral-medium-2508",
+          "absent_since": "2026-11-18"
         },
         "mistral/mistral-medium-2604": {
           "in_per_mtok": 1.5,
@@ -930,9 +934,9 @@
           "display_name": "mistral-medium-2604"
         },
         "mistral/mistral-medium-3": {
-          "in_per_mtok": 0.4,
-          "out_per_mtok": 2.0,
-          "cache_read_per_mtok": 0.04,
+          "in_per_mtok": 0.44,
+          "out_per_mtok": 2.2,
+          "cache_read_per_mtok": 0.044,
           "display_name": "mistral-medium-3"
         },
         "mistral/mistral-medium-3-5": {
@@ -960,9 +964,9 @@
           "display_name": "mistral-medium-3.5"
         },
         "mistral/mistral-medium-3@eu": {
-          "in_per_mtok": 0.44,
-          "out_per_mtok": 2.2,
-          "cache_read_per_mtok": 0.044,
+          "in_per_mtok": 0.484,
+          "out_per_mtok": 2.42,
+          "cache_read_per_mtok": 0.0484,
           "display_name": "mistral-medium-3"
         },
         "mistral/mistral-medium-latest": {
@@ -1307,9 +1311,9 @@
           "display_name": "sonar-reasoning-pro"
         },
         "scaleway/deepseek-v4-flash-0731": {
-          "in_per_mtok": 0.4405601722590274,
-          "out_per_mtok": 0.8811203445180548,
-          "cache_read_per_mtok": 0.08811203445180547,
+          "in_per_mtok": 0.4395599565275204,
+          "out_per_mtok": 0.8791199130550407,
+          "cache_read_per_mtok": 0.08791199130550408,
           "display_name": "deepseek-v4-flash-0731"
         },
         "scaleway/deepseek-v4.1-flash": {
@@ -1319,9 +1323,9 @@
           "display_name": "deepseek-v4.1-flash"
         },
         "scaleway/deepseek-v4.1-flash-1017": {
-          "in_per_mtok": 0.660840258388541,
-          "out_per_mtok": 1.982520775165623,
-          "cache_read_per_mtok": 0.13216805167770823,
+          "in_per_mtok": 0.6593399347912805,
+          "out_per_mtok": 1.9780198043738415,
+          "cache_read_per_mtok": 0.1318679869582561,
           "display_name": "deepseek-v4.1-flash-1017"
         },
         "scaleway/devstral-2-123b-instruct-2512": {
@@ -1335,8 +1339,8 @@
           "display_name": "gemma-3-27b-it"
         },
         "scaleway/gemma-4-26b-a4b-it": {
-          "in_per_mtok": 0.2753501076618921,
-          "out_per_mtok": 0.5507002153237842,
+          "in_per_mtok": 0.2747249728297002,
+          "out_per_mtok": 0.5494499456594004,
           "display_name": "gemma-4-26b-a4b-it"
         },
         "scaleway/glm-5.2": {
@@ -1345,13 +1349,13 @@
           "display_name": "glm-5.2"
         },
         "scaleway/glm-5.3": {
-          "in_per_mtok": 1.982520775165623,
-          "out_per_mtok": 6.057702368561627,
+          "in_per_mtok": 1.9780198043738415,
+          "out_per_mtok": 6.043949402253404,
           "display_name": "glm-5.3"
         },
         "scaleway/gpt-oss-120b": {
-          "in_per_mtok": 0.16521006459713525,
-          "out_per_mtok": 0.660840258388541,
+          "in_per_mtok": 0.16483498369782013,
+          "out_per_mtok": 0.6593399347912805,
           "display_name": "gpt-oss-120b"
         },
         "scaleway/holo2-30b-a3b": {
@@ -1360,18 +1364,18 @@
           "display_name": "holo2-30b-a3b"
         },
         "scaleway/llama-3.3-70b-instruct": {
-          "in_per_mtok": 0.9912603875828115,
-          "out_per_mtok": 0.9912603875828115,
+          "in_per_mtok": 0.9890099021869208,
+          "out_per_mtok": 0.9890099021869208,
           "display_name": "llama-3.3-70b-instruct"
         },
         "scaleway/mistral-medium-3.5-128b": {
-          "in_per_mtok": 1.6521006459713528,
-          "out_per_mtok": 8.260503229856763,
+          "in_per_mtok": 1.6483498369782015,
+          "out_per_mtok": 8.241749184891006,
           "display_name": "mistral-medium-3.5-128b"
         },
         "scaleway/mistral-small-3.2-24b-instruct-2506": {
-          "in_per_mtok": 0.16521006459713525,
-          "out_per_mtok": 0.38549015072664894,
+          "in_per_mtok": 0.16483498369782013,
+          "out_per_mtok": 0.3846149619615803,
           "display_name": "mistral-small-3.2-24b-instruct-2506"
         },
         "scaleway/pixtral-12b-2409": {
@@ -1380,8 +1384,8 @@
           "display_name": "pixtral-12b-2409"
         },
         "scaleway/qwen3-235b-a22b-instruct-2507": {
-          "in_per_mtok": 0.8260503229856764,
-          "out_per_mtok": 2.4781509689570287,
+          "in_per_mtok": 0.8241749184891007,
+          "out_per_mtok": 2.4725247554673015,
           "display_name": "qwen3-235b-a22b-instruct-2507"
         },
         "scaleway/qwen3-coder-30b-a3b-instruct": {
@@ -1390,19 +1394,19 @@
           "display_name": "qwen3-coder-30b-a3b-instruct"
         },
         "scaleway/qwen3.5-397b-a17b": {
-          "in_per_mtok": 0.660840258388541,
-          "out_per_mtok": 3.965041550331246,
+          "in_per_mtok": 0.6593399347912805,
+          "out_per_mtok": 3.956039608747683,
           "display_name": "qwen3.5-397b-a17b"
         },
         "scaleway/qwen3.6-35b-a3b": {
-          "in_per_mtok": 0.2753501076618921,
-          "out_per_mtok": 1.6521006459713528,
+          "in_per_mtok": 0.2747249728297002,
+          "out_per_mtok": 1.6483498369782015,
           "display_name": "qwen3.6-35b-a3b"
         },
         "scaleway/qwen3.8-27b": {
-          "in_per_mtok": 0.660840258388541,
-          "out_per_mtok": 3.634621421136976,
-          "cache_read_per_mtok": 0.13216805167770823,
+          "in_per_mtok": 0.6593399347912805,
+          "out_per_mtok": 3.626369641352043,
+          "cache_read_per_mtok": 0.1318679869582561,
           "display_name": "qwen3.8-27b"
         },
         "scaleway/voxtral-small-24b-2507": {
