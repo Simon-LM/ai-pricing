@@ -60,6 +60,10 @@ CLI_SUMMARY = "Read OpenAI's public pricing page and work out what providers.ope
 _ID = re.compile(r"[a-z0-9][a-z0-9.\-]*")
 _DOLLARS = re.compile(r"\$(?P<amount>[0-9]+(?:\.[0-9]+)?)")
 
+# A heading that states one speed's table group, `### Flex pricing data`. Such a line names
+# no price, so the mapping must name it, or the table below it is read as the speed above.
+_SPEED_HEADING = re.compile(r"#{3,4} [A-Z][A-Za-z]* pricing data")
+
 
 # --------------------------------------------------------------------------------------
 # The page: sections, speeds, tables
@@ -80,10 +84,14 @@ def _cells(line: str) -> list[str]:
 
 def page_tables(page: str, mapping: JSONDict) -> tuple[list[Table], list[str]]:
     """Every table on the page, with the section and the speed it sits under, and the
-    page's lines that are not in a table."""
+    page's lines that are not in a table. A table headed by a `tables_not_read` line is
+    left out; a `### <speed> pricing data` heading the mapping does not name fails the
+    run, rather than leaving its table read as the speed above it."""
     sections = set(cast("list[str]", mapping["sections"]))
     speeds = cast("dict[str, str]", mapping["speeds"])
+    not_read = set(cast("list[str]", mapping["tables_not_read"]))
     section, speed = "", "Standard"
+    skip = False
     found: list[Table] = []
     text: list[str] = []
     lines = page.splitlines()
@@ -91,16 +99,23 @@ def page_tables(page: str, mapping: JSONDict) -> tuple[list[Table], list[str]]:
     while i < len(lines):
         line = lines[i].strip()
         if line in sections:
-            section, speed = line, "Standard"
+            section, speed, skip = line, "Standard", False
         elif line in speeds:
-            speed = speeds[line]
+            speed, skip = speeds[line], False
+        elif line in not_read:
+            skip = True
+        elif _SPEED_HEADING.fullmatch(line):
+            raise ScrapeError(f"the page heads a table of prices {line!r}, which `speeds` does not name: "
+                              f"its tables would be read as {speed}'s. Its layout has changed: check it "
+                              f"against the mapping.")
         if line.startswith("|") and i + 1 < len(lines) and re.fullmatch(r"\|[\s\-:|]+\|", lines[i + 1].strip()):
             table = Table(section, speed, _cells(line))
             i += 2
             while i < len(lines) and lines[i].strip().startswith("|"):
                 table.rows.append(_cells(lines[i]))
                 i += 1
-            found.append(table)
+            if not skip:
+                found.append(table)
             continue
         text.append(line)
         i += 1
@@ -255,9 +270,10 @@ def read_transcription(table: Table, spec: JSONDict) -> Rows:
     return rows
 
 
-def read_specialized(table: Table, spec: JSONDict, mapping: JSONDict) -> Rows:
+def read_specialized(table: Table, spec: JSONDict, mapping: JSONDict, threshold: int | None) -> Rows:
     """Category | Model | prices. A row whose category is marked restricted is not read;
-    "(short context)" and "(long context)" rows of one model become one entry."""
+    "(short context)" and "(long context)" rows of one model become one entry, the long
+    context one carrying the page's `long_context_threshold`."""
     where = f"{table.section} / {table.speed}"
     fields = cast("list[str]", spec["fields"])
     marker = cast(str, mapping["restricted_marker"])
@@ -283,8 +299,10 @@ def read_specialized(table: Table, spec: JSONDict, mapping: JSONDict) -> Rows:
             if value is not None:
                 _add(rows, key, field_name + suffix, value, where)
         if suffix:
-            raise ScrapeError(f"{where}, {key}: a long context row outside the restricted models, "
-                              f"with no threshold stated for it.")
+            if threshold is None:
+                raise ScrapeError(f"{where}, {key}: long context prices, and no note saying where long "
+                                  f"context starts.")
+            rows[key]["long_context_threshold"] = threshold
     return rows
 
 
@@ -367,7 +385,7 @@ def extract_models(page: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], l
         elif kind == "transcription":
             rows = read_transcription(table, spec)
         elif kind == "specialized":
-            rows = read_specialized(table, spec, mapping)
+            rows = read_specialized(table, spec, mapping, threshold)
         elif kind == "tools":
             rows, tool_notes = read_tools(table, mapping)
             notes += tool_notes

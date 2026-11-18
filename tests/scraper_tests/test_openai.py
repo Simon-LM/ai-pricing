@@ -1,8 +1,13 @@
 """Tests for scripts/providers/openai/scrape.py.
 
-The fixture is OpenAI's pricing page as Markdown, `pricing.md`, as served on 2026-11-10,
+The fixture is OpenAI's pricing page as Markdown, `pricing.md`, as served on 2026-11-18,
 whole. The figures asserted below were read off that page by a human, and every row of
 the flagship models' Standard table is checked against what is published.
+
+That capture is the one where the page headed the Flex tab with a `### Flex pricing data`
+heading rather than `#### Flex`, stated Ultrafast's promotion and list prices in two
+tables under one speed, and split the legal models into `(short context)` and
+`(long context)` rows: the three shapes the tests below pin.
 """
 
 from __future__ import annotations
@@ -139,6 +144,60 @@ class TestFigures(ScrapeTestCase):
         self.assertEqual(self.models["gpt-6.1-sol (ultrafast)"]["out_per_mtok_long_context"], 90.0)
         self.assertEqual(self.models["gpt-5.3-codex (fast)"]["in_per_mtok"], 3.5)
 
+    def test_the_flex_tables_are_read_as_flex(self) -> None:
+        """The page headed the Flex tab `### Flex pricing data` on 2026-11-18, and a bare
+        `Flex` line. Read as Batch, which is also 50% of Standard, its figures would be
+        published as batch ones for the models the Batch tables leave out."""
+        flex = self.models["gpt-6-astra (flex)"]
+        self.assertEqual([flex[f] for f in ("in_per_mtok", "out_per_mtok", "cache_read_per_mtok",
+                                            "cache_write_30m_per_mtok", "cache_write_12h_per_mtok")],
+                         [5.0, 25.0, 0.5, 6.25, 12.5])
+        self.assertEqual((flex["in_per_mtok_long_context"], flex["long_context_threshold"]), (10.0, 272001))
+        self.assertEqual(self.models["o3 (flex)"]["cache_read_per_mtok"], 0.25)
+        self.assertNotIn("cache_read_per_mtok_batch", self.models["o3"],
+                         "o3's cached input is stated in the Flex table only, which is its own entry")
+
+    def test_ultrafast_publishes_the_promotion_prices_not_the_list_ones(self) -> None:
+        """Two tables state Ultrafast's prices for the GPT-6.2 models: the promotion one,
+        in force through 2027-02-28 ($24 / $120), and the list one, from 2027-03-01
+        ($48 / $240)."""
+        astra = self.models["gpt-6.2-astra (ultrafast)"]
+        self.assertEqual((astra["in_per_mtok"], astra["out_per_mtok"]), (24.0, 120.0))
+        self.assertEqual((astra["in_per_mtok_long_context"], astra["out_per_mtok_long_context"]), (48.0, 180.0))
+        self.assertEqual(self.models["gpt-6.2-sol (ultrafast)"]["in_per_mtok"], 6.0)
+        self.assertEqual(self.models["gpt-6-astra (ultrafast)"]["in_per_mtok"], 60.0, "the older table, read as before")
+
+    def test_the_legal_models_are_split_into_short_and_long_context_rows(self) -> None:
+        """The legal models lost their single row for `(short context)` and
+        `(long context)` ones, and gained GPT-6.2 Astra for Law."""
+        astra = self.models["gpt-6.2-astra-law"]
+        self.assertEqual([astra[f] for f in ("in_per_mtok", "out_per_mtok", "cache_read_per_mtok",
+                                             "cache_write_30m_per_mtok", "cache_write_12h_per_mtok")],
+                         [8.0, 40.0, 0.4, 10.0, 20.0])
+        self.assertEqual([astra[f] for f in ("in_per_mtok_long_context", "out_per_mtok_long_context",
+                                             "cache_read_per_mtok_long_context")], [16.0, 60.0, 0.8])
+        self.assertEqual(astra["long_context_threshold"], 272001)
+        self.assertEqual(self.models["gpt-6-astra-law"]["in_per_mtok_long_context"], 20.0)
+        self.assertEqual(self.models["gpt-6-astra-law"]["out_per_mtok_long_context"], 75.0)
+
+    def test_the_new_flagship_models_at_their_speeds_and_in_batch(self) -> None:
+        astra = self.models["gpt-6.2-astra"]
+        self.assertEqual([astra[f] for f in ("in_per_mtok", "out_per_mtok", "cache_read_per_mtok",
+                                             "in_per_mtok_long_context", "in_per_mtok_batch",
+                                             "in_per_mtok_batch_long_context")],
+                         [8.0, 40.0, 0.4, 16.0, 4.0, 8.0])
+        sol = self.models["gpt-6.2-sol"]
+        self.assertEqual((sol["in_per_mtok"], sol["out_per_mtok"], sol["out_per_mtok_batch"]), (2.0, 10.0, 5.0))
+        self.assertEqual(self.models["gpt-6.2-astra (fast)"]["in_per_mtok"], 16.0)
+        self.assertEqual(self.models["gpt-6.2-sol (fast)"]["in_per_mtok"], 4.0)
+
+    def test_the_new_image_models(self) -> None:
+        flare = self.models["gpt-image-2.6-flare"]
+        self.assertEqual((flare["image_in_per_mtok"], flare["image_out_per_mtok"],
+                          flare["image_cache_read_per_mtok"]), (8.0, 30.0, 2.0))
+        self.assertEqual((flare["in_per_mtok"], flare["cache_read_per_mtok"]), (5.0, 1.25))
+        self.assertEqual(self.models["gpt-image-2.6-sunburst"]["image_in_per_mtok"], 8.0)
+
     def test_image_models_price_text_and_image_tokens_apart(self) -> None:
         image = self.models["gpt-image-2"]
         self.assertEqual((image["image_in_per_mtok"], image["image_out_per_mtok"], image["image_cache_read_per_mtok"]),
@@ -212,9 +271,21 @@ class TestFigures(ScrapeTestCase):
 
 class TestFailures(ScrapeTestCase):
     def test_a_renamed_column(self) -> None:
-        page = self.edited("| Short context 30m write |", "| Short context 30-minute write |", count=5)
+        page = self.edited("| Short context 30m write |", "| Short context 30-minute write |", count=7)
         code, _, stderr = self.run_scrape(page)
         self.assert_failed(code, stderr, "has no ['flagship-context'] table")
+
+    def test_a_speed_heading_the_mapping_does_not_name(self) -> None:
+        """A `### <speed> pricing data` heading names no price: unnamed, its table would
+        be read as the speed above it, which is how the Flex tables were read as Batch."""
+        page = self.edited("### Flex pricing data", "### Turbo pricing data")
+        code, _, stderr = self.run_scrape(page)
+        self.assert_failed(code, stderr, "'### Turbo pricing data', which `speeds` does not name")
+
+    def test_the_ultrafast_list_table_read_as_ultrafast(self) -> None:
+        page = self.edited("### Ultrafast list pricing data", "### Ultrafast full pricing data")
+        code, _, stderr = self.run_scrape(page)
+        self.assert_failed(code, stderr, "Flagship models / Ultrafast: gpt-6.2-astra.in_per_mtok is priced twice")
 
     def test_a_price_this_cannot_read(self) -> None:
         page = self.edited("| gpt-4o | $2.50 | $10.00 | $1.25 |", "| gpt-4o | 2.50 USD | $10.00 | $1.25 |")

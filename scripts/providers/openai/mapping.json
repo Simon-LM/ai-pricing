@@ -7,7 +7,14 @@
     "page's address plus .md): every tab of the rendered page, as plain Markdown tables.",
     "",
     "`sections` and `speeds` are the lines that head the page's parts: a table belongs to",
-    "the last section and the last speed above it. `tables` names every table read, by",
+    "the last section and the last speed above it. A speed is named in every form the page",
+    "has headed it: OpenAI headed the Flex tab `#### Flex` until 2026-11-18 and heads it",
+    "with a bare `Flex` line and a `### Flex pricing data` heading since, so both are",
+    "named, and a revert reads Flex rather than folding its tables into Batch, which are",
+    "the same prices. `tables_not_read` names a heading whose tables are deliberately not",
+    "read; every other `### <speed> pricing data` line the page serves is named in",
+    "`speeds`, or the run fails rather than reading its tables as the speed above it.",
+    "`tables` names every table read, by",
     "its section, its speeds and its header row, word for word, and says what its",
     "columns become. A table the page has and `tables` does not name is reported in the",
     "run's notes and not read; one named in `required_tables` that the page lacks fails",
@@ -22,7 +29,8 @@
     "Not published, and why (scripts/providers/openai/README.md says more): the models",
     "whose category carries `restricted_marker` ('Trusted Access'), sold only to",
     "organisations OpenAI approves; the sections in `sections_not_read`: fine-tuning,",
-    "closed to new users, and the cloud platforms, which bill through their own pages."
+    "closed to new users, and the cloud platforms, which bill through their own pages;",
+    "and the tables in `tables_not_read` below."
   ],
   "source": "https://developers.openai.com/api/docs/pricing.md",
   "sources": [
@@ -45,17 +53,33 @@
     "Fine-tuning",
     "Cloud platforms"
   ],
+  "_comment_tables_not_read": [
+    "Tables the page states and this site does not publish, by the line that heads them.",
+    "`### Ultrafast list pricing data` states what Ultrafast will cost from 2027-03-01: the",
+    "page's prose above it says 'For GPT-6.2 Astra and GPT-6.2 Sol, Ultrafast costs 3 times",
+    "the Standard rate through February 28, 2027, and 6 times the Standard rate starting",
+    "March 1, 2027 (Pacific time)', so the table in force today is the promotion one, read",
+    "as Ultrafast. Published, the list prices would be today's prices, which they are not.",
+    "At the switch the promotion table leaves the page, the Ultrafast entries go",
+    "`absent_since`, and that is the signal to read the list table instead."
+  ],
+  "tables_not_read": [
+    "### Ultrafast list pricing data"
+  ],
   "speeds": {
     "Standard": "Standard",
     "### Standard pricing data": "Standard",
     "Batch": "Batch",
     "### Batch pricing data": "Batch",
     "#### Batch": "Batch",
+    "Flex": "Flex",
+    "### Flex pricing data": "Flex",
     "#### Flex": "Flex",
     "Fast": "Fast",
     "### Fast pricing data": "Fast",
     "Ultrafast": "Ultrafast",
-    "### Ultrafast pricing data": "Ultrafast"
+    "### Ultrafast pricing data": "Ultrafast",
+    "### Ultrafast promotion pricing data": "Ultrafast"
   },
   "long_context_note": "Short context: ≤(?P<short>[0-9]+)K input tokens\\. Long context: >(?P<long>[0-9]+)K input tokens\\.",
   "restricted_marker": "Trusted Access",

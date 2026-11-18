@@ -12,6 +12,11 @@ page at once, as plain Markdown tables, with each model under the id the API tak
 is what is read. (`openai.com/api/pricing` refuses automated readers; the docs page does
 not.)
 
+OpenAI publishes no price API to read instead, checked on 2026-11-18: `api.openai.com/v1/models`
+answers 401 without a key, this scraper is never given one, and that list states no price
+anyway. The page's Markdown is the one machine-readable form OpenAI serves, the choice
+[docs/contributing.md](../../../docs/contributing.md) makes after a JSON API.
+
 The page is a run of sections, each with one table per speed. A table belongs to the
 last section and the last speed written above it, and is recognised by both and by its
 header row, word for word, as `mapping.json`'s `tables` states them:
@@ -32,6 +37,13 @@ its prices are not published: a unit is read from a header, and a new header is 
 unit this can trust. A table the mapping requires (`required_tables`) that the page
 lacks fails the run, and so does a cell that is not a price (`$N`) or a dash.
 
+A tab is headed by a bare line and by a `### <speed> pricing data` heading
+(`Standard`, `### Standard pricing data`); until 2026-11-18 the Flex tab was headed
+`#### Flex` instead, and both forms are listed in `speeds`. That heading names no price,
+so a heading of that form the mapping does not name fails the run rather than leaving
+the table below it read as the speed written above it: that is how the Flex tables were
+read as Batch on 2026-11-18, which are the same prices, so nothing failed.
+
 ## The speeds
 
 OpenAI sells most models at several speeds, each at its own price:
@@ -46,6 +58,15 @@ Flex, Fast and Ultrafast are the same model, asked for with a setting of the req
 not another model: hence their own entry, as Anthropic's fast mode has. The page says
 Fast was called Priority processing until 2026-07-30.
 
+Ultrafast is the one speed the page states twice. Since 2026-11-18 the GPT-6.2 models
+carry a promotion table, `### Ultrafast promotion pricing data`, and a list table,
+`### Ultrafast list pricing data`, the prose above them saying which is in force: "For
+GPT-6.2 Astra and GPT-6.2 Sol, Ultrafast costs 3 times the Standard rate through
+February 28, 2027, and 6 times the Standard rate starting March 1, 2027 (Pacific
+time)." The promotion table is read, as Ultrafast; the list table is named in
+`tables_not_read` and not read, its prices being those of 2027-03-01. Read, both would
+fail the run, both stating `gpt-6.2-astra.in_per_mtok`.
+
 ## Long context
 
 The flagship tables price each model twice, "Short context: ≤272K input tokens. Long
@@ -55,6 +76,11 @@ short context rates. K is read as 1,000, as Perplexity's pages use it for the sa
 OpenAI models. The threshold is read from that sentence on every run; a model name that
 carries its own, "gpt-5.5 (<272K context length)", must agree with it, and the note is
 not part of the id.
+
+The specialized models state long context the same way since 2026-11-18: a legal model
+has a `(short context)` row and a `(long context)` row, which become one entry, and the
+threshold of the page's note is published with it. A `(long context)` row with no note
+on the page fails the run, as the flagship tables' long context prices do.
 
 ## Tokens that are not text
 
@@ -72,7 +98,7 @@ entry prices a call:
 
 ## Transcription
 
-A model priced in tokens (`gpt-4o-transcribe`, $2.50 / $10.00 per million on 2026-11-10)
+A model priced in tokens (`gpt-4o-transcribe`, $2.50 / $10.00 per million on 2026-11-18)
 publishes its token prices in `in_per_mtok` and `out_per_mtok`, as the page states them,
 without saying which kind of token the input is; its cost per minute is, in the page's
 own words, an estimate, and is not published. A model priced only per minute (Whisper,
@@ -81,7 +107,7 @@ own words, an estimate, and is not published. A model priced only per minute (Wh
 
 ## The tools
 
-| key | price on 2026-11-10 | field |
+| key | price on 2026-11-18 | field |
 | --- | --- | --- |
 | `web_search` | $10 per 1,000 calls | `per_1k_calls` |
 | `web_search_preview (reasoning models)` | $10 per 1,000 calls | `per_1k_calls` |
@@ -106,20 +132,29 @@ are billed at the model's rates (free with the preview tool on non-reasoning mod
 - **Containers are billed by the minute**, with a 5-minute minimum per session: the page
   states the price per 20-minute session, and that is what is published.
 - **Promotional prices** are published as the page states them, with no end date in the
-  file: GPT-5.6 Sol's until 2026-11-30, GPT-6 Astra for Law's at least through
-  2026-12-31. The run publishes the new price the week the page changes it.
+  file: GPT-5.6 Sol's until 2026-11-30, GPT-6 Astra for Law's, GPT-6.2 Astra for Law's
+  and GPT-6 Rosalind's at least through 2026-12-31. The run publishes the new price the
+  week the page changes it.
+- **Ultrafast's list prices**, which take effect on 2027-03-01: their table is named in
+  `tables_not_read`. See the speeds above.
 - **The cost of a generated image.** The page sends to a calculator in the image
   generation guide; the token prices it builds on are published.
 - **The models sold only to approved organisations**: the Specialized models whose
-  category says "Trusted Access" (on 2026-11-10, Daybreak's cybersecurity models and
+  category says "Trusted Access" (on 2026-11-18, Daybreak's cybersecurity models and
   Rosalind's life sciences models). Read from that category, as `restricted_marker`
   names it, not from a list of models.
 - **Fine-tuning**, which the page says is closed to new users: its section is not read.
 - **The cloud platforms** (Amazon Bedrock, Microsoft Azure), which bill OpenAI's models
   through their own pages.
 
-## Checked on 2026-11-10
+## Checked on 2026-11-18
 
 Against the page, by a human: the flagship tables at every speed, the image, realtime,
 speech and transcription tables, the specialized models, the tools. The tests check every
 row of the flagship models' plain Standard table against what is published.
+
+That capture is the one that added the GPT-6.2 family (Standard, Batch, Flex where the
+page states it, Fast, Ultrafast), the GPT-6.2 image models, and the legal models' short
+and long context rows, and that headed the Flex tab `### Flex pricing data`: the
+`gpt-6.2-*` figures, the Flex entries and the legal rows in `test_openai.py` were read
+off it, and the fixture is a copy of it, byte for byte.
