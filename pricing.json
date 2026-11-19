@@ -4276,8 +4276,8 @@
       }
     },
     "google": {
-      "checked_utc": "2026-11-16T10:27:02Z",
-      "updated": "2026-11-16",
+      "checked_utc": "2026-11-19T03:35:41Z",
+      "updated": "2026-11-19",
       "source": "https://aistudio.google.com/docs/pricing.md",
       "sources": [
         "https://aistudio.google.com/docs/pricing.md"
@@ -4997,6 +4997,33 @@
           "display_name": "gemini-4-hydrogen (priority)",
           "api_ids": [
             "gemini-4-hydrogen"
+          ]
+        },
+        "gemini-4-neon": {
+          "in_per_mtok": 3.0,
+          "out_per_mtok": 15.0,
+          "cache_read_per_mtok": 0.15,
+          "in_per_mtok_batch": 1.5,
+          "out_per_mtok_batch": 7.5,
+          "cache_read_per_mtok_batch": 0.075,
+          "display_name": "gemini-4-neon"
+        },
+        "gemini-4-neon (flex)": {
+          "in_per_mtok": 1.5,
+          "out_per_mtok": 7.5,
+          "cache_read_per_mtok": 0.075,
+          "display_name": "gemini-4-neon (flex)",
+          "api_ids": [
+            "gemini-4-neon"
+          ]
+        },
+        "gemini-4-neon (priority)": {
+          "in_per_mtok": 5.4,
+          "out_per_mtok": 27.0,
+          "cache_read_per_mtok": 0.27,
+          "display_name": "gemini-4-neon (priority)",
+          "api_ids": [
+            "gemini-4-neon"
           ]
         },
         "gemini-decision-1": {
