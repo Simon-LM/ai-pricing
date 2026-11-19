@@ -1724,8 +1724,8 @@
       }
     },
     "huggingface": {
-      "checked_utc": "2026-11-18T07:06:04Z",
-      "updated": "2026-11-18",
+      "checked_utc": "2026-11-19T07:06:14Z",
+      "updated": "2026-11-19",
       "source": "https://router.huggingface.co/v1/models",
       "currency": "USD",
       "models": {
@@ -1760,7 +1760,8 @@
         "Qwen/Qwen3.5-9B:ovhcloud": {
           "in_per_mtok": 0.12,
           "out_per_mtok": 0.18,
-          "display_name": "Qwen/Qwen3.5-9B:ovhcloud"
+          "display_name": "Qwen/Qwen3.5-9B:ovhcloud",
+          "absent_since": "2026-11-19"
         },
         "Qwen/Qwen3.6-27B:ovhcloud": {
           "in_per_mtok": 0.47,
@@ -1777,13 +1778,17 @@
         "Qwen/Qwen3.8-27B:ovhcloud": {
           "in_per_mtok": 0.47,
           "out_per_mtok": 3.19,
-          "display_name": "Qwen/Qwen3.8-27B:ovhcloud",
-          "absent_since": "2026-11-18"
+          "display_name": "Qwen/Qwen3.8-27B:ovhcloud"
         },
         "Qwen/Qwen3.8-27B:scaleway": {
           "display_name": "Qwen/Qwen3.8-27B:scaleway",
           "absent_since": "2026-11-09",
           "unpriced_since": "2026-11-02"
+        },
+        "cyankiwi/Qwen3.5-9B-AWQ-4bit:ovhcloud": {
+          "in_per_mtok": 0.12,
+          "out_per_mtok": 0.18,
+          "display_name": "cyankiwi/Qwen3.5-9B-AWQ-4bit:ovhcloud"
         },
         "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway": {
           "display_name": "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway",
