@@ -410,8 +410,8 @@
       }
     },
     "ovh": {
-      "checked_utc": "2026-11-17T19:38:26Z",
-      "updated": "2026-11-17",
+      "checked_utc": "2026-11-19T05:05:53Z",
+      "updated": "2026-11-19",
       "source": "https://catalog.endpoints.ai.ovh.net/rest/v1/models_v2",
       "currency": "EUR",
       "models": {
@@ -435,6 +435,18 @@
           "in_per_mtok": 0.09,
           "out_per_mtok": 0.28,
           "display_name": "Mistral-Small-3.2-24B-Instruct-2506"
+        },
+        "Olala-v1.0-mini-7A1B": {
+          "free": true,
+          "display_name": "Olala-v1.0-mini-7A1B"
+        },
+        "Olala-v1.0-summarize": {
+          "free": true,
+          "display_name": "Olala-v1.0-summarize"
+        },
+        "Olala-v1.0-translate": {
+          "free": true,
+          "display_name": "Olala-v1.0-translate"
         },
         "Qwen2.5-VL-72B-Instruct": {
           "in_per_mtok": 0.91,
