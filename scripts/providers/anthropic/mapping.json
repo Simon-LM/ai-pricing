@@ -105,7 +105,7 @@
   "products": {
     "web_search": {
       "display_name": "Web search",
-      "sentence": "Web search is available on the Claude API for \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) USD per 1,000 searches",
+      "sentence": "On the Claude API, web search costs \\$(?P<amount>[0-9]+(?:\\.[0-9]+)?) USD per 1,000 searches",
       "field": "per_1k_calls"
     },
     "code_execution": {

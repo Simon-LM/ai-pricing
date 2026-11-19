@@ -1,6 +1,6 @@
 """Tests for scripts/providers/anthropic/scrape.py.
 
-Two fixtures, both as served on 2026-11-15, with scripts, styles, icons and most
+Two fixtures, both as served on 2026-11-19, with scripts, styles, icons and most
 attributes stripped and the text and tables kept:
 
 - `pricing_ok.html`, the pricing page: the model, batch, fast mode and Claude Managed
@@ -9,7 +9,7 @@ attributes stripped and the text and tables kept:
   each model's API id and whether it is Active, Deprecated or Retired.
 
 The figures asserted below were read off the page by a human on 2026-11-10, and the page
-still states them unchanged on 2026-11-15: every model row of the pricing page is checked
+still states them unchanged on 2026-11-19: every model row of the pricing page is checked
 against what is published.
 """
 
@@ -48,9 +48,13 @@ FIXED_NOW = "2026-11-10T10:00:00Z"
 
 
 def status_row(model_id: str, state: str) -> str:
-    """A status table row as the page writes it: the id in the button that copies it, then
-    the state. The first two cells only: the tests edit the row they find."""
-    return f'<tr><td><button aria-label="Copy model ID {model_id}">{model_id}</button></td><td>{state}</td>'
+    """A status table row as the page writes it: the id in the control that copies it,
+    then the state. The first two cells only: the tests edit the row they find. On
+    2026-11-19 that control is a span carrying the aria-label, where it had been a
+    button; the id itself sits in the <code> element either way."""
+    return (f'<tr><td><span role="status"></span>'
+            f'<span role="button" aria-label="Copy model ID {model_id}"><code>{model_id}</code></span>'
+            f'</td><td>{state}</td>')
 
 
 class ScrapeTestCase(unittest.TestCase):
@@ -288,15 +292,14 @@ class TestFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, "Refusing to guess")
 
     def test_a_tool_sentence_that_is_gone(self) -> None:
-        page = self.edited(self.pricing_page, "Web search is available on the Claude API for",
-                           "Web search costs, on the Claude API,")
+        page = self.edited(self.pricing_page, "web search costs", "web search is billed per search")
         code, _, stderr = self.run_scrape(pricing=page)
         self.assert_failed(code, stderr, "no longer says how web_search is priced")
 
     def test_a_tool_priced_two_ways(self) -> None:
-        sentence = "Web search is available on the Claude API for"
+        sentence = "On the Claude API, web search costs"
         page = self.edited(self.pricing_page, sentence,
-                           "Web search is available on the Claude API for $12 USD per 1,000 searches. " + sentence)
+                           sentence + " $12 USD per 1,000 searches. " + sentence)
         code, _, stderr = self.run_scrape(pricing=page)
         self.assert_failed(code, stderr, "the page prices web_search 2 ways")
 
