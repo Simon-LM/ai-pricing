@@ -2929,8 +2929,8 @@
       }
     },
     "openai": {
-      "checked_utc": "2026-11-18T09:45:21Z",
-      "updated": "2026-11-18",
+      "checked_utc": "2026-11-20T05:32:11Z",
+      "updated": "2026-11-20",
       "source": "https://developers.openai.com/api/docs/pricing.md",
       "sources": [
         "https://developers.openai.com/api/docs/pricing.md"
@@ -4158,7 +4158,8 @@
         },
         "gpt-live-1": {
           "per_conversation_minute": 0.05,
-          "display_name": "gpt-live-1"
+          "display_name": "gpt-live-1",
+          "absent_since": "2026-11-20"
         },
         "gpt-live-transcribe": {
           "per_audio_minute": 0.017,
