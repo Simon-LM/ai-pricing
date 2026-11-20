@@ -27,6 +27,13 @@ something -- used to open an issue every time it was raised, and one unread row 
 Google's page was raised on five consecutive days. Each refresh now looks for its own
 open note first and comments on it instead, which is a two-line condition that a later
 edit can quietly put back.
+
+A fourth joined on 2026-11-20. A route the router stops listing for a few minutes reads
+exactly like one it has withdrawn: the candidate marked it absent, the cross-source check
+against OVH's own catalog fell below its floor, and the run opened an issue about a fault
+that had healed before anyone read it. Hugging Face's refresh now reads the router a second
+time, minutes later, and publishes that read -- another guard that only the tests below
+would notice going away.
 """
 
 from __future__ import annotations
@@ -462,6 +469,45 @@ class TestTheFullSuiteStillRunsSomewhere(unittest.TestCase):
             tests_yml,
             "tests.yml skips the safety net whenever a refresh concludes failure, "
             "including after it has already pushed.",
+        )
+
+
+class TestAFailedCandidateGetsASecondRead(unittest.TestCase):
+    """Since 2026-11-20 Hugging Face reads the router again before the run is called a
+    failure.
+
+    That morning the router stopped listing eight ovhcloud routes for a few minutes. The
+    candidate marked them absent, the cross-source check against OVH's own catalog fell
+    below its floor, and the run opened an issue about a state that had healed by the
+    time anyone read it. One read of a service this repository does not control decided
+    the day, so there are now two, minutes apart.
+    """
+
+    def test_the_router_is_read_a_second_time_before_anything_is_reported(self) -> None:
+        text = workflow("huggingface")
+        self.assertEqual(text.count("--out-dir .ci-out-second"), 1)
+        self.assertLess(
+            text.index("/tmp/candidate.log"),
+            text.index("--out-dir .ci-out-second"),
+            "the second read has to come after the first candidate failed its tests.",
+        )
+
+    def test_the_second_read_is_the_one_that_gets_committed(self) -> None:
+        """The commit step copies a file out of .ci-out and says in its message which of
+        the two candidates it published, so both have to follow the second read."""
+        text = workflow("huggingface")
+        self.assertIn("REFRESH_OUTCOME=$retry_outcome", text)
+        self.assertIn('OUTCOME="${REFRESH_OUTCOME:-${{ steps.scrape.outputs.outcome }}}"', text)
+
+    def test_a_second_read_that_fails_too_still_fails_the_run(self) -> None:
+        """The retry may only turn a false alarm into a quieter one: if the same fault
+        is there minutes later, the run has to stay red and the issue has to be filed."""
+        text = workflow("huggingface")
+        self.assertIn("The second read failed the same way. That is a fault, not a blip.", text)
+        self.assertLess(
+            text.index("The second read failed the same way"),
+            text.index("- name: Report failure and stop"),
+            "the guard must leave the reporter that files the issue in place.",
         )
 
 

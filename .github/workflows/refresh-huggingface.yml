@@ -106,6 +106,14 @@ jobs:
       # The scraper already checked them against the schema; this adds everything the
       # schema cannot express -- that the block still agrees with its mapping, that the
       # cross-source price band holds, and that Monday's report can still be built.
+      #
+      # A route the router stops listing for a few minutes reads exactly like a route it
+      # has withdrawn: the candidate marks it absent, the cross-source check against
+      # OVH's own catalog falls below its floor, and the run fails over a state that has
+      # healed by the time anyone reads the issue. That is #66, filed on 2026-11-20 at
+      # 07:06. So the read is given a second chance before anything is reported: read
+      # the router again, test that candidate too, and keep it only if it holds up. A
+      # second read that fails the same way is a fault, not a blip, and still an issue.
       # ---------------------------------------------------------------------------
       - name: Test the file that is about to be published
         id: verify
@@ -114,19 +122,47 @@ jobs:
         run: |
           set -o pipefail
 
-          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
-            CANDIDATE="$PWD/.ci-out/updated.json"
-          else
-            CANDIDATE="$PWD/.ci-out/stamped.json"
-          fi
-          echo "Testing $CANDIDATE -- the exact file this run would commit."
+          # $1: the directory holding the candidate, $2: changed|unchanged, $3: the log
+          test_candidate() {
+            candidate="$PWD/$1/updated.json"
+            [ "$2" = "changed" ] || candidate="$PWD/$1/stamped.json"
+            echo "Testing $candidate -- the exact file this run would commit."
 
-          # AI_PRICING_FILE is read once at import; unset it means the committed file,
-          # so a typo here would quietly re-test what is already on main and prove
-          # nothing. tests/published.py fails loudly on a path that does not exist.
-          AI_PRICING_FILE="$CANDIDATE" python3 -m unittest -v \
-            tests.test_weekly_report \
-            tests.scraper_tests.test_huggingface 2>&1 | tee /tmp/candidate.log
+            # AI_PRICING_FILE is read once at import; unset it means the committed file,
+            # so a typo here would quietly re-test what is already on main and prove
+            # nothing. tests/published.py fails loudly on a path that does not exist.
+            AI_PRICING_FILE="$candidate" python3 -m unittest -v \
+              tests.test_weekly_report \
+              tests.scraper_tests.test_huggingface 2>&1 | tee "$3"
+          }
+
+          if test_candidate .ci-out "${{ steps.scrape.outputs.outcome }}" /tmp/candidate.log; then
+            exit 0
+          fi
+
+          echo "::warning::the candidate failed its tests; reading the router again to tell a blip from a change."
+          sleep 120
+
+          # A step's outputs go to whatever GITHUB_OUTPUT names, so the second read signs
+          # in here rather than in a step of its own -- and the answer is read straight
+          # back out, because the commit step has to publish what this test just passed.
+          if ! GITHUB_OUTPUT=/tmp/retry-output.txt \
+              python3 scripts/providers/huggingface/scrape.py --out-dir .ci-out-second; then
+            echo "The second read of the router failed too."
+            exit 1
+          fi
+          retry_outcome="$(awk '/^outcome<</{getline; print; exit}' /tmp/retry-output.txt)"
+
+          if test_candidate .ci-out-second "$retry_outcome" /tmp/candidate-retry.log; then
+            # The second read holds up, so it replaces the first -- under the directory
+            # name every later step already reads -- and this run publishes it.
+            rm -rf .ci-out
+            mv .ci-out-second .ci-out
+            echo "REFRESH_OUTCOME=$retry_outcome" >> "$GITHUB_ENV"
+          else
+            echo "The second read failed the same way. That is a fault, not a blip."
+            exit 1
+          fi
 
       # ---------------------------------------------------------------------------
       # Outcome 3: something failed. Report it, change nothing, fail the job.
@@ -157,6 +193,19 @@ jobs:
               grep -E '^(FAIL|ERROR): ' /tmp/candidate.log \
                 || echo "(no FAIL line in the candidate log -- see the run)"
             } > /tmp/reason.txt
+
+            # Two reads minutes apart failing the same way is worth saying out loud: it
+            # is what tells the reader this was not the router catching its breath.
+            if [ -s /tmp/candidate-retry.log ]; then
+              {
+                echo
+                echo "The router was read a second time, two minutes later, and that"
+                echo "candidate failed the same way:"
+                echo
+                grep -E '^(FAIL|ERROR): ' /tmp/candidate-retry.log \
+                  || echo "(no FAIL line in the second log -- see the run)"
+              } >> /tmp/reason.txt
+            fi
           elif [ -s .ci-out/error.txt ]; then
             cp .ci-out/error.txt /tmp/reason.txt
           else
@@ -273,7 +322,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+          # REFRESH_OUTCOME is set only when a second read of the router replaced the
+          # first one; the scrape step's own output is the answer every other time.
+          OUTCOME="${REFRESH_OUTCOME:-${{ steps.scrape.outputs.outcome }}}"
+          if [ "$OUTCOME" = "changed" ]; then
             # updated.json carries the new figures AND the fresh checked_utc, so this
             # is one commit, not a stamp followed by a correction.
             cp .ci-out/updated.json pricing.json
@@ -334,7 +386,7 @@ jobs:
           # tests.yml watches these runs with `workflow_run` instead. Nothing in this
           # job depends on the push triggering anything.
 
-          if [ "${{ steps.scrape.outputs.outcome }}" = "changed" ]; then
+          if [ "$OUTCOME" = "changed" ]; then
             echo "::notice::huggingface prices changed and are now published. See the job summary for the diff."
           fi
 
