@@ -2341,8 +2341,8 @@
       }
     },
     "perplexity": {
-      "checked_utc": "2026-11-19T06:38:39Z",
-      "updated": "2026-11-19",
+      "checked_utc": "2026-11-20T11:05:53Z",
+      "updated": "2026-11-20",
       "source": "https://docs.perplexity.ai/docs/getting-started/pricing",
       "sources": [
         "https://docs.perplexity.ai/docs/getting-started/pricing",
@@ -2420,22 +2420,19 @@
           "in_per_mtok": 1.5,
           "out_per_mtok": 7.5,
           "cache_read_per_mtok": 0.15,
-          "display_name": "google/gemini-3.6-flash",
-          "absent_since": "2026-11-14"
+          "display_name": "google/gemini-3.6-flash"
         },
         "google/gemini-3.7-flash": {
           "in_per_mtok": 0.75,
           "out_per_mtok": 3.75,
           "cache_read_per_mtok": 0.075,
-          "display_name": "google/gemini-3.7-flash",
-          "absent_since": "2026-11-14"
+          "display_name": "google/gemini-3.7-flash"
         },
         "google/gemini-3.8-flash": {
           "in_per_mtok": 0.75,
           "out_per_mtok": 3.75,
           "cache_read_per_mtok": 0.075,
-          "display_name": "google/gemini-3.8-flash",
-          "absent_since": "2026-11-14"
+          "display_name": "google/gemini-3.8-flash"
         },
         "google/gemini-4-argon": {
           "in_per_mtok": 2.0,
@@ -2642,7 +2639,7 @@
           "display_name": "pplx-embed-v2-context-9b"
         },
         "sandbox": {
-          "per_1k_calls": 2.5,
+          "per_1k_calls": 1.0,
           "per_session": 0.03,
           "display_name": "sandbox",
           "kind": "product"
