@@ -4327,8 +4327,8 @@
       }
     },
     "google": {
-      "checked_utc": "2026-11-19T03:35:41Z",
-      "updated": "2026-11-19",
+      "checked_utc": "2026-11-20T11:05:36Z",
+      "updated": "2026-11-20",
       "source": "https://aistudio.google.com/docs/pricing.md",
       "sources": [
         "https://aistudio.google.com/docs/pricing.md"
@@ -5154,6 +5154,13 @@
         "gemma-4": {
           "free": true,
           "display_name": "gemma-4"
+        },
+        "genie-4": {
+          "in_per_mtok": 1.5,
+          "out_per_mtok": 9.0,
+          "image_in_per_mtok": 1.5,
+          "video_out_per_mtok": 17.5,
+          "display_name": "genie-4"
         },
         "google_maps (gemini 2.5)": {
           "per_1k_calls": 25.0,
