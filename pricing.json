@@ -1982,8 +1982,8 @@
       }
     },
     "xai": {
-      "checked_utc": "2026-11-16T07:43:13Z",
-      "updated": "2026-11-10",
+      "checked_utc": "2026-11-20T07:31:41Z",
+      "updated": "2026-11-20",
       "source": "https://docs.x.ai/developers/pricing",
       "currency": "USD",
       "models": {
@@ -2161,7 +2161,8 @@
             "grok-code-fast-1",
             "grok-code-fast",
             "grok-code-fast-1-0825"
-          ]
+          ],
+          "absent_since": "2026-11-20"
         },
         "grok-imagine-image (1K)": {
           "per_image": 0.02,
