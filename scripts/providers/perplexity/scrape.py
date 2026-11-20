@@ -19,13 +19,15 @@ Everything else comes from <https://docs.perplexity.ai/docs/getting-started/pric
 which carries the rates of its own pricing calculator as data. The page is built with
 Mintlify, which ships the compiled page as a JSON string, `compiledSource`; inside it,
 the calculator starts from `const[defaultPricing]=useState(()=>({...}))`. That object
-holds the tools, the sandbox, the Search API, embeddings and the Decisions API, as
-numbers with a stated unit, and the tests check them against the tables a human reads
-on the same page. It holds model rates too, but not the same set: on 2026-11-20 it
-rated openai/gpt-6.1-terra, which the models page does not list, and it stopped
-lacking perplexity/glm-5.3-flash, which until then only the models page priced. So
-the models page is read for models, and the object's model rates only serve the tests
-as a cross-check.
+holds the tools, the sandbox, the Search API, the Monitor API, the Context API,
+embeddings and the Decisions API, as numbers with a stated unit, and the tests check
+them against the tables and the prose a human reads on the same page. It holds model
+rates too, but not the same set: on 2026-11-20 it rated openai/gpt-6.1-terra, which the
+models page does not list, and it stopped lacking perplexity/glm-5.3-flash, which until
+then only the models page priced. So the models page is read for models, and the
+object's model rates only serve two purposes: its `orchestrator` section, for the model
+ids `mapping.json` names because nothing else in pricing.json states them, and the
+tests, as a cross-check.
 
 The object states, in `_meta.units`, the unit of every section. Those are compared
 with the units `mapping.json` expects before a single figure is read: a section that
@@ -76,9 +78,9 @@ THOUSAND = Decimal(1000)
 # per-request fees -- which the rates no longer carry, and it is the likeliest to
 # come back. `agent.models` is known and not read (the models page is), and so is
 # `agent.presets`: the effort levels' token counts are medians, not prices.
-# `monitor`, `context` and `orchestrator` are the sections the page grew by
-# 2026-11-20: none of them prices a model this block publishes, so they are known
-# and left unread rather than reported on every run.
+# `monitor` and `context` are the sections the page grew by 2026-11-20, and both are
+# read: they price the Monitor API per run and per URL, and the Context API per URL.
+# `orchestrator` holds a rate card this file reads only for the ids the mapping names.
 KNOWN_SECTIONS = {"_meta", "agent", "search", "embeddings", "decisions", "monitor", "context", "orchestrator"}
 KNOWN_AGENT_SECTIONS = {"models", "presets", "sandbox", "tools", "webSearchTypes"}
 
@@ -271,14 +273,20 @@ def _per_1k(per_call: Any, where: str) -> Decimal:
     return _number(per_call, where) * THOUSAND
 
 
+def _nano_per_1k(nano: Any, where: str) -> Decimal:
+    """A nanoUSD rate, as the dollars-per-thousand figure the page's own table states."""
+    return _number(nano, where) / (THOUSAND * THOUSAND)
+
+
 def product_entries(rates: JSONDict) -> dict[str, JSONDict]:
-    """The Agent API's tools and the Search API: billed per call, published per thousand.
+    """The Agent API's tools, the Search API, the Monitor API and the Context API:
+    billed per call, per run or per URL, published per thousand.
 
     The keys are the tool's own `type`, as a request names it. Two rows of the page's
     tools table bill the same tool two ways, and those take a suffix, as xAI's
     streaming transcription does: `web_search (fast)` is web_search called with
-    `search_type: "fast"`. The Search API is an endpoint, `POST /search`, not a tool,
-    and is keyed `search_api` for it.
+    `search_type: "fast"`. The endpoints are keyed after their API, `search_api` for
+    `POST /search`, and likewise `monitor_api` and `context_api`.
     """
     products: dict[str, JSONDict] = {}
 
@@ -302,7 +310,70 @@ def product_entries(rates: JSONDict) -> dict[str, JSONDict]:
     add("search_api", "Search API", per_1k_calls=_number(search.get("per1k"), "search.per1k"))
     add("search_api (fast)", "Search API with Fast Search",
         per_1k_calls=_number(search.get("fastPer1k"), "search.fastPer1k"))
+    # A succeeded Search run is billed once; a Page run bills each URL it counts. Both
+    # are stated in nanoUSD, so a thousand of them is one dollar per thousand units.
+    monitor = _section(rates, "monitor")
+    add("monitor_api", "Monitor API",
+        per_1k_runs=_nano_per_1k(monitor.get("searchNanoUsd"), "monitor.searchNanoUsd"),
+        per_1k_urls=_nano_per_1k(monitor.get("pageUrlNanoUsd"), "monitor.pageUrlNanoUsd"))
+    # The Context API bills each URL whose fetch succeeded, failed URLs being free.
+    add("context_api", "Context API",
+        per_1k_urls=_number(_section(rates, "context").get("per1k"), "context.per1k"))
     return products
+
+
+def orchestrator_entries(rates: JSONDict, wanted: list[str]) -> dict[str, JSONDict]:
+    """The Orchestrator's own rate card, for the model ids the mapping names.
+
+    That card repeats figures this file already carries under the maker's own name --
+    45 of its 47 models on 2026-11-20 -- so reading all of it would publish the same
+    prices twice. The exceptions are named in the mapping, and are published as models
+    Perplexity serves, keyed as the Orchestrator keys them, `maker/model`.
+    """
+    card: dict[str, JSONDict] = {}
+    for model in _section(rates, "orchestrator", "models"):
+        model_id = model.get("id") if isinstance(model, dict) else None
+        if not isinstance(model_id, str) or not model_id:
+            raise ScrapeError("a model under orchestrator.models has no string `id`. The data shape has changed.")
+        card[model_id] = model
+    missing = [model_id for model_id in wanted if model_id not in card]
+    if missing:
+        raise ScrapeError(
+            f"the Orchestrator's rate card has no {missing}, which mapping.json names. "
+            f"The card moved, or the ids changed."
+        )
+
+    models: dict[str, JSONDict] = {}
+    for model_id in wanted:
+        row = card[model_id]
+        thresholds: set[int] = set()
+        entry: JSONDict = {}
+        for field, key in (("in_per_mtok", "input"), ("out_per_mtok", "output"),
+                           ("cache_read_per_mtok", "cache")):
+            cell = row.get(key)
+            if cell is None:
+                continue
+            low, high = (cell.get("low"), cell.get("high")) if isinstance(cell, dict) else (cell, None)
+            if low is not None:
+                entry[field] = _price(_number(low, f"{model_id} {key}"), model_id, field)
+            if high is None:
+                continue
+            # A two-tier cell states the size its high tier starts at, on the row.
+            threshold = row.get("tierThreshold")
+            if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
+                raise ScrapeError(f"{model_id}: a two-tier {key} with no `tierThreshold`. The data shape has changed.")
+            entry[f"{field}_long_context"] = _price(
+                _number(high, f"{model_id} {key} high"), model_id, f"{field}_long_context")
+            thresholds.add(int(threshold) + 1)
+        if not entry:
+            raise ScrapeError(f"{model_id} is on the Orchestrator's rate card with no rate: {row!r}.")
+        if len(thresholds) > 1:
+            raise ScrapeError(f"{model_id}: its prices change tier at different sizes, {sorted(thresholds)}.")
+        if thresholds:
+            entry["long_context_threshold"] = thresholds.pop()
+        entry["display_name"] = model_id
+        models[model_id] = entry
+    return models
 
 
 def other_model_entries(rates: JSONDict) -> dict[str, JSONDict]:
@@ -323,7 +394,14 @@ def extract_models(pricing_page: str, models_page: str, mapping: JSONDict) -> tu
     rates = js_object(page_source(pricing_page))
     notes = check_units(rates, mapping) + unread_sections(rates)
     models = model_entries(models_page)
-    for group in (product_entries(rates), other_model_entries(rates)):
+    extras = orchestrator_entries(rates, mapping["orchestrator_models"])
+    clash = sorted(set(extras) & set(models))
+    if clash:
+        raise ScrapeError(
+            f"{clash} is named by `orchestrator_models` and listed on the models page: "
+            "the models page already prices it, so the mapping does not need to."
+        )
+    for group in (product_entries(rates), other_model_entries(rates), extras):
         clash = sorted(set(group) & set(models))
         if clash:
             raise ScrapeError(f"{clash} named twice in the rates.")

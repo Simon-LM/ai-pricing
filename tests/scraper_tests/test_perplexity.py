@@ -189,9 +189,10 @@ class TestModels(ScrapeTestCase):
                          (0.25, 2.5, 0.0625))
         self.assertNotIn("long_context_threshold", sonar)
 
-    def test_thirty_three_models(self) -> None:
-        """The 29 the models page lists, and the 4 it dropped, kept as absent."""
-        self.assertEqual(len([k for k in self.models if "/" in k]), 33)
+    def test_thirty_five_models(self) -> None:
+        """The 29 the models page lists, the 4 it dropped, kept as absent, and the 2
+        the Orchestrator's own rate card prices and nothing else in the file did."""
+        self.assertEqual(len([k for k in self.models if "/" in k]), 35)
 
     def test_a_threshold_written_below_and_from(self) -> None:
         """'2.00 (<200k) 4.00 (≥200k)': the 200000th token is billed high."""
@@ -249,9 +250,13 @@ class TestAgainstTheCalculator(ScrapeTestCase):
         # lists and so cannot be checked here. The page has also dropped four models the
         # calculator still rates, whose last figures are kept as absent.
         self.assertEqual(set(calculator) - published, {"openai/gpt-6.1-terra"})
+        # Two more are published without the calculator rating them: the models its
+        # `orchestrator` section prices and the models page never lists, read since
+        # 2026-11-20 because mapping.json names them.
         self.assertEqual(published - set(calculator),
                          {"anthropic/claude-fable-5", "anthropic/claude-fable-5-1",
-                          "anthropic/claude-opus-5", "anthropic/claude-sonnet-5"})
+                          "anthropic/claude-opus-5", "anthropic/claude-sonnet-5",
+                          "openai/gpt-5.3-codex", "google/gemini-3.5-flash"})
         for model_id, rate in calculator.items():
             if model_id not in published:
                 continue
@@ -287,6 +292,63 @@ class TestProducts(ScrapeTestCase):
         for model_id in ("pplx-embed-v1-4b", "pplx-decider-v1.2"):
             with self.subTest(model=model_id):
                 self.assertEqual(set(self.models[model_id]), {"in_per_mtok", "display_name"})
+
+    def test_the_monitor_api_is_billed_per_run_and_per_url(self) -> None:
+        """Both rates are stated in nanoUSD: a million of them is a thousandth of a
+        dollar, so a thousand runs and a thousand URLs are a dollar each."""
+        self.assertEqual(self.models["monitor_api"],
+                         {"per_1k_runs": 1.0, "per_1k_urls": 1.0,
+                          "display_name": "Monitor API", "kind": "product"})
+
+    def test_the_context_api_is_billed_per_fetched_url(self) -> None:
+        """$1.00 per 1,000 fetched URLs, failed and skipped ones free."""
+        self.assertEqual(self.models["context_api"],
+                         {"per_1k_urls": 1.0, "display_name": "Context API", "kind": "product"})
+
+
+class TestTheOrchestrator(ScrapeTestCase):
+    """Its rate card is read only for the ids mapping.json names.
+
+    The rest of the card repeats figures the file already carries under the maker's own
+    name (45 of its 47 models on 2026-11-20), so reading all of it would publish the
+    same prices twice.
+    """
+
+    def test_the_named_models_are_published_with_the_card_figures(self) -> None:
+        code, _, stderr = self.run_scrape()
+        self.assertEqual(code, 0, stderr)
+        models = self.published()
+        rates = scrape.js_object(scrape.page_source(self.pricing_page))
+        card = {m["id"]: m for m in rates["orchestrator"]["models"]}
+        self.assertEqual(MAPPING["orchestrator_models"], ["google/gemini-3.5-flash", "openai/gpt-5.3-codex"])
+        for model_id in MAPPING["orchestrator_models"]:
+            with self.subTest(model=model_id):
+                row = card[model_id]
+                self.assertEqual(models[model_id], {
+                    "in_per_mtok": float(row["input"]), "out_per_mtok": float(row["output"]),
+                    "cache_read_per_mtok": float(row["cache"]), "display_name": model_id})
+
+    def test_a_named_model_the_models_page_lists_is_refused(self) -> None:
+        """The models page already prices it: naming it here would publish it twice."""
+        rates = scrape.js_object(scrape.page_source(self.pricing_page))
+        card = {model["id"] for model in rates["orchestrator"]["models"]}
+        both = sorted(card & set(scrape.model_entries(self.models_page)))
+        self.assertTrue(both, "fixture drift: nothing is priced by both the card and the models page")
+        mapping = self.mapping_with(orchestrator_models=[both[0]])
+        code, _, stderr = self.run_scrape(mapping=mapping)
+        self.assert_failed(code, stderr, "listed on the models page")
+
+    def test_a_named_model_the_card_lacks_is_refused(self) -> None:
+        mapping = self.mapping_with(orchestrator_models=["openai/gpt-9-imaginary"])
+        code, _, stderr = self.run_scrape(mapping=mapping)
+        self.assert_failed(code, stderr, "the Orchestrator's rate card has no")
+
+    def mapping_with(self, **changes: object) -> Path:
+        mapping = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
+        mapping.update(changes)
+        path = self.tmp / "mapping.json"
+        path.write_text(json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8")
+        return path
 
 
 class TestAgainstThePricingTables(ScrapeTestCase):
@@ -324,6 +386,17 @@ class TestAgainstThePricingTables(ScrapeTestCase):
         rows = {row[0]: row[1] for row in self.by_head["API"][1:]}
         self.assertEqual(dollars(rows["Search API"]), self.models["search_api"]["per_1k_calls"])
         self.assertEqual(dollars(rows["Search API with Fast Search"]), self.models["search_api (fast)"]["per_1k_calls"])
+
+    def test_the_monitor_api_table(self) -> None:
+        rows = {row[0]: row for row in self.by_head["Monitor type"][1:]}
+        self.assertEqual(dollars(rows["Search"][1]), dollars(rows["Search"][2]) / 1000)
+        self.assertEqual(dollars(rows["Search"][2]), self.models["monitor_api"]["per_1k_runs"])
+        self.assertEqual(dollars(rows["Page"][2]), self.models["monitor_api"]["per_1k_urls"])
+
+    def test_the_context_api_price_stated_in_prose(self) -> None:
+        """The Context API is the one price on the page with no table of its own."""
+        self.assertIn("$1.00 per 1,000 fetched URLs", self.pricing_page)
+        self.assertEqual(dollars("$1.00 per 1,000 fetched URLs"), self.models["context_api"]["per_1k_urls"])
 
     def test_the_embeddings_tables(self) -> None:
         rows = [row for t in self.tables if t[0][0] == "Model" and "Dimensions" in t[0] for row in t[1:]]

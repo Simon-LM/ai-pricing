@@ -156,6 +156,11 @@ KNOWN_PRICE_FIELDS = (
     # per-operation prices
     "per_call",
     "per_1k_calls",
+    # Perplexity's Monitor API bills each succeeded Search run it makes, and each page
+    # URL the Context API fetches. Its own fields rather than per_1k_calls: a run is not
+    # a call, and a fetched URL is not a page read out of a document.
+    "per_1k_runs",
+    "per_1k_urls",
     # Perplexity bills its sandbox per container session, a 20-minute billing window.
     "per_session",
     # xAI bills its X search by what a call brings back, not by the call: so many

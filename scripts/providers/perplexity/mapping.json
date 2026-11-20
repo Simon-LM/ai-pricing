@@ -11,19 +11,26 @@
     "",
     "`source`, the pricing page, carries the rates of its own pricing calculator as data",
     "(`const[defaultPricing]=useState(()=>({...}))`): the tools, the sandbox, the Search",
-    "API, embeddings and the Decisions API. Its model rates are not read: on 2026-11-10",
-    "they lacked a model the models page lists. The tests use them as a cross-check.",
+    "API, the Monitor API, the Context API, embeddings and the Decisions API. Its model",
+    "rates are not read: on 2026-11-10 they lacked a model the models page lists. The",
+    "tests use them as a cross-check.",
     "",
     "`units` is what the calculator's own `_meta.units` must state, section by section,",
     "word for word. A section stated in any other unit fails the run: tools are read as",
-    "dollars per invocation (published per thousand calls), the Search API per thousand",
-    "requests, the sandbox per session, embeddings and the Decisions API per million",
-    "tokens. `units_not_read` names the units stated for sections that are known and",
-    "not read; a unit stated for any other section is reported in the run's notes.",
+    "dollars per invocation (published per thousand calls), the Search API and the Context",
+    "API per thousand requests, the sandbox per session, embeddings and the Decisions API",
+    "per million tokens, the Monitor API per run and per URL in nanoUSD. `units_not_read`",
+    "names the units stated for sections that are known and not read; a unit stated for any",
+    "other section is reported in the run's notes.",
     "",
-    "Not published: the `presets` (effort levels), whose token and tool counts are",
-    "median examples, not billed values, as Perplexity's note says; the Orchestrator API,",
-    "which neither page prices; and the Decisions API's output, which is free."
+    "Not published: the `presets` (effort levels), whose token and tool counts are median",
+    "examples, not billed values, as Perplexity's note says; and the Decisions API's",
+    "output, which is free.",
+    "",
+    "`orchestrator_models` names the models the rates' `orchestrator` section prices and the",
+    "models page does not list. The rest of that section repeats figures this file already",
+    "carries under the maker's own name (checked 2026-11-20: 45 of its 47 models), so only",
+    "these are read from it, and they are published as models Perplexity serves."
   ],
   "source": "https://docs.perplexity.ai/docs/getting-started/pricing",
   "models_source": "https://docs.perplexity.ai/docs/agent-api/models",
@@ -38,7 +45,16 @@
     "sandbox.session": "$ per started 20-minute block of container time",
     "search.per1k": "$ per 1,000 requests",
     "embeddings.rate": "$ per 1,000,000 tokens",
-    "decisions.input": "$ per 1,000,000 input tokens (output tokens are free; no per-request fee)"
+    "decisions.input": "$ per 1,000,000 input tokens (output tokens are free; no per-request fee)",
+    "context.per1k": "$ per 1,000 fetched URLs (URLs returned with status ok or not_modified; failed URLs are free)",
+    "monitor.searchNanoUsd": "nanoUSD per succeeded Search run",
+    "monitor.pageUrlNanoUsd": "nanoUSD per counted fetched Page URL"
   },
-  "units_not_read": ["model input/output/cache", "monitor.searchNanoUsd", "monitor.pageUrlNanoUsd", "context.per1k"]
+  "units_not_read": [
+    "model input/output/cache"
+  ],
+  "orchestrator_models": [
+    "google/gemini-3.5-flash",
+    "openai/gpt-5.3-codex"
+  ]
 }

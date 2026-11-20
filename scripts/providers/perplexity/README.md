@@ -7,7 +7,7 @@ should say. No API key: both pages are public.
 | what | source | read as |
 | --- | --- | --- |
 | the Agent API's models | <https://docs.perplexity.ai/docs/agent-api/models> | its tables, one per maker |
-| tools, sandbox, Search API, embeddings, Decisions API | <https://docs.perplexity.ai/docs/getting-started/pricing> | the rates its pricing calculator carries as data |
+| tools, sandbox, Search API, Monitor API, Context API, embeddings, Decisions API | <https://docs.perplexity.ai/docs/getting-started/pricing> | the rates its pricing calculator carries as data |
 
 ## The models: the models page's tables
 
@@ -45,6 +45,8 @@ word for word, and the run fails if a section's unit changes, before a figure is
 | `agent.webSearchTypes.fast` | $ per invocation of web_search with `search_type: "fast"` | `web_search (fast)`, `per_1k_calls` |
 | `agent.sandbox` | $ per session (a 20-minute billing window), then $ per search made from inside it | `sandbox`: `per_session` and `per_1k_calls` |
 | `search` | $ per 1,000 requests | `search_api` and `search_api (fast)`, `per_1k_calls` |
+| `monitor` | nanoUSD per succeeded Search run, and per counted fetched Page URL | `monitor_api`: `per_1k_runs` and `per_1k_urls`, a million nanoUSD being a thousandth of a dollar |
+| `context` | $ per 1,000 fetched URLs, failed ones free | `context_api`: `per_1k_urls` |
 | `embeddings` | $ per 1,000,000 tokens | `in_per_mtok` |
 | `decisions.models` | $ per 1,000,000 input tokens; output is free | `in_per_mtok` |
 
@@ -64,12 +66,23 @@ requests, pplx-embed-v1-4b $0.03 per million tokens, pplx-decider-v1.2 $0.02 per
 million input tokens. Against the calculator: all 27 models it lists, thresholds
 included.
 
+## Checked again on 2026-11-20
+
+The pricing page grew three sections that day. Two of them are read: the Monitor API,
+$1 per thousand succeeded Search runs and $1 per thousand counted Page URLs, both stated
+in nanoUSD; and the Context API, $1.00 per 1,000 fetched URLs, stated in prose and
+checked against that sentence. The third, `orchestrator`, is read only for the model ids
+`mapping.json` names: on that day, `google/gemini-3.5-flash` at $1.50 / $9.00 per million
+tokens and `openai/gpt-5.3-codex` at $3.50 / $28.00, neither of which anything else in
+the file prices. Its other 45 models repeat figures already published.
+
 ## The keys
 
 Agent API models are keyed by the id a request names, `provider/model` (`xai/grok-4.7`,
 `perplexity/sonar`). Tools are keyed by their `type`; a tool billed two ways takes a
-suffix, `web_search (fast)`. The Search API is an endpoint, not a tool, and is keyed
-`search_api`. Embeddings and Decisions API models are keyed by their model id.
+suffix, `web_search (fast)`. The Search, Monitor and Context APIs are endpoints, not
+tools, and are keyed after themselves: `search_api`, `monitor_api`, `context_api`.
+Embeddings and Decisions API models are keyed by their model id.
 
 **A resold model is Perplexity's price, not its maker's.** The Agent API sells
 Anthropic, OpenAI, Google and xAI models beside Perplexity's own; `xai/grok-4.7` here
@@ -83,7 +96,12 @@ is what Perplexity charges, to compare with `providers.xai`'s `grok-4.7`.
   model's tokens and the tools' calls, which are published.
 - **OpenAI's `flex` and `priority` service tiers**, which the models page names for the
   OpenAI models without pricing them.
-- **The Orchestrator API**, which neither page prices.
+- **The Orchestrator API's rate card, except the ids `mapping.json` names.** The card
+  appeared on 2026-11-20 and prices 47 models; 45 of them repeat figures this file
+  already carries under the maker's own name, so reading all of them would publish the
+  same prices twice. `orchestrator_models` names the exceptions the models page does
+  not list, read from the card and published as models Perplexity serves. A named model
+  the card no longer prices, or one the models page does list, fails the run.
 - **The old Sonar API** (Sonar Pro, Sonar Reasoning Pro, Sonar Deep Research, with
   their per-request fees). The calculator still has code for a `sonar` section, but on
   2026-11-10 the rates had none. A section the rates carry and nothing here reads is

@@ -149,6 +149,7 @@ model by mistake. There is no generic `price` field.
 | `per_song` | per song generated (Google's Lyria) |
 | `per_call`, `per_1k_calls` | per call, per thousand calls |
 | `per_1k_posts`, `per_1k_profiles` | per thousand posts, or user profiles, returned (xAI's X search) |
+| `per_1k_runs`, `per_1k_urls` | per thousand runs, or per thousand URLs fetched (Perplexity's Monitor and Context APIs) |
 | `per_session` | per session (a code sandbox or container, billed by session) |
 | `per_session_hour`, `per_container_hour` | per hour an agent session, or a code execution container, runs |
 | `per_gb_day` | per gigabyte stored, per day |

@@ -25,7 +25,7 @@ own provider.
 | `ovh` | OVHcloud AI Endpoints | EUR | catalog API | [README](scripts/providers/ovh/README.md) |
 | `scaleway` | Scaleway Generative APIs | EUR | public catalogue API | [README](scripts/providers/scaleway/README.md) |
 | `xai` | Grok, image, video and voice models, tools | USD | pricing page | [README](scripts/providers/xai/README.md) |
-| `perplexity` | Agent API (with resold models), Search API, tools | USD | pricing and models pages | [README](scripts/providers/perplexity/README.md) |
+| `perplexity` | Agent API (with resold models), Search API, Monitor API, Context API, tools | USD | pricing and models pages | [README](scripts/providers/perplexity/README.md) |
 | `edenai` | models resold by Eden AI | USD | public API | [README](scripts/providers/edenai/README.md) |
 | `huggingface` | models routed by Hugging Face to OVHcloud | USD | public router API | [README](scripts/providers/huggingface/README.md) |
 
