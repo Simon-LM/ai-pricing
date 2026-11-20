@@ -21,10 +21,11 @@ Mintlify, which ships the compiled page as a JSON string, `compiledSource`; insi
 the calculator starts from `const[defaultPricing]=useState(()=>({...}))`. That object
 holds the tools, the sandbox, the Search API, embeddings and the Decisions API, as
 numbers with a stated unit, and the tests check them against the tables a human reads
-on the same page. It holds model rates too, but not every model: on 2026-11-10 it
-lacked perplexity/glm-5.3-flash, which the models page lists and prices. So the models
-page is read for models, and the object's model rates only serve the tests as a
-cross-check.
+on the same page. It holds model rates too, but not the same set: on 2026-11-20 it
+rated openai/gpt-6.1-terra, which the models page does not list, and it stopped
+lacking perplexity/glm-5.3-flash, which until then only the models page priced. So
+the models page is read for models, and the object's model rates only serve the tests
+as a cross-check.
 
 The object states, in `_meta.units`, the unit of every section. Those are compared
 with the units `mapping.json` expects before a single figure is read: a section that
@@ -75,7 +76,10 @@ THOUSAND = Decimal(1000)
 # per-request fees -- which the rates no longer carry, and it is the likeliest to
 # come back. `agent.models` is known and not read (the models page is), and so is
 # `agent.presets`: the effort levels' token counts are medians, not prices.
-KNOWN_SECTIONS = {"_meta", "agent", "search", "embeddings", "decisions"}
+# `monitor`, `context` and `orchestrator` are the sections the page grew by
+# 2026-11-20: none of them prices a model this block publishes, so they are known
+# and left unread rather than reported on every run.
+KNOWN_SECTIONS = {"_meta", "agent", "search", "embeddings", "decisions", "monitor", "context", "orchestrator"}
 KNOWN_AGENT_SECTIONS = {"models", "presets", "sandbox", "tools", "webSearchTypes"}
 
 # The four forms a price cell takes on the models page. A threshold is written two

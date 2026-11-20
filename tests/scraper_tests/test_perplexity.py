@@ -1,8 +1,8 @@
 """Tests for scripts/providers/perplexity/scrape.py.
 
-Two fixtures, both as served on 2026-11-10 and trimmed to what these tests read:
+Two fixtures, both as served on 2026-11-20 and trimmed to what these tests read:
 
-- `pricing_ok.html`, the pricing page: its eight tables, which a human reads, and the
+- `pricing_ok.html`, the pricing page: its ten tables, which a human reads, and the
   Mintlify template that carries the compiled page, whose calculator rates the scraper
   reads for everything but the models;
 - `models_ok.html`, the Agent API models page: its model tables, which the scraper
@@ -43,7 +43,7 @@ MAPPING_JSON = REPO_ROOT / "scripts" / "providers" / "perplexity" / "mapping.jso
 MAPPING = json.loads(MAPPING_JSON.read_text(encoding="utf-8"))
 PRICING_JSON = published_file()
 
-FIXED_NOW = "2026-11-10T10:00:00Z"
+FIXED_NOW = "2026-11-20T10:00:00Z"
 
 # In the pricing page, the compiled source is a JSON string, so its double quotes are
 # written \" -- this builds the exact bytes a replacement has to match.
@@ -175,7 +175,7 @@ class TestJsObject(unittest.TestCase):
 
 
 class TestModels(ScrapeTestCase):
-    """The models page, as it read on 2026-11-10."""
+    """The models page, as it read on 2026-11-20."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -189,8 +189,9 @@ class TestModels(ScrapeTestCase):
                          (0.25, 2.5, 0.0625))
         self.assertNotIn("long_context_threshold", sonar)
 
-    def test_twenty_eight_models(self) -> None:
-        self.assertEqual(len([k for k in self.models if "/" in k]), 28)
+    def test_thirty_three_models(self) -> None:
+        """The 29 the models page lists, and the 4 it dropped, kept as absent."""
+        self.assertEqual(len([k for k in self.models if "/" in k]), 33)
 
     def test_a_threshold_written_below_and_from(self) -> None:
         """'2.00 (<200k) 4.00 (≥200k)': the 200000th token is billed high."""
@@ -213,10 +214,18 @@ class TestModels(ScrapeTestCase):
         sol = self.models["openai/gpt-6.1-sol"]
         self.assertEqual((sol["cache_read_per_mtok"], sol["cache_read_per_mtok_long_context"]), (0.1, 0.2))
 
-    def test_the_model_the_calculator_lacks_is_published(self) -> None:
+    def test_the_flash_model_is_published(self) -> None:
+        """The calculator now rates it too; until 2026-11-20 only the models page did."""
         self.assertEqual(self.models["perplexity/glm-5.3-flash"],
                          {"in_per_mtok": 0.15, "out_per_mtok": 0.5, "cache_read_per_mtok": 0.03,
                           "display_name": "perplexity/glm-5.3-flash"})
+
+    def test_the_models_the_page_dropped_are_kept_as_absent(self) -> None:
+        """Four Anthropic models left the page on 2026-11-20: their last figures stay."""
+        for model_id in ("anthropic/claude-fable-5", "anthropic/claude-fable-5-1",
+                         "anthropic/claude-opus-5", "anthropic/claude-sonnet-5"):
+            with self.subTest(model=model_id):
+                self.assertEqual(self.models[model_id]["absent_since"], "2026-11-20")
 
     def test_a_dash_means_no_cache_price(self) -> None:
         code, _, stderr = self.run_scrape(models=self.models_with_row("perplexity/sonar", "0.25", "2.50", "—"))
@@ -233,9 +242,19 @@ class TestAgainstTheCalculator(ScrapeTestCase):
         models = self.published()
         rates = scrape.js_object(scrape.page_source(self.pricing_page))
         calculator = {m["id"]: m for m in rates["agent"]["models"]}
-        self.assertEqual(len(calculator), 27)
-        self.assertEqual(set(m for m in models if "/" in m) - set(calculator), {"perplexity/glm-5.3-flash"})
+        self.assertEqual(len(calculator), 30)
+        published = set(m for m in models if "/" in m)
+        # Every model the calculator rates but one is listed on the models page, and
+        # since 2026-11-20 the difference is exactly gpt-6.1-terra, which the page never
+        # lists and so cannot be checked here. The page has also dropped four models the
+        # calculator still rates, whose last figures are kept as absent.
+        self.assertEqual(set(calculator) - published, {"openai/gpt-6.1-terra"})
+        self.assertEqual(published - set(calculator),
+                         {"anthropic/claude-fable-5", "anthropic/claude-fable-5-1",
+                          "anthropic/claude-opus-5", "anthropic/claude-sonnet-5"})
         for model_id, rate in calculator.items():
+            if model_id not in published:
+                continue
             entry = models[model_id]
             for source, field in (("input", "in_per_mtok"), ("output", "out_per_mtok"), ("cache", "cache_read_per_mtok")):
                 with self.subTest(model=model_id, field=field):
@@ -257,7 +276,7 @@ class TestProducts(ScrapeTestCase):
 
     def test_the_sandbox_is_billed_per_session_and_per_search(self) -> None:
         self.assertEqual(self.models["sandbox"],
-                         {"per_session": 0.03, "per_1k_calls": 2.5, "display_name": "sandbox", "kind": "product"})
+                         {"per_session": 0.03, "per_1k_calls": 1.0, "display_name": "sandbox", "kind": "product"})
 
     def test_the_effort_levels_are_not_published(self) -> None:
         """Their token and tool counts are median examples, not prices."""
@@ -274,7 +293,7 @@ class TestAgainstThePricingTables(ScrapeTestCase):
     """Every figure a human reads on the pricing page, against what is published.
 
     The scraper reads the calculator's rates, not these tables; this is the check
-    that the two agree, as they did on 2026-11-10.
+    that the two agree, as they did on 2026-11-20.
     """
 
     def setUp(self) -> None:
@@ -287,16 +306,16 @@ class TestAgainstThePricingTables(ScrapeTestCase):
 
     def test_the_tools_table(self) -> None:
         rows = self.by_head["Tool"][1:]
-        self.assertEqual(len(rows), 7)
-        keys = {"web_search (standard)": "web_search", "web_search (Fast Search)": "web_search (fast)"}
+        self.assertEqual(len(rows), 8)
+        keys = {"web_search (standard)": "web_search", "web_search (Fast Search)": "web_search (fast)",
+                "sandbox SDK web search": "sandbox"}
         for name, price, description in rows:
             with self.subTest(tool=name):
                 if name == "sandbox":
+                    # A container session, timed in 20-minute blocks; the searches made
+                    # inside it are the row below.
                     self.assertEqual(dollars(price), self.models["sandbox"]["per_session"])
-                    self.assertIn("per session", price)
-                    search = re.search(r"billed at (\$[0-9.]+) per request", description)
-                    assert search is not None
-                    self.assertAlmostEqual(dollars(search.group(1)) * 1000, self.models["sandbox"]["per_1k_calls"])
+                    self.assertIn("per 20-minute block", price)
                     continue
                 self.assertRegex(price, r"per (successful )?invocation")
                 self.assertAlmostEqual(dollars(price) * 1000, self.models[keys.get(name, name)]["per_1k_calls"])
@@ -308,14 +327,16 @@ class TestAgainstThePricingTables(ScrapeTestCase):
 
     def test_the_embeddings_tables(self) -> None:
         rows = [row for t in self.tables if t[0][0] == "Model" and "Dimensions" in t[0] for row in t[1:]]
-        self.assertEqual(len(rows), 4)
-        for model_id, _, price in rows:
-            with self.subTest(model=model_id):
-                self.assertEqual(dollars(price), self.models[model_id]["in_per_mtok"])
+        self.assertEqual(len(rows), 6)
+        # The context models table carries a fourth column, what an image costs, which
+        # nothing here reads: the token price is always the third cell.
+        for row in rows:
+            with self.subTest(model=row[0]):
+                self.assertEqual(dollars(row[2]), self.models[row[0]]["in_per_mtok"])
 
     def test_the_decisions_api_table(self) -> None:
         rows = [row for t in self.tables if t[0][0] == "Model" and "Output tokens" in t[0] for row in t[1:]]
-        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(rows), 4)
         for model_id, price, output, fee in rows:
             with self.subTest(model=model_id):
                 self.assertEqual(dollars(price), self.models[model_id]["in_per_mtok"])

@@ -35,10 +35,10 @@
   "currency": "USD",
   "units": {
     "tools": "$ per invocation",
-    "sandbox.session": "$ per session (<=20-min billing window)",
+    "sandbox.session": "$ per started 20-minute block of container time",
     "search.per1k": "$ per 1,000 requests",
     "embeddings.rate": "$ per 1,000,000 tokens",
     "decisions.input": "$ per 1,000,000 input tokens (output tokens are free; no per-request fee)"
   },
-  "units_not_read": ["model input/output/cache"]
+  "units_not_read": ["model input/output/cache", "monitor.searchNanoUsd", "monitor.pageUrlNanoUsd", "context.per1k"]
 }
