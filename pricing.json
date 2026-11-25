@@ -2017,8 +2017,8 @@
       }
     },
     "xai": {
-      "checked_utc": "2026-11-24T07:31:40Z",
-      "updated": "2026-11-24",
+      "checked_utc": "2026-11-25T07:30:54Z",
+      "updated": "2026-11-25",
       "source": "https://docs.x.ai/developers/pricing",
       "currency": "USD",
       "models": {
@@ -2166,7 +2166,11 @@
           "cache_read_per_mtok_long_context": 1.0,
           "batch_derived": "20% off the stated rate, as xAI's pricing page states for this model",
           "long_context_threshold": 200000,
-          "display_name": "grok-4.6"
+          "display_name": "grok-4.6",
+          "api_ids": [
+            "grok-4.6",
+            "grok-4.6-latest"
+          ]
         },
         "grok-4.7": {
           "in_per_mtok": 2.0,
@@ -2180,7 +2184,11 @@
           "cache_read_per_mtok_long_context": 1.0,
           "batch_derived": "20% off the stated rate, as xAI's pricing page states for this model",
           "long_context_threshold": 200000,
-          "display_name": "grok-4.7"
+          "display_name": "grok-4.7",
+          "api_ids": [
+            "grok-4.7",
+            "grok-4.7-latest"
+          ]
         },
         "grok-build-0.1": {
           "in_per_mtok": 1.0,
