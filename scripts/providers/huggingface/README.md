@@ -1,8 +1,17 @@
 # Hugging Face (Inference Providers router)
 
-`scrape.py` reads Hugging Face's public router listing every day (07:00 UTC,
-`.github/workflows/refresh-huggingface.yml`) and works out what `providers.huggingface`
-should say. No API key: the listing is public.
+> **Deactivated on 2026-11-25.** The Inference Providers router no longer lists any
+> partner route: OVHcloud and Scaleway sell their own API directly and the router does
+> not carry them. The daily run was switched off (the `schedule:` block is gone from
+> `.github/workflows/refresh-huggingface.yml`); the scraper, its `mapping.json` and its
+> tests are **untouched**, and a manual run still works (`workflow_dispatch`). The seven
+> `ovhcloud` routes still priced were marked `absent_since` on 2026-11-25 in
+> `pricing.json`. To reactivate: restore the `schedule:` block in the workflow and drop
+> `"huggingface"` from `DISABLED_REFRESHES` in `tests/test_workflows.py`.
+
+`scrape.py` reads Hugging Face's public router listing and works out what
+`providers.huggingface` should say. No API key: the listing is public. It used to run
+every day at 07:00 UTC; since 2026-11-25 it only runs when started by hand.
 
 | what | source | read as |
 | --- | --- | --- |
@@ -33,9 +42,9 @@ that band so a silent change to either breaks the build rather than the file.
 
 ## Partners covered
 
-| partner | state on 2026-11-10 |
+| partner | state on 2026-11-25 |
 | --- | --- |
-| `ovhcloud` | served: its routes are published |
+| `ovhcloud` | not served since 2026-11-25 |
 | `scaleway` | not served since 2026-11-09 |
 
 **The router stopped routing to Scaleway on 2026-11-09.** A call answers HTTP 402,
@@ -44,6 +53,13 @@ Scaleway route. Those routes stay in the file, marked `absent_since`, so a progr
 that still names one finds out; they are dropped a year later. Scaleway's own prices are
 under `providers.scaleway`. The partner stays in `mapping.json`: if the router serves
 it again, its routes come back on the next run.
+
+**No partner route has been listed at all since 2026-11-25.** The listing still answers,
+but it is now empty of partner routes, OVHcloud's included: the partners sell their
+APIs directly and no longer appear here. That is why the daily run was switched
+off; every route left in the block carries `absent_since`. OVHcloud's own prices are
+under `providers.ovh`. Both partners stay in `mapping.json`: if the router serves either
+again, a manual run publishes its routes.
 
 ## Routes that change
 
@@ -68,7 +84,11 @@ fails the run: an unpriceable route is never a way around that guard.
 
 ## Running it yourself
 
+This is the only way it runs since 2026-11-25 -- nothing schedules it any more.
+
 ```sh
 python3 scripts/providers/huggingface/scrape.py --out-dir .ci-out          # live
 python3 scripts/providers/huggingface/scrape.py --out-dir .ci-out --html tests/fixtures/huggingface/models_ok.json
 ```
+
+Or, through GitHub Actions, `gh workflow run refresh-huggingface.yml`.

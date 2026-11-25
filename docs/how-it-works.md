@@ -12,7 +12,8 @@ Each provider has, and keeps to itself:
 - a mapping, `scripts/providers/<key>/mapping.json`, written by a human: how the
   source states its units, its tables, its sentences, translated into this file's
   fields. **It holds no list of models**: the source says which models exist, every day;
-- a workflow, `.github/workflows/refresh-<key>.yml`, which runs that scraper every day;
+- a workflow, `.github/workflows/refresh-<key>.yml`, which runs that scraper every day
+  (Hugging Face's runs on demand only since 2026-11-25);
 - its own `checked_utc`, `updated`, `source` and `currency` in the file.
 
 What all of them share is written once, in
@@ -37,10 +38,12 @@ published and why.
 
 Each workflow runs every day at its own time, half an hour apart so that no two start in
 the same minute: Google Cloud at 02:30 UTC, Scaleway 03:00, Google 03:30, Mistral 04:00,
-Anthropic 04:30, OVH 05:00, OpenAI 05:30, Eden AI 06:00, Perplexity 06:30, Hugging Face
-07:00, xAI 07:30. All of them also run on demand, from the Actions tab. All of them share
-one concurrency group, `pricing-json-writes`, since they write the same file: a second
-run waits for the first instead of racing it.
+Anthropic 04:30, OVH 05:00, OpenAI 05:30, Eden AI 06:00, Perplexity 06:30, xAI 07:30.
+**Hugging Face is the exception since 2026-11-25**: its 07:00 daily run was removed
+because the router listing it reads carries no partner route any more, so its block is
+published on demand only. All of them also run on demand, from the Actions tab. All of
+them share one concurrency group, `pricing-json-writes`, since they write the same file:
+a second run waits for the first instead of racing it.
 
 A run has four outcomes, never a fifth:
 

@@ -60,6 +60,13 @@ PROVIDER_MODULES = {
     "xai": ["tests.scraper_tests.test_xai"],
 }
 
+# Refreshes that no longer run on a schedule. Since 2026-11-25 Hugging Face's Inference
+# Providers router lists no partner route any more (OVHcloud and Scaleway sell their own
+# API directly), so its daily cron was removed from refresh-huggingface.yml and the
+# provider is kept for manual runs only. The slug stays in PROVIDER_MODULES: every other
+# invariant below still applies to the file, only the two cron tests skip it.
+DISABLED_REFRESHES = {"huggingface"}
+
 # Run by every refresh, because they cover the plumbing all eleven share.
 SHARED_MODULES = [
     "tests.test_pricing_validate",
@@ -83,10 +90,13 @@ class TestEveryRefreshRunsDaily(unittest.TestCase):
     """Since 2026-11-10 every provider is checked every day, so that a price a provider
     changes on a stated date is published that morning, and an unchanged scheduled run
     commits its stamp on Mondays only: the stamp the 08:00 Monday report reads, and the
-    commit that keeps a schedule alive past GitHub's 60 idle days."""
+    commit that keeps a schedule alive past GitHub's 60 idle days.
+
+    Hugging Face left this on 2026-11-25 (see DISABLED_REFRESHES): its cron was removed
+    and it is checked on demand only, so the two cron tests skip it by name."""
 
     def test_every_refresh_is_scheduled_every_day(self) -> None:
-        for slug in PROVIDER_MODULES:
+        for slug in (s for s in PROVIDER_MODULES if s not in DISABLED_REFRESHES):
             with self.subTest(provider=slug):
                 crons = re.findall(r'cron: "([^"]+)"', workflow(slug))
                 self.assertEqual(len(crons), 1, crons)
@@ -103,7 +113,11 @@ class TestEveryRefreshRunsDaily(unittest.TestCase):
                 self.assertGreater(text.index(guard), text.index("cp .ci-out/updated.json pricing.json"))
 
     def test_no_two_refreshes_start_in_the_same_minute(self) -> None:
-        crons = [re.findall(r'cron: "([^"]+)"', workflow(slug))[0] for slug in PROVIDER_MODULES]
+        crons = [
+            re.findall(r'cron: "([^"]+)"', workflow(slug))[0]
+            for slug in PROVIDER_MODULES
+            if slug not in DISABLED_REFRESHES
+        ]
         self.assertEqual(len(crons), len(set(crons)), crons)
 
 

@@ -22,14 +22,17 @@ name: Refresh prices (Hugging Face)
 # partner directly -- providers.ovh prices the same models in EUR from OVH's own
 # catalog. A difference between the two blocks is expected, not a bug to reconcile.
 #
-# The check runs every day. A commit happens when a figure moved, and on Mondays
-# whether or not one did: an unchanged run on another day commits nothing, so the
-# history holds one stamp a week per provider rather than seven. The Monday stamp is a
-# real statement to consumers ("confirmed unchanged today"), it is what the 08:00
-# weekly report reads, and it is what keeps this workflow alive: GitHub disables a
-# scheduled workflow after 60 days without repository activity, and only new commits
-# reset that timer -- not tags, not issues, nothing but commits. A run started by hand
-# always commits its stamp.
+# DISABLED 2026-11-25: the daily schedule was removed and this workflow now runs on
+# demand only. Hugging Face's Inference Providers router no longer lists any partner
+# route on its public listing -- OVHcloud and Scaleway sell their own API directly --
+# so a daily check had nothing left to read but a block whose routes are all absent.
+# The ovhcloud routes still priced here were marked absent_since 2026-11-25 in
+# pricing.json. Nothing is deleted: the scraper, its mapping.json and its tests are
+# untouched, and `workflow_dispatch` still forces a full check the day a partner route
+# reappears. To bring the daily check back, restore the `schedule:` block below and drop
+# "huggingface" from DISABLED_REFRESHES in tests/test_workflows.py.
+#
+# A run started by hand commits its stamp whether or not a figure moved.
 #
 # The scraper needs no API key of any kind and must never be given one. It reads a
 # public endpoint. There are no secrets in this workflow beyond the automatic
@@ -37,10 +40,9 @@ name: Refresh prices (Hugging Face)
 # when the check fails.
 
 on:
-  schedule:
-    - cron: "0 7 * * *" # Every day, 07:00 UTC -- an hour after the Eden AI job, so the
-    # four scheduled runs don't land in the same minute and fight over the
-    # pricing-json-writes concurrency group every single week.
+  # No `schedule:` here: the daily cron was removed on 2026-11-25, see the header.
+  # This workflow is now started by hand only -- from the Actions tab, or with
+  # `gh workflow run refresh-huggingface.yml`.
   workflow_dispatch: # so a human can force a check
     inputs:
       dry_run:
