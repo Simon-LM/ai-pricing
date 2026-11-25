@@ -1771,7 +1771,8 @@
         "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud": {
           "in_per_mtok": 1.01,
           "out_per_mtok": 1.01,
-          "display_name": "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud"
+          "display_name": "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud",
+          "absent_since": "2026-11-25"
         },
         "Qwen/Qwen3-235B-A22B-Instruct-2507:scaleway": {
           "in_per_mtok": 0.855,
@@ -1788,7 +1789,8 @@
         "Qwen/Qwen3.5-397B-A17B:ovhcloud": {
           "in_per_mtok": 0.71,
           "out_per_mtok": 4.25,
-          "display_name": "Qwen/Qwen3.5-397B-A17B:ovhcloud"
+          "display_name": "Qwen/Qwen3.5-397B-A17B:ovhcloud",
+          "absent_since": "2026-11-25"
         },
         "Qwen/Qwen3.5-397B-A17B:scaleway": {
           "in_per_mtok": 0.684,
@@ -1817,7 +1819,8 @@
         "Qwen/Qwen3.8-27B:ovhcloud": {
           "in_per_mtok": 0.47,
           "out_per_mtok": 3.19,
-          "display_name": "Qwen/Qwen3.8-27B:ovhcloud"
+          "display_name": "Qwen/Qwen3.8-27B:ovhcloud",
+          "absent_since": "2026-11-25"
         },
         "Qwen/Qwen3.8-27B:scaleway": {
           "display_name": "Qwen/Qwen3.8-27B:scaleway",
@@ -1827,7 +1830,8 @@
         "cyankiwi/Qwen3.5-9B-AWQ-4bit:ovhcloud": {
           "in_per_mtok": 0.12,
           "out_per_mtok": 0.18,
-          "display_name": "cyankiwi/Qwen3.5-9B-AWQ-4bit:ovhcloud"
+          "display_name": "cyankiwi/Qwen3.5-9B-AWQ-4bit:ovhcloud",
+          "absent_since": "2026-11-25"
         },
         "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway": {
           "display_name": "deepseek-ai/DeepSeek-V4-Flash-0731:scaleway",
@@ -1836,6 +1840,7 @@
         },
         "deepseek-ai/DeepSeek-V4.1-Flash-1017:ovhcloud": {
           "display_name": "deepseek-ai/DeepSeek-V4.1-Flash-1017:ovhcloud",
+          "absent_since": "2026-11-25",
           "unpriced_since": "2026-11-18"
         },
         "deepseek-ai/DeepSeek-V4.1-Flash-1017:scaleway": {
@@ -1864,7 +1869,8 @@
         "openai/gpt-oss-120b:ovhcloud": {
           "in_per_mtok": 0.09,
           "out_per_mtok": 0.47,
-          "display_name": "openai/gpt-oss-120b:ovhcloud"
+          "display_name": "openai/gpt-oss-120b:ovhcloud",
+          "absent_since": "2026-11-25"
         },
         "openai/gpt-oss-120b:scaleway": {
           "in_per_mtok": 0.171,
@@ -1875,7 +1881,8 @@
         "openai/gpt-oss-20b:ovhcloud": {
           "in_per_mtok": 0.05,
           "out_per_mtok": 0.18,
-          "display_name": "openai/gpt-oss-20b:ovhcloud"
+          "display_name": "openai/gpt-oss-20b:ovhcloud",
+          "absent_since": "2026-11-25"
         },
         "zai-org/GLM-5.2:scaleway": {
           "in_per_mtok": 2.052,
