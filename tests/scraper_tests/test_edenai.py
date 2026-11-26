@@ -465,6 +465,107 @@ class TestPriceFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, "factor of", "Refusing to publish")
 
 
+class TestFreeModels(ScrapeTestCase):
+    """Eden resells models its upstream gives away, and states them at 0.
+
+    Until 2026-11-26 the scraper had no reading for that: `0.0` is below
+    check_price's plausibility floor, so seven OVHcloud `Olala` routes arriving free
+    stopped the whole run and nothing was published -- not the free models, and not
+    the price movements of the hundred others. The convention the file already uses
+    for a free model is `free: true` with no price field at all, which is what the
+    OVH scraper writes; these tests pin that this one does the same.
+    """
+
+    FREE_ID = "ovhcloud/Qwen3.5-9B"
+    PRICED_ID = "mistral/codestral-latest"
+
+    def zero(self, payload: JSONDict, model_id: str) -> None:
+        """State every figure Eden publishes for one model as 0, as it does for Olala."""
+        for entry in payload["data"]:
+            if entry["id"] != model_id:
+                continue
+            for raw in (entry["list_pricing"], entry["pricing"]):
+                for api_field in raw:
+                    raw[api_field] = 0
+
+    def test_a_model_stated_at_zero_is_published_free(self) -> None:
+        payload = json.loads(self.models_ok)
+        self.zero(payload, self.FREE_ID)
+        code, stdout, _ = self.run_scrape(json.dumps(payload))
+
+        self.assertEqual(code, 0)
+        self.assertIn("changed", stdout)
+        entry = self.candidate_block("updated.json")["models"][self.FREE_ID]
+
+        self.assertIs(entry["free"], True)
+        self.assertEqual(entry["display_name"], "Qwen3.5-9B")
+        self.assertFalse(
+            [k for k in entry if k.endswith("_per_mtok")],
+            "a free model was published with a price field beside `free`",
+        )
+
+    def test_the_other_models_keep_their_prices(self) -> None:
+        """The failure this replaces stopped the run for everyone. A free model must
+        not cost the hundred priced ones their figures."""
+        payload = json.loads(self.models_ok)
+        self.zero(payload, self.FREE_ID)
+        code, _, _ = self.run_scrape(json.dumps(payload))
+        self.assertEqual(code, 0)
+
+        models = self.candidate_block("updated.json")["models"]
+        self.assertIn("in_per_mtok", models[self.PRICED_ID])
+        published = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))["providers"]["edenai"]["models"]
+        self.assertEqual(
+            models[self.PRICED_ID]["in_per_mtok"], published[self.PRICED_ID]["in_per_mtok"]
+        )
+
+    def test_a_model_free_on_one_unit_and_priced_on_another_is_not_free(self) -> None:
+        """`free` says there is nothing to pay at all. A model given away per token but
+        billed per image is sold, and publishing it free would hide a real charge."""
+        payload = json.loads(self.models_ok)
+        for entry in payload["data"]:
+            if entry["id"] != self.FREE_ID:
+                continue
+            for raw in (entry["list_pricing"], entry["pricing"]):
+                raw["input_cost_per_token"] = 0
+                raw["image_cost_per_image"] = 0.5
+        code, _, stderr = self.run_scrape(json.dumps(payload))
+
+        # It is not free, so the zero input figure has to reach the plausibility floor
+        # rather than being published: refusing is right, publishing 0 is not.
+        self.assert_failed(code, stderr, "outside the plausible range")
+
+    def test_a_free_model_that_starts_being_charged_for_gains_its_prices(self) -> None:
+        """Read off the source every week, never remembered: the day Eden charges, the
+        prices simply appear and the marker simply goes."""
+        payload = json.loads(self.models_ok)
+        self.zero(payload, self.FREE_ID)
+        self.assertEqual(self.run_scrape(json.dumps(payload))[0], 0)
+
+        # Publish the free state, then price the model again on a second run.
+        free_block = self.candidate("updated.json")
+        self.current.write_text(json.dumps(free_block), encoding="utf-8")
+        self.current_bytes = self.current.read_bytes()
+
+        priced = json.loads(self.models_ok)
+        code, stdout, _ = self.run_scrape(json.dumps(priced))
+
+        self.assertEqual(code, 0)
+        self.assertIn("changed", stdout)
+        entry = self.candidate_block("updated.json")["models"][self.FREE_ID]
+        self.assertNotIn("free", entry)
+        self.assertIn("in_per_mtok", entry)
+
+    def test_the_published_file_uses_the_marker_and_never_a_zero_price(self) -> None:
+        """The schema already forbids `free` and a price together, so a block that ever
+        carried a 0 price would be a different, quieter bug: nothing to read it as."""
+        published = json.loads(PRICING_JSON.read_text(encoding="utf-8"))["providers"]["edenai"]["models"]
+        for model_id, entry in published.items():
+            for field, value in entry.items():
+                if field.endswith("_per_mtok"):
+                    self.assertNotEqual(value, 0, f"{model_id}.{field} is published at 0")
+
+
 class TestPublicDiscount(ScrapeTestCase):
     """Eden can run a promotion and say so, per model, in the payload itself:
     `"discount": 0.5`, with `pricing` holding the discounted figures. That is a price

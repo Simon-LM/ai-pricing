@@ -367,6 +367,30 @@ def extract_models(
             )
         prices = cast(JSONDict, effective)
 
+        display_name = entry.get("model_name")
+        display_name = display_name if isinstance(display_name, str) and display_name else model_id
+
+        # A model Eden gives away is published with the shared `free` marker and no
+        # price field, never as a price of 0 -- 0 is also exactly what a broken parser
+        # reads, which is what check_price's floor exists to catch. Eden resells
+        # OVHcloud's `Olala` models, which OVH gives away, so this is a real state, and
+        # on 2026-11-26 it reached this scraper for the first time: seven Olala routes
+        # arrived at 0.0 and the run stopped on the plausibility floor instead of
+        # publishing anything at all.
+        #
+        # Every figure the source states for the model has to be zero, not just the ones
+        # the mapping reads: a model free on tokens but billed per image is not free, and
+        # calling it free would publish "nothing to pay" for something that is sold.
+        # "Free" is read off the source every week rather than remembered, so the day
+        # Eden starts charging for one of these, the price simply appears and the marker
+        # simply goes -- the same property the OVH scraper gives.
+        if prices and all(
+            not isinstance(value, bool) and isinstance(value, (int, float)) and value == 0
+            for value in prices.values()
+        ):
+            models[model_id] = {"free": True, "display_name": display_name}
+            continue
+
         result_entry: JSONDict = {}
 
         for field, field_spec in field_specs.items():
@@ -399,8 +423,7 @@ def extract_models(
         if long_note is not None and notes is not None:
             notes.append(long_note)
 
-        display_name = entry.get("model_name")
-        result_entry["display_name"] = display_name if isinstance(display_name, str) and display_name else model_id
+        result_entry["display_name"] = display_name
         models[model_id] = result_entry
 
     return models
