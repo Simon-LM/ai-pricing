@@ -7,7 +7,7 @@ say. No API key: every page is public.
 | what | source | read as |
 | --- | --- | --- |
 | the models, and their prices | <https://docs.mistral.ai/models>, then one page per model | the index's model cards; each page's price object and `isRetired` flag |
-| the batch discount | <https://docs.mistral.ai/studio/batch-processing> | one sentence: "We offer a 50% discount on batch API" |
+| the batch discount | <https://docs.mistral.ai/inference/batch-processing> | one sentence: "We offer a 50% discount on batch API" |
 | the Voice Agents API | <https://docs.mistral.ai/inference/pricing> | its "Voice agents" table only |
 | the tools and other products | `mapping.json`'s `products` list | no page states their price any more; see below |
 
@@ -57,8 +57,28 @@ figures are therefore **derived** from it, and every entry carrying one says so:
 "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states"
 ```
 
-The percentage is read on every run, so the figures follow it if Mistral changes it; if
-the sentence goes, or states two rates, the run fails. The discount is applied only to
+The percentage is read on every run, so the figures follow it if Mistral changes it.
+
+If the sentence goes, or states two rates, or the page stops answering at all, the run
+does **not** stop. It used to: on 2026-11-25 the page went 404, the run failed, and not a
+single Mistral price was republished that day over one sentence. The model prices are
+Mistral's own stated figures and had been read fine. So the fallback is now the rate this
+block last recorded: the figures are derived on it exactly as before, every entry says so
+in its marker rather than claiming Mistral states it today,
+
+```json
+"batch_derived": "50% off the stated rate, the rate Mistral last stated: this run could not confirm it against the batch API page"
+```
+
+and the doubt is reported on its own -- `unconfirmed.txt`, the job summary, and a GitHub
+issue assigned to Simon that closes itself on the first run that reads the rate off the
+page again. "Il faut que j'aie une alerte, moi. Mais pas bloquer la mise a jour des prix
+et des nouveaux modeles."
+
+With no rate to fall back on either -- a block that records none -- no batch figure is
+published that week and the alert says which; the model prices still publish.
+
+The discount is applied only to
 the units `mapping.json`'s `batch.fields` names: `in_per_mtok`, `out_per_mtok`,
 `per_1k_pages` and `per_1k_annotated_pages`, the units of models Mistral's batch
 documentation names an endpoint for. Left out on purpose: `per_audio_minute` (two of

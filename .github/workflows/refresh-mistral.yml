@@ -233,6 +233,18 @@ jobs:
             echo '```'
             cat .ci-out/summary.txt
             echo '```'
+            if [ -s .ci-out/unconfirmed.txt ]; then
+              echo
+              echo "### Published on a rate this run could not confirm"
+              echo
+              echo "The model prices below are Mistral's own stated figures and are"
+              echo "unaffected. The batch figures were derived on the rate Mistral last"
+              echo "stated, and are marked as such in \`batch_derived\`:"
+              echo
+              echo '```'
+              cat .ci-out/unconfirmed.txt
+              echo '```'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           cat .ci-out/summary.txt
 
@@ -401,4 +413,88 @@ jobs:
               --label inventory-change \
               --label inventory-change:mistral \
               --body-file /tmp/notes-body.md
+          fi
+
+      # ---------------------------------------------------------------------------
+      # A batch figure derived on a rate this run could not read off the page. Simon,
+      # 2026-11-25: "tu peux aussi rendre la remise batch non bloquante, oui. Par contre,
+      # il faut me donner des alertes pour dire qu'on n'a plus la confirmation que c'est
+      # bien 50%. Il faut que j'aie une alerte, moi. Mais pas bloquer la mise a jour des
+      # prix et des nouveaux modeles." So: nothing here gates anything, and the prices
+      # above were published regardless. The alert is the doubt, carried by email.
+      #
+      # Guarded on the scrape having succeeded, not merely on the file being empty: a
+      # failed run leaves no `unconfirmed.txt` at all, and reading that as "the rate is
+      # confirmed again" would close the issue precisely when the certainty got worse.
+      #
+      # It closes itself on the first run that reads the rate off the page again. One
+      # that only ever opens is one a reader learns to scroll past, and this one has to
+      # still be read the day something real happens.
+      # ---------------------------------------------------------------------------
+      - name: Report unconfirmed figures
+        if: ${{ !inputs.dry_run && steps.scrape.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # Created before the list, not inside the branch that opens the issue. `gh issue
+          # list --label` exits non-zero on a label that does not exist yet, and this step
+          # runs on the first unconfirmed day, when neither label does.
+          gh label create unconfirmed --color d93f0b \
+            --description "A published figure rests on something the run could not check" 2>/dev/null || true
+          gh label create unconfirmed:mistral --color d93f0b \
+            --description "Mistral's batch discount could not be read off its page" 2>/dev/null || true
+
+          EXISTING="$(gh issue list --label unconfirmed:mistral --state open --limit 1 --json number --jq '.[0].number // empty')"
+
+          if [ ! -s .ci-out/unconfirmed.txt ]; then
+            if [ -z "$EXISTING" ]; then
+              echo "The batch discount was read off the page; nothing to report."
+              exit 0
+            fi
+            gh issue close "$EXISTING" --comment "The batch discount was read off the page again on $(date -u +%Y-%m-%d). Every published batch figure is derived from a rate Mistral states today, and the markers say so again. Closing."
+            echo "Closed issue #$EXISTING: the rate is confirmed again."
+            exit 0
+          fi
+
+          # Built by concatenation, never by interpolating the note into a shell string:
+          # it quotes what a page this repository does not control said.
+          {
+            cat <<'INTRO'
+          The daily Mistral check completed and published normally. The batch figures it
+          published, however, are derived on a rate this run **could not read off the page**:
+
+          ```
+          INTRO
+            cat .ci-out/unconfirmed.txt
+            echo '```'
+            echo
+            echo "Run: ${RUN_URL}"
+            cat <<'OUTRO'
+
+          The model prices are not affected: they are Mistral's own stated figures and were
+          published as usual. What is affected is every `_batch` figure: it is still the
+          last stated rate applied to today's prices, and each entry carrying one says so in
+          `batch_derived` rather than presenting it as a rate Mistral states today. If the
+          rate itself changed, those figures are wrong until this is dealt with.
+
+          Nothing here blocked publication, on purpose: withholding every model price over
+          one unreadable sentence is the worse failure. This issue closes itself on the
+          first run that reads the rate off the page again.
+          OUTRO
+          } > /tmp/unconfirmed-body.md
+
+          if [ -n "$EXISTING" ]; then
+            { echo "Still unconfirmed on $(date -u +%Y-%m-%d):"; echo; cat /tmp/unconfirmed-body.md; } > /tmp/unconfirmed-comment.md
+            gh issue comment "$EXISTING" --body-file /tmp/unconfirmed-comment.md
+            echo "Commented on existing issue #$EXISTING"
+          else
+            gh issue create \
+              --assignee ${{ github.repository_owner }} \
+              --title "Mistral batch discount unconfirmed on $(date -u +%Y-%m-%d)" \
+              --label unconfirmed \
+              --label unconfirmed:mistral \
+              --body-file /tmp/unconfirmed-body.md
           fi

@@ -7,7 +7,7 @@
       "source": "https://docs.mistral.ai/models",
       "sources": [
         "https://docs.mistral.ai/models",
-        "https://docs.mistral.ai/studio/batch-processing",
+        "https://docs.mistral.ai/inference/batch-processing",
         "https://docs.mistral.ai/inference/pricing"
       ],
       "currency": "USD",

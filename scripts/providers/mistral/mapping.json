@@ -81,7 +81,7 @@
   "source": "https://docs.mistral.ai/models",
   "sources": [
     "https://docs.mistral.ai/models",
-    "https://docs.mistral.ai/studio/batch-processing",
+    "https://docs.mistral.ai/inference/batch-processing",
     "https://docs.mistral.ai/inference/pricing"
   ],
   "_comment_format": "A web page: asked for as HTML, and too small an answer is an error page.",
@@ -98,8 +98,13 @@
     "",
     "'source' is the page the discount is read from EVERY WEEK. The percentage is",
     "parsed out of it, never written down here, so the day Mistral says 30% this block",
-    "follows on its own -- and the day the sentence goes, the run fails rather than",
-    "republishing last week's rate as though it were still stated.",
+    "follows on its own.",
+    "",
+    "The day that sentence goes, or states two rates, the run does NOT stop: it falls",
+    "back on the rate this block last recorded, marks every entry it derives that way,",
+    "and raises an alert of its own. Blocking was the old behaviour, and on 2026-11-25",
+    "the page went 404 and took every Mistral price with it -- the worse failure, since",
+    "the model prices are Mistral's own figures and were readable all along.",
     "",
     "'fields' names the units the discount is applied to. A unit is in this list only",
     "where Mistral's own batch documentation names an endpoint for it AND every entry",
@@ -132,7 +137,7 @@
   ],
 
   "batch": {
-    "source": "https://docs.mistral.ai/studio/batch-processing",
+    "source": "https://docs.mistral.ai/inference/batch-processing",
     "fields": ["in_per_mtok", "out_per_mtok", "per_1k_pages", "per_1k_annotated_pages"]
   },
 

@@ -48,11 +48,21 @@ from pricing_validate import (  # noqa: E402
 # reading the network, and the tests exercise the real code path.
 Fetcher = Callable[[str], str]
 
-# (fetch, mapping) -> what a provider's source says today, plus any notes about
-# things a human should look at that are nonetheless not reasons to publish nothing
-# (a price row whose label this repository does not recognise, an entry the source
-# lists without a price). Notes never block a run; a real problem raises ScrapeError.
-ExtractNewModels = Callable[[Fetcher, JSONDict], "tuple[dict[str, JSONDict], list[str]]"]
+# (fetch, mapping, current_block) -> what a provider's source says today, plus any
+# notes about things a human should look at that are nonetheless not reasons to
+# publish nothing (a price row whose label this repository does not recognise, an
+# entry the source lists without a price). Notes never block a run; a real problem
+# raises ScrapeError.
+#
+# `current_block` is what pricing.json publishes for this provider, or None on the
+# first run. One provider reads it so far: Mistral falls back on the rates its own
+# entries record when the page stating its batch discount cannot be read (that page
+# went 404 on 2026-11-25). Every provider takes the third argument so that the
+# callback has one shape, and the ones that ignore it say so in their docstring.
+ExtractNewModels = Callable[
+    [Fetcher, JSONDict, "JSONDict | None"],
+    "tuple[dict[str, JSONDict], list[str]]",
+]
 
 # A provider's parser puts this in place of an entry it cannot price today without a
 # human's choice: the source contradicts itself about that one model (Eden AI listed
@@ -62,6 +72,17 @@ ExtractNewModels = Callable[[Fetcher, JSONDict], "tuple[dict[str, JSONDict], lis
 # `disputed_since`, and never lets the placeholder itself reach the file. The parser
 # says why in a note, which the workflow turns into an issue a human reads.
 HELD = "_held_for_a_human"
+
+# A note starting with this is not inventory news. It says a figure this run is about
+# to publish could not be confirmed against the source, and that a human should look.
+# run() hands those notes on untouched; main() separates them from the inventory ones
+# and writes them to their own file and step output, so that the workflow can raise one
+# alert for them and close that same alert on the first run that confirms the figure
+# again. The numbers still publish: on 2026-11-25 the page stating Mistral's batch
+# discount started returning 404, and losing the whole block -- every model price in it
+# -- over one sentence about a discount is a worse trade than publishing the rate
+# Mistral last stated and saying plainly that this run could not re-read it.
+UNCONFIRMED_PREFIX = "unconfirmed: "
 
 # The time this run states as now -- `--now` in tests, the clock otherwise -- set by run()
 # before it asks the provider for its prices. A source that states a price "through
@@ -370,11 +391,15 @@ def run(
 ) -> tuple[str, str, list[str]]:
     """Do the whole job for one provider.
 
-    Returns (outcome, human-readable summary, inventory notes). Notes are things a
-    human should be told about but that are not reasons to withhold a price: an entry
-    that disappeared, one that came back, one dropped after a year away, a price row
-    whose label is not recognised. The workflow turns a non-empty list into one issue;
-    the run itself still succeeds and still publishes.
+    Returns (outcome, human-readable summary, notes). Notes are things a human should
+    be told about but that are not reasons to withhold a price: an entry that
+    disappeared, one that came back, one dropped after a year away, a price row whose
+    label is not recognised. The workflow turns a non-empty list into one issue; the
+    run itself still succeeds and still publishes.
+
+    A note prefixed `UNCONFIRMED_PREFIX` is separated out by main(): it says a figure
+    was published on a rate this run could not confirm, and it becomes its own alert
+    rather than inventory news.
     """
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -416,7 +441,9 @@ def run(
     global RUN_UTC
     RUN_UTC = now
 
-    offered_models, notes = extract_new_models(build_fetcher(args, mapping), mapping)
+    offered_models, notes = extract_new_models(
+        build_fetcher(args, mapping), mapping, current_block
+    )
 
     today = now[:10]
 
@@ -514,25 +541,46 @@ def main(
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "error.txt").write_text(message + "\n", encoding="utf-8")
         # Nothing may be published from here on. pricing.json was never opened for writing.
-        for stale in ("stamped.json", "updated.json", "summary.txt", "notes.txt"):
+        for stale in ("stamped.json", "updated.json", "summary.txt", "notes.txt", "unconfirmed.txt"):
             (out_dir / stale).unlink(missing_ok=True)
         print(f"FAILED: {message}", file=sys.stderr)
-        emit_github_output(outcome="failed", summary=message, notes="")
+        emit_github_output(outcome="failed", summary=message, notes="", unconfirmed="")
         return 1
 
     # The summary and the notes are written to files as well as to step outputs. The
     # workflow reads the files: it must never interpolate text derived from a remote
     # page into a shell command, and both quote labels found on that page.
+    #
+    # Unconfirmed figures are written apart from inventory notes because the workflow
+    # raises a different alert for them, and closes that alert on the first run that
+    # confirms the figure again. The prefix is an instruction to this function, not to
+    # a reader, so it comes off here.
     out_dir = Path(args.out_dir)
     (out_dir / "summary.txt").write_text(summary + "\n", encoding="utf-8")
-    notes_text = "\n".join(notes)
-    (out_dir / "notes.txt").write_text(notes_text + "\n" if notes else "", encoding="utf-8")
+
+    inventory = [note for note in notes if not note.startswith(UNCONFIRMED_PREFIX)]
+    unconfirmed = [
+        note[len(UNCONFIRMED_PREFIX):] for note in notes if note.startswith(UNCONFIRMED_PREFIX)
+    ]
+
+    notes_text = "\n".join(inventory)
+    (out_dir / "notes.txt").write_text(notes_text + "\n" if inventory else "", encoding="utf-8")
+    unconfirmed_text = "\n".join(unconfirmed)
+    (out_dir / "unconfirmed.txt").write_text(
+        unconfirmed_text + "\n" if unconfirmed else "", encoding="utf-8"
+    )
 
     print(summary)
-    if notes:
+    if inventory:
         print("\nInventory notes:")
-        for note in notes:
+        for note in inventory:
+            print(f"  {note}")
+    if unconfirmed:
+        print("\nUnconfirmed figures:")
+        for note in unconfirmed:
             print(f"  {note}")
 
-    emit_github_output(outcome=outcome, summary=summary, notes=notes_text)
+    emit_github_output(
+        outcome=outcome, summary=summary, notes=notes_text, unconfirmed=unconfirmed_text
+    )
     return 0

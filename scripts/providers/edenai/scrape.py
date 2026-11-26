@@ -429,8 +429,13 @@ def extract_models(
     return models
 
 
-def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+def extract_new_models(
+    fetch: Fetcher, mapping: JSONDict, current_block: JSONDict | None = None
+) -> tuple[dict[str, JSONDict], list[str]]:
     """The one callback provider_runner needs. One source, read once.
+
+    `current_block` is accepted and unused: the runner hands every provider the block it
+    last published, and this one reads nothing out of it.
 
     Every field this source states is either read or deliberately skipped by the
     mapping. Notes are for a model listed twice at different prices, which needs a

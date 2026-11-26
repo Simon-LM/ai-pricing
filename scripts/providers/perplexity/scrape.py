@@ -409,8 +409,14 @@ def extract_models(pricing_page: str, models_page: str, mapping: JSONDict) -> tu
     return models, notes
 
 
-def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs. Two pages, each read once."""
+def extract_new_models(
+    fetch: Fetcher, mapping: JSONDict, current_block: JSONDict | None = None
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs. Two pages, each read once.
+
+    `current_block` is accepted and unused: the runner hands every provider the block it
+    last published, and this one reads nothing out of it.
+    """
     return extract_models(fetch(mapping["source"]), fetch(mapping["models_source"]), mapping)
 
 

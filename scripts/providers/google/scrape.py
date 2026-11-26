@@ -416,8 +416,14 @@ def extract_models(page: str, mapping: JSONDict, day: dt.date) -> tuple[dict[str
     return out, notes
 
 
-def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs. One source, read once, for the run's date."""
+def extract_new_models(
+    fetch: Fetcher, mapping: JSONDict, current_block: JSONDict | None = None
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs. One source, read once, for the run's date.
+
+    `current_block` is accepted and unused: the runner hands every provider the block it
+    last published, and this one reads nothing out of it.
+    """
     return extract_models(fetch(cast(str, mapping["source"])), mapping, provider_runner.run_date())
 
 

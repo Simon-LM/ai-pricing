@@ -535,8 +535,14 @@ def fast_prices(table: list[list[Cell]], spec: JSONDict) -> tuple[dict[str, JSON
     return out, notes
 
 
-def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs: the pricing page, then the status table."""
+def extract_new_models(
+    fetch: Fetcher, mapping: JSONDict, current_block: JSONDict | None = None
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs: the pricing page, then the status table.
+
+    `current_block` is accepted and unused: the runner hands every provider the block it
+    last published, and this one reads nothing out of it.
+    """
     return extract_models(fetch(cast(str, mapping["source"])), fetch(cast(str, mapping["status_source"])), mapping)
 
 

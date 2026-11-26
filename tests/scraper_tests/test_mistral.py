@@ -75,7 +75,7 @@ PRICING_PAGE = "https://mistral.ai/pricing/api"
 
 # The batch API page, read for one sentence: the discount every `_batch` figure in the
 # block is worked out from. Nothing else on it is read, and nothing else is read for it.
-BATCH_DOCS = "https://docs.mistral.ai/studio/batch-processing"
+BATCH_DOCS = "https://docs.mistral.ai/inference/batch-processing"
 
 # The API pricing page, read for one table: the Voice Agents API's prices per minute of
 # conversation, which no model page states. Its other sections list the models by
@@ -83,8 +83,14 @@ BATCH_DOCS = "https://docs.mistral.ai/studio/batch-processing"
 API_PRICING = "https://docs.mistral.ai/inference/pricing"
 
 # What an entry's `batch_derived` says. Matched as a pattern rather than compared to a
-# literal so that the rate is read from the figure and not from the wording.
-BATCH_MARKER = re.compile(r"^(?P<percent>\d+(?:\.\d+)?)% off the stated rate, as Mistral's batch API documentation states$")
+# literal so that the rate is read from the figure and not from the wording. Two forms:
+# one for a run that read the rate off the page, one for a run that could not and fell
+# back on the rate the block records. A consumer tells them apart by exactly this.
+BATCH_MARKER = re.compile(
+    r"^(?P<percent>\d+(?:\.\d+)?)% off the stated rate, "
+    r"(?:as Mistral's batch API documentation states"
+    r"|the rate Mistral last stated: this run could not confirm it against the batch API page)$"
+)
 
 
 def mutate(source: str, old: str, new: str, expected_count: int | None = 1) -> str:
@@ -209,6 +215,9 @@ class ScrapeTestCase(unittest.TestCase):
 
     def notes(self) -> str:
         return (self.out_dir / "notes.txt").read_text(encoding="utf-8")
+
+    def unconfirmed(self) -> str:
+        return (self.out_dir / "unconfirmed.txt").read_text(encoding="utf-8")
 
 
 # ======================================================================================
@@ -727,25 +736,114 @@ class TestBatchFigures(ScrapeTestCase):
             "30% off the stated rate, as Mistral's batch API documentation states",
         )
 
-    def test_a_page_that_stops_stating_a_discount_fails_the_run(self) -> None:
-        """The figures cannot be worked out without the sentence, and republishing last
-        week's rate as though Mistral still stated it is the failure this refuses."""
+    def test_a_page_that_stops_stating_a_discount_keeps_the_figures_and_reports_it(
+        self,
+    ) -> None:
+        """The rate cannot be re-read, and republishing last week's as though Mistral
+        still stated it would be a claim this run cannot make -- but withholding every
+        model price in the block over one sentence is the worse failure, and it is the
+        one that happened on 2026-11-25 when the page went 404. The figures publish on
+        the rate the block records, marked, and the doubt is reported on its own."""
         self.edit(BATCH_DOCS, "50% discount", "no discount", 2)
-        code, _, stderr = self.run_scrape()
-        self.assert_failed(code, stderr, "no longer states a batch discount")
+        code, stdout, _ = self.run_scrape()
 
-    def test_a_page_stating_two_discounts_fails_the_run(self) -> None:
+        self.assertEqual(code, 0)
+        self.assertIn("Unconfirmed figures:", stdout)
+
+        unconfirmed = self.unconfirmed()
+        self.assertIn("no longer states a batch discount", unconfirmed)
+        self.assertIn("50% rate Mistral last stated", unconfirmed)
+        self.assertNotIn("no longer states", self.notes())
+
+        # Read the block the run actually published. A marker that moves is a change
+        # like any other: `pricing.json` must say the rate could not be re-read, not keep
+        # last week's confident wording. `stamped.json` is the unchanged artifact, and
+        # reading it here would both fail for the wrong reason and let a run that never
+        # touched the marker pass.
+        self.assertTrue(
+            (self.out_dir / "updated.json").exists(),
+            "the marker moved but the block was not republished",
+        )
+        models = self.models()
+        self.assertTrue(models, "an unreadable batch page withheld the whole block")
+        pairs = self.stated_pairs(models)
+        self.assertTrue(pairs, "the figures were dropped rather than derived on the last rate")
+        for model_id, field, derived, stated in pairs:
+            with self.subTest(model=model_id, field=field):
+                self.assertEqual(derived, stated / 2)
+        for model_id, entry in models.items():
+            if "batch_derived" not in entry:
+                continue
+            with self.subTest(model=model_id):
+                self.assertIn(
+                    "could not confirm it against the batch API page", entry["batch_derived"]
+                )
+
+    def test_a_page_stating_two_discounts_keeps_the_last_stated_rate(self) -> None:
         """Which rate applies to which unit is stated nowhere, so there is nothing to
-        read the answer off and nothing to guess at. Only one of the page's two
-        statements is moved, so the two genuinely disagree."""
+        read the answer off. Reported, and the block keeps the rate it already had. Only
+        one of the page's two statements is moved, so the two genuinely disagree."""
         self.edit(BATCH_DOCS, "at a 50% discount", "at a 30% discount")
-        code, _, stderr = self.run_scrape()
-        self.assert_failed(code, stderr, "more than one batch discount")
+        code, _, _ = self.run_scrape()
 
-    def test_a_discount_that_is_not_a_discount_fails_the_run(self) -> None:
+        self.assertEqual(code, 0)
+        self.assertIn("more than one batch discount", self.unconfirmed())
+        pairs = self.stated_pairs(self.models())
+        self.assertTrue(pairs)
+        for model_id, field, derived, stated in pairs:
+            with self.subTest(model=model_id, field=field):
+                self.assertEqual(derived, stated / 2)
+
+    def test_a_discount_that_is_not_a_discount_keeps_the_last_stated_rate(self) -> None:
         self.edit(BATCH_DOCS, "50% discount", "0% discount", 2)
-        code, _, stderr = self.run_scrape()
-        self.assert_failed(code, stderr, "which is not a discount")
+        code, _, _ = self.run_scrape()
+
+        self.assertEqual(code, 0)
+        self.assertIn("which is not a discount", self.unconfirmed())
+        for model_id, entry in self.models().items():
+            if "batch_derived" not in entry:
+                continue
+            with self.subTest(model=model_id):
+                self.assertTrue(entry["batch_derived"].startswith("50% off the stated rate"))
+
+    def test_a_page_that_cannot_be_fetched_at_all_keeps_the_figures(self) -> None:
+        """404, a timeout, a page that is no longer there: the fetcher raises, and the
+        run treats it exactly as it treats a page that arrives without the sentence."""
+        manifest = json.loads((self.sources / "offline.json").read_text(encoding="utf-8"))
+        del manifest[BATCH_DOCS]
+        (self.sources / "offline.json").write_text(
+            json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        )
+
+        code, _, _ = self.run_scrape()
+
+        self.assertEqual(code, 0)
+        self.assertIn("which no fixture serves", self.unconfirmed())
+        self.assertTrue(self.stated_pairs(self.models()))
+
+    def test_a_block_that_records_no_rate_drops_the_figures_and_says_so(self) -> None:
+        """With neither a stated rate nor one to fall back on there is nothing to derive
+        from, and guessing is not an option: the batch figures are dropped for the week,
+        the model prices still publish, and the alert says which."""
+        doc = json.loads(self.current_bytes)
+        for entry in doc["providers"]["mistral"]["models"].values():
+            for field in [f for f in entry if f.endswith("_batch") or f == "batch_derived"]:
+                del entry[field]
+        self.current.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+        self.edit(BATCH_DOCS, "50% discount", "no discount", 2)
+        code, _, _ = self.run_scrape()
+
+        self.assertEqual(code, 0)
+        self.assertIn("no batch figure is published on this run", self.unconfirmed())
+        models = self.models("stamped.json")
+        self.assertFalse(self.stated_pairs(models))
+        self.assertTrue(models, "the model prices went with the batch figures")
+
+    def test_a_readable_page_reports_nothing_unconfirmed(self) -> None:
+        """The alert channel has to stay silent on a good day, or it stops being read."""
+        self.run_scrape()
+        self.assertEqual(self.unconfirmed(), "")
 
     def test_the_marker_survives_into_the_published_block(self) -> None:
         """It is the only record that the figures beside it are worked out, so a block

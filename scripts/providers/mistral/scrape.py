@@ -24,8 +24,16 @@ block publishes are WORKED OUT rather than read -- and every entry carrying one 
 so, in `batch_derived`, so a consumer can tell the two kinds of claim apart. Which
 units the discount may be applied to is decided in mapping.json's `batch` block, not
 here, and the percentage is parsed rather than written down: the day Mistral says
-30%, this block follows, and the day the sentence goes, the run fails instead of
-republishing last week's rate as though it were still stated.
+30%, this block follows.
+
+A PAGE THAT STOPS STATING IT IS REPORTED, NOT FATAL. On 2026-11-25 that page began
+returning 404, and the run stopped before reading a single model: one sentence about a
+discount withheld every model price in the block. It no longer does. When the discount
+cannot be read, the block derives its figures on the rate its own published entries
+record in `batch_derived` -- the rate Mistral last stated -- marks every figure derived
+that way as unconfirmed, and reports what it could not check. Those figures still
+publish, and the alert is a note prefixed `unconfirmed: `, which the workflow turns into
+an issue of its own that closes on the first run that confirms the rate again.
 
 A THIRD PAGE IS READ FOR ONE TABLE: the API pricing page,
 <https://docs.mistral.ai/inference/pricing>, for its "Voice agents" section, the one
@@ -84,7 +92,7 @@ sys.path.insert(0, str(_SCRIPTS_DIR))
 
 import nextjs_flight  # noqa: E402
 import provider_runner  # noqa: E402
-from provider_runner import Fetcher, ScrapeError  # noqa: E402
+from provider_runner import UNCONFIRMED_PREFIX, Fetcher, ScrapeError  # noqa: E402
 from pricing_validate import JSONDict, check_price  # noqa: E402
 
 PROVIDER_ID = "mistral"
@@ -113,6 +121,15 @@ _INDEX_CARD = re.compile(
 # from 50 to 30 is followed rather than ignored, and never matched on the sentence
 # around it, which is marketing copy and gets rewritten.
 _BATCH_DISCOUNT = re.compile(r"(\d+(?:\.\d+)?)\s*%\s*discount", re.I)
+
+# How a published entry records the rate its batch figures were derived from: "50% off
+# the stated rate, as Mistral's batch API documentation states". Read back out of
+# `batch_derived` when the page that states the rate cannot be read, so that the
+# fallback is the rate Mistral actually last said rather than a number written into this
+# file. Anchored at the start and matched loosely after the rate: the wording on either
+# side of it has changed once already (the unconfirmed form says something else after the
+# comma) and neither half is the figure.
+_PUBLISHED_BATCH_RATE = re.compile(r"^(?P<percent>\d+(?:\.\d+)?)% off the stated rate")
 
 
 # --------------------------------------------------------------------------------------
@@ -252,22 +269,24 @@ def parse_batch_discount(html_text: str, url: str) -> Decimal:
 
     The page states it in prose, twice, and the two must agree. Reading it rather than
     writing it down is what makes a change to it a change here instead of a silent
-    disagreement, and refusing when it cannot be read is what stops last week's rate
-    being republished as though Mistral still stated it.
+    disagreement.
+
+    Raising when it cannot be read is not the same as stopping the run: the caller
+    catches this exception, falls back on the rate the published block records, and
+    publishes on that with an alert. The three messages below are therefore written to
+    be read by a human on their own, as the body of that alert -- each says what the
+    page did and what the figure cannot rest on.
     """
     found = {Decimal(m.group(1)) for m in _BATCH_DISCOUNT.finditer(html_text)}
     if not found:
         raise ScrapeError(
-            f"{url} no longer states a batch discount in the form '<n>% discount'. The "
-            f"batch figures this block publishes are worked out from that sentence and "
-            f"from nothing else, so the run stops rather than republishing the last rate "
-            f"observed as though it were still stated."
+            f"{url} no longer states a batch discount in the form '<n>% discount'"
         )
     if len(found) > 1:
         raise ScrapeError(
             f"{url} states more than one batch discount "
-            f"({', '.join(f'{d:g}%' for d in sorted(found))}). Which applies to which "
-            f"unit is not stated anywhere, so this must be resolved by hand."
+            f"({', '.join(f'{d:g}%' for d in sorted(found))}); which applies to which "
+            f"unit is stated nowhere"
         )
 
     percent = found.pop()
@@ -280,8 +299,51 @@ def parse_batch_discount(html_text: str, url: str) -> Decimal:
     return percent / 100
 
 
+def read_batch_discount(fetch: Fetcher, url: str) -> tuple[Decimal | None, str | None]:
+    """The discount, and why it could not be read if it could not.
+
+    Two things are kept apart on purpose: a page that cannot be fetched at all
+    (ScrapeError from the fetcher) and a page that arrives and does not state the rate
+    (ScrapeError from the parser). Both leave the run without a confirmed rate, and both
+    are reported the same way, so this returns one reason rather than distinguishing them
+    by the type of a re-raised exception.
+    """
+    try:
+        return parse_batch_discount(fetch(url), url), None
+    except ScrapeError as exc:
+        return None, str(exc)
+
+
+def published_batch_rate(current_block: JSONDict | None) -> Decimal | None:
+    """The rate the published block says its batch figures were derived from.
+
+    Read back out of `batch_derived`, so the fallback is whatever Mistral last said
+    rather than a number kept in this repository. Every entry carrying a derived figure
+    records the same rate; anything else -- no marked entry, a rate that is not a
+    fraction strictly between 0 and 1, or two rates that disagree -- returns None rather
+    than a guess. The caller then publishes no batch figure and says so: a missing figure
+    is a gap, a wrong one is a wrong bill.
+    """
+    rates: set[Decimal] = set()
+    for entry in (current_block or {}).get("models", {}).values():
+        if not isinstance(entry, dict):
+            continue
+        marker = _PUBLISHED_BATCH_RATE.match(cast(str, entry.get("batch_derived") or ""))
+        if marker is None:
+            continue
+        rate = Decimal(marker.group("percent")) / 100
+        if not 0 < rate < 1:
+            return None
+        rates.add(rate)
+    return rates.pop() if len(rates) == 1 else None
+
+
 def derive_batch(
-    model_id: str, entry: JSONDict, fields: list[str], discount: Decimal
+    model_id: str,
+    entry: JSONDict,
+    fields: list[str],
+    discount: Decimal,
+    confirmed: bool = True,
 ) -> None:
     """Add the discounted figure of every unit the mapping says is batched, in place.
 
@@ -298,10 +360,16 @@ def derive_batch(
     thing about all of them, and a consumer that finds one `_batch` figure in an entry
     carrying it knows to treat all of them the same way.
 
+    `confirmed` says whether this run read the rate off the page or fell back on the
+    rate the block last recorded. It changes the marker and nothing else -- the figures
+    are derived the same way either way -- because the marker is the one place a
+    consumer can see which of the two it is looking at.
+
     Nothing is reported. This runs for every priced model every week, and a note
     repeating a fact nobody can act on is how a channel that has to still work the day
     something real happens gets muted. The marker is the record; a change to the rate
-    shows up in the diff as the figures and the marker moving together.
+    shows up in the diff as the figures and the marker moving together. An unconfirmed
+    run is the exception, and that note is written once by the caller, not per model.
     """
     derived = [field for field in fields if field in entry and f"{field}_batch" not in entry]
     if not derived:
@@ -317,13 +385,27 @@ def derive_batch(
             f"{PROVIDER_ID}/{model_id}", f"{field}_batch", float(discounted)
         )
 
-    entry["batch_derived"] = (
-        f"{percent:f}% off the stated rate, as Mistral's batch API documentation states"
-    )
+    if confirmed:
+        entry["batch_derived"] = (
+            f"{percent:f}% off the stated rate, as Mistral's batch API documentation states"
+        )
+    else:
+        entry["batch_derived"] = (
+            f"{percent:f}% off the stated rate, the rate Mistral last stated: this run "
+            f"could not confirm it against the batch API page"
+        )
 
 
-def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """Read every model the docs index currently lists, and price it."""
+def extract_docs_models(
+    fetch: Fetcher, mapping: JSONDict, current_block: JSONDict | None = None
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """Read every model the docs index currently lists, and price it.
+
+    `current_block` is the published block, read only when the batch discount cannot be
+    read off its page: it holds the rate Mistral last stated, in the `batch_derived`
+    markers, and a figure derived on that rate is still worth publishing -- marked, and
+    reported -- where publishing nothing is not.
+    """
     batch = mapping.get("batch")
     if not isinstance(batch, dict) or not batch.get("source") or not batch.get("fields"):
         raise ScrapeError(
@@ -335,13 +417,31 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
         )
     batch_source = cast(str, batch["source"])
     batch_fields = cast("list[str]", batch["fields"])
-    discount = parse_batch_discount(fetch(batch_source), batch_source)
-
-    index = parse_index(fetch(mapping["source"]))
-    base = mapping["source"].split("/models", 1)[0]
 
     models: dict[str, JSONDict] = {}
     notes: list[str] = []
+
+    # Declared before the discount is read, because the notes below are what turns a
+    # page this run could not read into an alert, and they describe the figures the loop
+    # is about to derive.
+    discount, unreadable = read_batch_discount(fetch, batch_source)
+    if unreadable is not None:
+        discount = published_batch_rate(current_block)
+        if discount is None:
+            notes.append(
+                f"{UNCONFIRMED_PREFIX}{unreadable}. No published entry records a rate to "
+                f"fall back on either, so no batch figure is published on this run."
+            )
+        else:
+            notes.append(
+                f"{UNCONFIRMED_PREFIX}{unreadable}. The batch figures are derived on the "
+                f"{(discount * 100).normalize():f}% rate Mistral last stated, the "
+                f"rate the published "
+                f"block records, and every entry carrying one is marked as unconfirmed."
+            )
+
+    index = parse_index(fetch(mapping["source"]))
+    base = mapping["source"].split("/models", 1)[0]
 
     for path in sorted(index):
         name, retired, pricing, api_ids = parse_model_page(fetch(base + path), path)
@@ -368,11 +468,15 @@ def extract_docs_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JS
             # this happened, and reports the transition once instead of every week.
             unpriced: JSONDict = {"unpriced": "no price on this page could be published at all"}
             entry = unpriced
-        else:
+        elif discount is not None:
             # Only where there is a rate to take a percentage off. A model the page
             # marks free arrives here too and derives nothing, which is the same
             # outcome by the same route: no rate, no figure.
-            derive_batch(model_id, entry, batch_fields, discount)
+            #
+            # `discount` is None only when this run could not read the rate and the
+            # block records none to fall back on: no figure that week, rather than one
+            # derived from a number nobody can point at.
+            derive_batch(model_id, entry, batch_fields, discount, unreadable is None)
         entry["display_name"] = model_id
         if api_ids:
             entry["api_ids"] = api_ids
@@ -550,9 +654,15 @@ def voice_agent_entries(html_text: str, spec: JSONDict) -> tuple[dict[str, JSOND
     return entries, notes
 
 
-def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
+def extract_new_models(
+    fetch: Fetcher, mapping: JSONDict, current_block: JSONDict | None = None
+) -> tuple[dict[str, JSONDict], list[str]]:
     """The one callback provider_runner needs: the docs site, the Voice Agents prices,
     plus the frozen products.
+
+    `current_block` is handed on to the docs half, which is the only part of the run that
+    needs it: it is the published block the batch rate is read back out of when the page
+    that states that rate cannot be read.
 
     The models half is read strictly, exactly as before. The products half reads
     nothing: it republishes every name the mapping's `products` list holds, and the
@@ -560,7 +670,7 @@ def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSO
     and reports the transition once. The two halves are checked for a key claimed
     twice, because one key cannot be both a model and a product.
     """
-    models, notes = extract_docs_models(fetch, mapping)
+    models, notes = extract_docs_models(fetch, mapping, current_block)
 
     spec = cast(JSONDict, mapping["voice_agents"])
     voice, voice_notes = voice_agent_entries(fetch(cast(str, spec["source"])), spec)

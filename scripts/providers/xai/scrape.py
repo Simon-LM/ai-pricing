@@ -384,8 +384,14 @@ def extract_models(page: str, mapping: JSONDict) -> tuple[dict[str, JSONDict], l
     return models, batch_notes + audio_notes + media_notes + tool_notes
 
 
-def extract_new_models(fetch: Fetcher, mapping: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
-    """The one callback provider_runner needs. One source, read once."""
+def extract_new_models(
+    fetch: Fetcher, mapping: JSONDict, current_block: JSONDict | None = None
+) -> tuple[dict[str, JSONDict], list[str]]:
+    """The one callback provider_runner needs. One source, read once.
+
+    `current_block` is accepted and unused: the runner hands every provider the block it
+    last published, and this one reads nothing out of it.
+    """
     return extract_models(fetch(mapping["source"]), mapping)
 
 
