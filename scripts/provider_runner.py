@@ -126,7 +126,10 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
     marks one it still offers, still calls paid, and declines to put a figure on.
     `disputed_since` marks one the source lists more than once at different prices,
     until a human picks the real entry. In all three cases any price beside the marker
-    is the last one observed rather than today's. `batch_derived` sits beside the price fields it explains, and
+    is the last one observed rather than today's. `deprecated`, with `deprecated_since`
+    and `retires_on` where the source states them, marks one the source still offers
+    and still prices, but has announced it will withdraw -- there the prices beside it
+    are current ones. `batch_derived` sits beside the price fields it explains, and
     says they were worked out from a rule the source states in words rather than read
     off it -- so it must travel with them, or a consumer would take a derived figure for
     a stated one.
@@ -144,6 +147,12 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
             ordered["long_context_threshold"] = entry["long_context_threshold"]
         if entry.get("free") is True:
             ordered["free"] = True
+        if entry.get("deprecated") is True:
+            ordered["deprecated"] = True
+        if "deprecated_since" in entry:
+            ordered["deprecated_since"] = entry["deprecated_since"]
+        if "retires_on" in entry:
+            ordered["retires_on"] = entry["retires_on"]
         ordered["display_name"] = entry["display_name"]
         if "api_ids" in entry:
             ordered["api_ids"] = entry["api_ids"]

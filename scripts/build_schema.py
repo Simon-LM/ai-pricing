@@ -111,6 +111,30 @@ def build() -> dict[str, Any]:
                     "model and has no API model id."
                 ),
             },
+            "deprecated": {
+                "const": True,
+                "description": (
+                    "Present, and only ever true, when the source has announced that this "
+                    "entry will be withdrawn. It is still sold, so the prices beside it are "
+                    "current ones -- unlike absent_since, whose prices are the last observed."
+                ),
+            },
+            "deprecated_since": {
+                "type": "string",
+                "pattern": day,
+                "description": (
+                    "The day the source marked this entry deprecated. Optional: written "
+                    "only where the source states the date."
+                ),
+            },
+            "retires_on": {
+                "type": "string",
+                "pattern": day,
+                "description": (
+                    "The day the source states this entry will be withdrawn. Optional: "
+                    "written only where the source states the date."
+                ),
+            },
             "absent_since": {
                 "type": "string",
                 "pattern": day,

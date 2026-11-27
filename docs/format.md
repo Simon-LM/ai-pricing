@@ -59,6 +59,9 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 | `absent_since` | The provider stopped offering this entry on that day; every price beside it is the last one observed. See [Entries that are not live quotes](#entries-that-are-not-live-quotes). |
 | `unpriced_since` | The provider still offers this entry, still calls it paid, and states no price, as of that day. |
 | `disputed_since` | The source lists this entry twice at two different prices, as of that day; the price beside it is the last one published, until a human picks the real one. |
+| `deprecated` | Present, and always `true`, when the provider has announced it will withdraw this entry. It is still sold, so the prices beside it are **current** ones. |
+| `deprecated_since` | The day the provider marked this entry deprecated. Optional: written only where the source states the date. |
+| `retires_on` | The day the provider states this entry will be withdrawn. Optional: written only where the source states the date. |
 | `batch_derived` | Present when a `_batch` figure was **worked out** from a rule the source states in words, rather than read. Its text says the rule. |
 | `long_context_threshold` | Present exactly when the entry carries a `_long_context` price: the prompt size, in tokens, from which a whole request is billed at those prices. |
 
@@ -207,6 +210,13 @@ are in this state since Mistral retired the page that priced them in October 202
 
 **The date does not move while the marker stays**, and each marker is reported once,
 by email, on the run that first sees it.
+
+**`deprecated` is not one of these markers: the entry is still sold, and its prices are
+current ones.** The provider has said it will withdraw the entry, and `deprecated_since`
+and `retires_on` say when it was flagged and when it goes, where the source states the
+dates. Read it to plan a migration, not to discount the figure. When the entry really
+goes it becomes one of the three above: `absent_since` while the last price is still
+carried, then dropped after a year.
 
 **A marker at one provider says nothing about another.** A model withdrawn under
 `mistral` may still be sold, and callable, under `edenai`: a reseller has its own

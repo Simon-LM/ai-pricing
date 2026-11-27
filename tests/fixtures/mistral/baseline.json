@@ -7,7 +7,7 @@
       "source": "https://docs.mistral.ai/models",
       "sources": [
         "https://docs.mistral.ai/models",
-        "https://docs.mistral.ai/studio/batch-processing",
+        "https://docs.mistral.ai/inference/batch-processing",
         "https://docs.mistral.ai/inference/pricing"
       ],
       "currency": "USD",
@@ -129,6 +129,20 @@
           "api_ids": [
             "mistral-embed-2312",
             "mistral-embed"
+          ]
+        },
+        "mistral large 2.1": {
+          "in_per_mtok": 2.0,
+          "out_per_mtok": 6.0,
+          "in_per_mtok_batch": 1.0,
+          "out_per_mtok_batch": 3.0,
+          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
+          "deprecated": true,
+          "deprecated_since": "2026-02-27",
+          "retires_on": "2026-05-31",
+          "display_name": "mistral large 2.1",
+          "api_ids": [
+            "mistral-large-2411"
           ]
         },
         "mistral large 3": {

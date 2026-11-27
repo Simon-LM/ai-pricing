@@ -7,11 +7,14 @@ pricing.json is byte-for-byte what it was. That is the property the whole design
 exists to protect -- a stale price whose date the user can see is far better than a
 wrong one they cannot.
 
-This provider reads TWO PAGES. Models come from docs.mistral.ai, which states a
-machine-readable price object and an isRetired flag per model. The batch API page is
-read for one sentence -- the discount Mistral states on batch calls -- and the batch
-figures every entry carries are worked out from it rather than read off it, which each
-entry says in `batch_derived`. The billable non-models used to come from
+This provider reads THREE PAGES: docs.mistral.ai for the models, the batch API page for
+one sentence, and the API pricing page, whose Voice Agents table the page no longer
+carries (see `TestVoiceAgents`).
+Models come from docs.mistral.ai, which states a machine-readable model object per model:
+its name, the ids to call, a `status` and a `pricing` list with the unit on each row. The
+batch API page is read for one sentence -- the discount Mistral states on batch calls --
+and the batch figures every entry carries are worked out from it rather than read off it,
+which each entry says in `batch_derived`. The billable non-models used to come from
 mistral.ai/pricing/api, once the only place they were priced; Mistral retired that page
 in October 2026 and nothing states a product price any more. The products stay published
 from the mapping's hand-held `products` list, sold-but-unpriced, with the last prices
@@ -331,7 +334,7 @@ class TestUnchanged(ScrapeTestCase):
     def test_a_model_whose_page_states_no_identifier_is_still_priced_and_reported(self) -> None:
         """A missing identifier is not a reason to withhold a correct price -- but a
         consumer has nothing to call, so it is worth a human's attention."""
-        self.edit(self.docs_url("ocr-4-1"), '\\"names\\":', '\\"labels\\":', expected_count=None)
+        self.edit(self.docs_url("ocr-4-1"), '\\"modelIds\\":', '\\"modelIDX\\":', expected_count=None)
         code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
         entry = self.models()["ocr 4.1"]
@@ -353,13 +356,16 @@ class TestUnchanged(ScrapeTestCase):
     def test_every_current_model_on_the_index_reaches_the_output(self) -> None:
         """There is no list to reconcile: every model the index lists and prices is
         published. One dropping out between the source and the file is the failure mode
-        this repository must not have."""
+        this repository must not have. Shieldstral is listed and states no price at all;
+        Mistral Small 3.1 is a row of the deprecated-models table whose page marks it
+        retired, so it too has nothing to publish."""
         self.run_scrape()
         published = set(self.models("stamped.json"))
         index = scrape.parse_index(self.path_for(DOCS_INDEX).read_text(encoding="utf-8"))
-        # Shieldstral is on the index and states no price at all, so there is nothing
-        # to publish for it; every other listed model is here.
-        self.assertEqual({n.lower() for n in index.values()} - published, {"shieldstral 1.0"})
+        self.assertEqual(
+            {n.lower() for n in index.values()} - published,
+            {"shieldstral 1.0", "mistral small 3.1"},
+        )
 
     def test_other_providers_blocks_are_never_touched(self) -> None:
         """The entire reason pricing.json nests under providers.<name>: a run that
@@ -395,7 +401,7 @@ class TestUnchanged(ScrapeTestCase):
 class TestPriceChange(ScrapeTestCase):
     def test_a_model_price_change_produces_a_candidate_not_a_publication(self) -> None:
         self.edit(self.docs_url("mistral-medium-3-5-26-04"),
-                  '\\"price\\":1.5', '\\"price\\":2.25')
+                  '\\"priceUsd\\":1.5', '\\"priceUsd\\":2.25')
 
         code, stdout, _ = self.run_scrape()
 
@@ -418,7 +424,7 @@ class TestPriceChange(ScrapeTestCase):
         self.assert_current_untouched()
 
     def test_a_price_going_down_is_also_a_change(self) -> None:
-        self.edit(self.docs_url("ocr-4-1"), '\\"price\\":4,', '\\"price\\":2,')
+        self.edit(self.docs_url("ocr-4-1"), '\\"priceUsd\\":4,', '\\"priceUsd\\":2,')
         code, stdout, _ = self.run_scrape()
         self.assertEqual(code, 0)
         self.assertIn("ocr 4.1.per_1k_pages", stdout)
@@ -468,7 +474,7 @@ class TestWithdrawnModel(ScrapeTestCase):
     def test_a_model_marked_retired_is_treated_the_same_way(self) -> None:
         """Still linked from the index, but the page itself says it is retired. A price
         for something Mistral has withdrawn is not a current price."""
-        self.edit(self.docs_url(self.SLUG), '\\"isRetired\\":false', '\\"isRetired\\":true',
+        self.edit(self.docs_url(self.SLUG), '\\"status\\":\\"ga\\"', '\\"status\\":\\"retired\\"',
                   expected_count=None)
         code, _, _ = self.run_scrape()
         self.assertEqual(code, 0)
@@ -481,7 +487,7 @@ class TestWithdrawnModel(ScrapeTestCase):
         self.run_scrape()
         models = self.models()
         still_offered = [m for m in models if "absent_since" not in models[m]]
-        self.assertEqual(len(still_offered), 28)
+        self.assertEqual(len(still_offered), 29)
         self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
 
     def test_it_is_reported_once_and_not_again(self) -> None:
@@ -869,9 +875,15 @@ class TestBatchFigures(ScrapeTestCase):
 class TestVoiceAgents(ScrapeTestCase):
     """The API pricing page's "Voice agents" table, the one price no model page states.
 
-    Read strictly: a rate whose unit may have changed is not published. The fixture is
-    the page as served on 2026-11-10: "Pricing for the Voice Agents API, billed per
-    minute of conversation", Mistral Small 4 at $0.04/min, larger models at $0.08/min.
+    Read strictly where the section is still there: a rate whose unit may have changed is
+    not published. The fixture is the page as served on 2026-11-10: "Pricing for the
+    Voice Agents API, billed per minute of conversation", Mistral Small 4 at $0.04/min,
+    larger models at $0.08/min.
+
+    Where the section is gone -- it went on 2026-11-26, and the page states no price for
+    the API anywhere now -- the rows the mapping names are published sold-but-unpriced
+    rather than dropping them or failing the run. That is exercised here by taking the
+    section out of the fixture.
     """
 
     SECTION = '\\"sectionId\\":\\"voice-agents\\"'
@@ -899,10 +911,28 @@ class TestVoiceAgents(ScrapeTestCase):
         self.assertEqual(code, 0, stderr)
         self.assertIn("a section 'time-series-models' that lists no model", self.notes())
 
-    def test_a_page_without_the_section_fails_the_run(self) -> None:
+    def test_a_page_without_the_section_publishes_the_rows_unpriced(self) -> None:
+        """The section that priced the Voice Agents API went on 2026-11-26: the page now
+        renders its own model-family tables and states no per-conversation-minute figure
+        anywhere. The rows Mistral still bills must not vanish over a price nobody states,
+        and one unreadable table must not take every model price down with it, so they are
+        published sold-but-unpriced with the last figure observed kept beside the marker.
+        """
         self.edit(API_PRICING, self.SECTION, '\\"sectionId\\":\\"voice-assistants\\"')
         code, _, stderr = self.run_scrape()
-        self.assert_failed(code, stderr, "no 'voice-agents' section")
+        self.assertEqual(code, 0, stderr)
+        for row in ("mistral small 4", "larger models"):
+            entry = self.models()["voice agents (" + row + ")"]
+            self.assertEqual(entry["unpriced_since"], FIXED_NOW[:10])
+            self.assertEqual(entry["kind"], "product")
+        self.assertEqual(
+            self.models()["voice agents (mistral small 4)"]["per_conversation_minute"],
+            0.04,
+            "the last figure observed was dropped",
+        )
+        self.assertIn("still offered and still not free", self.notes())
+        self.assertIn("no longer states a price", self.notes())
+        self.assert_current_untouched()
 
     def test_a_section_that_stops_stating_its_unit_fails_the_run(self) -> None:
         self.edit(API_PRICING, self.UNIT, "billed per session")
@@ -940,9 +970,9 @@ class TestLayoutFailures(ScrapeTestCase):
         self.assert_failed(code, stderr, "no model card found on the docs index")
 
     def test_a_docs_page_without_a_model_name(self) -> None:
-        self.edit(self.docs_url("ocr-4-1"), '\\"currentModelName\\"', '\\"someOtherKey\\"')
+        self.edit(self.docs_url("ocr-4-1"), '\\"name\\":', '\\"someOtherKey\\":')
         code, _, stderr = self.run_scrape()
-        self.assert_failed(code, stderr, "states no currentModelName")
+        self.assert_failed(code, stderr, "states no name")
 
     def test_a_source_the_manifest_does_not_serve_is_never_fetched(self) -> None:
         """An offline run that silently reached the network would pass for the wrong
@@ -987,18 +1017,18 @@ class TestUnreadableFigures(ScrapeTestCase):
 
 class TestSanityBounds(ScrapeTestCase):
     def test_out_of_bounds_figure_is_refused(self) -> None:
-        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"price\\":1.5', '\\"price\\":4000')
+        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"priceUsd\\":1.5', '\\"priceUsd\\":4000')
         code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "outside the plausible range")
 
     def test_plausible_figure_that_moved_implausibly_is_refused(self) -> None:
         """20 is a perfectly ordinary price. Going 1.5 -> 20 in one week is not."""
-        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"price\\":1.5', '\\"price\\":20')
+        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"priceUsd\\":1.5', '\\"priceUsd\\":20')
         code, _, stderr = self.run_scrape()
         self.assert_failed(code, stderr, "factor of", "Refusing to publish")
 
     def test_a_change_just_under_the_factor_limit_is_allowed_through(self) -> None:
-        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"price\\":1.5', '\\"price\\":6')
+        self.edit(self.docs_url("mistral-medium-3-5-26-04"), '\\"priceUsd\\":1.5', '\\"priceUsd\\":6')
         code, stdout, _ = self.run_scrape()
         self.assertEqual(code, 0)
         self.assertIn("changed", stdout)
@@ -1312,6 +1342,28 @@ class TestMapping(unittest.TestCase):
             fields = list(table.values())
             self.assertEqual(len(fields), len(set(fields)), side)
 
+    def test_a_row_that_names_its_own_unit_is_translated(self) -> None:
+        """Some of Mistral's older model pages -- Magistral Medium, Magistral Small,
+        Mistral 7B -- state the unit inside the row's label rather than in `unit`: "Input
+        (/M tokens)" and "Output (/M tokens)", with `unit` null, and both rows carrying
+        the direction "input". The label is then the only thing saying which side each
+        figure is on, and it is translated by the mapping for the reason the mapping is
+        a table at all: a human writes what a row means, rather than a regex guessing at
+        prose."""
+        entry, notes = scrape.docs_entry(
+            "magistral medium",
+            {
+                "isFree": False,
+                "pricing": [
+                    {"direction": "input", "priceUsd": 2, "unit": None, "label": "Input (/M tokens)"},
+                    {"direction": "input", "priceUsd": 5, "unit": None, "label": "Output (/M tokens)"},
+                ],
+            },
+            self.mapping(),
+        )
+        self.assertEqual(notes, [])
+        self.assertEqual(entry, {"in_per_mtok": 2.0, "out_per_mtok": 5.0})
+
     def test_every_denominator_the_docs_state_is_mapped(self) -> None:
         """Catches the gap on the day the fixtures are re-captured rather than on the
         Monday a price silently stops being published."""
@@ -1322,18 +1374,13 @@ class TestMapping(unittest.TestCase):
         for url, rel in manifest.items():
             if not url.startswith("https://docs.mistral.ai/models/"):
                 continue
-            _, _, pricing, _ = scrape.parse_model_page(
+            _, record, _ = scrape.parse_model_page(
                 (FIXTURES / rel).read_text(encoding="utf-8", errors="replace"), url
             )
-            if not pricing:
-                continue
-            rows = (pricing.get("input") or []) + (pricing.get("output") or [])
-            if not rows and "denominator" in pricing:
-                rows = [pricing]
-            for row in rows:
-                if row.get("price") == 0:
+            for row in record.get("pricing") or []:
+                if row.get("priceUsd") == 0:
                     continue
-                self.assertIn(row.get("denominator"), known, f"{url}: {row}")
+                self.assertIn(row.get("unit"), known, f"{url}: {row}")
 
 
 if __name__ == "__main__":

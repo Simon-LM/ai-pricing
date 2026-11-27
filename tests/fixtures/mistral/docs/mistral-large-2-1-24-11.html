@@ -1,0 +1,18 @@
+<!doctype html>
+<!--
+  Fixture: the Next.js Flight payload of https://docs.mistral.ai/models/mistral-large-2-1-24-11, kept in
+  the shape the page streams since 2026-11-26. The model object it carries is kept
+  whole -- its `name`, its callable API identifiers in `modelIds`, its `status`, its
+  `isFree` flag and its `pricing` list, one row per figure with the unit stated on the
+  row -- and the ~1 MB of rendered documentation around it is dropped, since the
+  scraper reads the embedded JSON and never the rendered text. The `1:"$Sreact.fragment"`
+  record before it is a real part of the payload, kept so the model object is where the
+  page puts it: not at the start of its own chunk.
+
+  Regenerate by re-extracting that object from a fresh copy of the page. Never by
+  hand-editing a figure -- a fixture edited to match the code proves only that the code
+  agrees with itself.
+-->
+<html><body>
+<script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n9:[\"$\",\"$L26\",null,{\"model\":{\"id\":91,\"slug\":\"mistral-large-2-1-24-11\",\"version\":\"2.1\",\"status\":\"deprecated\",\"name\":\"Mistral Large 2.1\",\"modelIds\":[\"mistral-large-2411\"],\"aliases\":[\"mistral-large-2-1-24-11\",\"mistral-large-2411\"],\"isFree\":false,\"pricing\":[{\"direction\":\"input\",\"priceUsd\":2,\"priceEur\":1.75,\"unit\":\"/M Tokens\",\"label\":\"Input\"},{\"direction\":\"output\",\"priceUsd\":6,\"priceEur\":5.2,\"unit\":\"/M Tokens\",\"label\":\"Output\"}],\"deprecatedAt\":\"2026-02-27T00:00:00.000Z\",\"retiredAt\":\"2026-05-31T00:00:00.000Z\",\"replacedBy\":\"mistral-large-3-25-12\"}}]"])</script>
+</body></html>

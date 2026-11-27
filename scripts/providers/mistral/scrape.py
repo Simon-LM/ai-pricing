@@ -11,10 +11,22 @@ deliberate: "leave pricing.json untouched on every failure path" is then a prope
 of the design rather than a branch of code somebody has to remember to get right.
 
 ONE SOURCE FOR THE PRICES: <https://docs.mistral.ai/models>. Its index lists the
-models currently offered, one card each, and every card links to a page carrying a
-machine-readable price object -- `{"price": 4, "denominator": "/1000 Pages"}` --
-along with an `isRetired` flag. It is by far the better source: structured, with the
-unit stated per figure rather than implied by a label.
+models currently offered, one card each, and the models it has deprecated further down
+the same page as plain table rows; every link, card or row, goes to a page streaming a
+machine-readable model object -- `{"name": "Codestral", "modelIds": ["codestral-2508"],
+"pricing": [{"direction": "input", "priceUsd": 0.3, "unit": "/M Tokens"}]}` -- with a
+`status` flag and the dates a deprecated model retires. It is by far the better source:
+structured, with the unit stated per figure rather than implied by a label.
+
+THE PAGE STREAMS A WHOLE MODEL OBJECT, not the handful of named keys it used to. It
+carries `name` (the label to publish under), `modelIds` (what a caller passes as the
+model), `isFree`, a `status` -- "ga", "deprecated" or "retired" -- and a `pricing` LIST,
+one row per figure, each naming its `direction` ("input" or "output"), its `priceUsd`,
+its `unit` and its `label`. A model the index lists but the page marks `retired` is
+treated as gone, exactly like one that has left the index. One it marks `deprecated` is
+still sold, so it stays published with its prices, carrying `deprecated: true`, the day
+it was deprecated (`deprecated_since`, from `deprecatedAt`) and the day it retires
+(`retires_on`, from `retiredAt`) where the page states them.
 
 A SECOND PAGE IS READ FOR ONE SENTENCE: the batch API documentation,
 <https://docs.mistral.ai/studio/batch-processing>, which states that batch API is
@@ -35,15 +47,19 @@ that way as unconfirmed, and reports what it could not check. Those figures stil
 publish, and the alert is a note prefixed `unconfirmed: `, which the workflow turns into
 an issue of its own that closes on the first run that confirms the rate again.
 
-A THIRD PAGE IS READ FOR ONE TABLE: the API pricing page,
-<https://docs.mistral.ai/inference/pricing>, for its "Voice agents" section, the one
-price on it that no model page states: the Voice Agents API, billed per minute of
+A THIRD PAGE USED TO BE READ FOR ONE TABLE: the API pricing page,
+<https://docs.mistral.ai/inference/pricing>, whose "Voice agents" section was the one
+price on it no model page stated -- the Voice Agents API, billed per minute of
 conversation, $0.04 with Mistral Small 4 and $0.08 with "larger models" on 2026-11-10.
-Its other sections list the models by family, which the model pages already price, and
-are not read; a section that lists no model and is not Voice agents is reported in the
-run's notes, so that a price Mistral adds there -- the products' prices returning, say
--- is seen rather than missed. The Voice agents rows are published as products, keyed
-`voice agents (<row>)`, in `per_conversation_minute`.
+On 2026-11-26 that section went: the page now renders its own model-family tables
+("Generalist models", "Audio models", ...) and states no per-conversation-minute price
+anywhere, and the section that carried it -- identified by a `sectionId` and a sentence
+naming its unit -- is gone. The price cannot be read from anything that is left, so
+this scraper does not guess one at it: the Voice Agents rows are now published as
+sold-but-unpriced, the same treatment the other products get, from the row names the
+mapping states -- still sold, with the last figure observed kept beside the marker, and
+reported once. Reading the table is still attempted first, so that if Mistral states the
+price in the old shape again it is read rather than missed.
 
 The products -- web search, code execution, image generation, libraries, data
 capture and the two classifier models -- used to come from
@@ -63,8 +79,9 @@ while Mistral was still selling it, so this repository published it as withdrawn
 A marketing page is not an inventory.
 
 Entries are keyed by the NAME the source states -- "ocr 4.0", "web search" -- not by
-API model id. The docs pages do carry the ids, in a `names` array; publishing them is
-a separate decision and this file does not make it.
+API model id. The docs pages do carry the ids, in a `modelIds` array; publishing them
+is a separate decision, and this file makes it (see `api_ids` below) without using the
+page's `aliases`, which repeat the slug -- a string nothing can be called as.
 
 Outcomes, matching the three the workflow must implement:
 
@@ -106,14 +123,21 @@ DEFAULT_CURRENT = REPO_ROOT / "pricing.json"
 # for a reason with nothing to do with argparse.
 CLI_SUMMARY = "Read Mistral's public prices and work out what providers.mistral should say."
 
-# A model card on the docs index: an <a> tagged with the model's colour, wrapping an
-# icon whose alt text is the model's name. Models Mistral has deprecated are listed
-# further down the same page as plain table rows instead, which is what keeps them
-# out -- matching bare hrefs would pull in forty-five retired models.
+# How the docs index links a model, in the two shapes the page uses. A CURRENT model is
+# a card: an <a> covering the whole card, pointing at the model's page, whose label --
+# hidden from sight -- is the model's name. A model Mistral has deprecated or retired is
+# a row of the "Deprecated & retired models" table further down the same page instead, a
+# differently styled link with a visible title. Both are read: a deprecated model is
+# still sold and must keep being visited, and the page that says "retired" is what tells
+# the two apart. Matching bare hrefs would pull in every model either table names, so
+# each shape is matched by its own markup.
 _INDEX_CARD = re.compile(
-    r'--model-color:[^"]*"\s+href="(?P<href>/models/[a-z0-9.-]+)">'
-    r'.{0,400}?<img alt="(?P<name>[^"]*) icon"',
-    re.S,
+    r'<a[^>]+href="(?P<href>/models/[a-z0-9.-]+)"[^>]*>'
+    r'\s*<span class="opacity-0">(?P<name>[^<]*)</span>'
+)
+_INDEX_ROW = re.compile(
+    r'<a class="w-full min-w-0 flex gap-1 hover:underline" href="(?P<href>/models/[a-z0-9.-]+)">'
+    r'\s*<p class="text-button-small font-mistral truncate">(?P<name>[^<]*)</p></a>'
 )
 
 # How the batch discount is stated on the batch API page: "at a 50% discount", "We
@@ -138,128 +162,197 @@ _PUBLISHED_BATCH_RATE = re.compile(r"^(?P<percent>\d+(?:\.\d+)?)% off the stated
 
 
 def parse_index(html_text: str) -> dict[str, str]:
-    """Return {page path: model name} for every model card on the docs index.
+    """Return {page path: model name} for every model the docs index links.
 
-    Cards only. The same page lists Mistral's deprecated models further down as plain
-    table rows, and matching every /models/ link would pull in forty-five retired ones
-    -- including several this repository correctly stopped publishing.
+    Both the current models, one card each, and the deprecated and retired ones the
+    table further down lists as rows. A deprecated model is still sold, so it must keep
+    being visited, and only its own page can say whether the source has really stopped
+    offering it. Keyed by path, so a model listed in both shapes -- or twice, as the page
+    has been seen to render its cards -- is visited once.
     """
     found = {m.group("href"): m.group("name").strip() for m in _INDEX_CARD.finditer(html_text)}
+    found.update({m.group("href"): m.group("name").strip() for m in _INDEX_ROW.finditer(html_text)})
     if not found:
         raise ScrapeError(
             "no model card found on the docs index. The layout has changed: this scraper "
-            "expects each current model to be linked from a card carrying a "
-            "--model-color style and an icon whose alt text is the model name."
+            "expects each model to be linked from a card whose hidden label -- a span "
+            "carrying the opacity-0 class -- is the model name, or from a row of the "
+            "deprecated-models table."
         )
     return found
 
 
-def parse_model_page(html_text: str, path: str) -> tuple[str, bool, JSONDict | None, list[str]]:
-    """Return (name, retired, pricing object, api ids) for one docs model page.
+def _first_model_record(node: object) -> JSONDict | None:
+    """The first dict below `node` carrying both `slug` and `pricing`, or None.
 
-    Several values are optional because the pages are not uniform: a model with no
-    published price carries no pricing object at all, and the pages of some models
-    carry no `isRetired` flag. Deciding what to do with each combination is the
-    caller's job; this function only reports what the page says.
-
-    The api ids are the strings a caller passes as the model, which the page renders as
-    copyable badges and streams as a `names` array -- most specific first, ending in a
-    `-latest` alias where the model has one.
+    Both keys together, not either alone: the page's route params carry a `slug`, and
+    objects nested inside the model -- its licence, its capabilities -- carry one too,
+    so `slug` on its own is not the model; and a licence carries no `pricing`. The pair
+    is unique to the model object.
     """
-    name = nextjs_flight.find_value(html_text, "currentModelName")
-    retired = nextjs_flight.find_value(html_text, "isRetired")
-    pricing = nextjs_flight.find_value(html_text, "pricing")
-    names = nextjs_flight.find_value(html_text, "names")
+    if isinstance(node, dict):
+        if "slug" in node and "pricing" in node:
+            return cast(JSONDict, node)
+        for value in node.values():
+            record = _first_model_record(value)
+            if record is not None:
+                return record
+    elif isinstance(node, list):
+        for item in node:
+            record = _first_model_record(item)
+            if record is not None:
+                return record
+    return None
 
+
+def find_model_record(html_text: str) -> JSONDict | None:
+    """The model object a docs model page streams, or None if it streams none.
+
+    The page renders its content from an object it streams in a Flight payload, split
+    into records by a `\\n<id>:` boundary. Each record is tried on its own and walked
+    for the model object, because the object is nested inside the rendered tree rather
+    than being a record of its own. A record that does not parse is skipped: a page
+    carries many, this is after one, and a malformed record elsewhere is not a reason to
+    fail. Looking a value up by key instead -- `find_value(html, "name")` -- answers with
+    a licence's name, which is why the object is located by its two unique keys.
+    """
+    for chunk in nextjs_flight.decoded_chunks(html_text):
+        for part in re.split(r"\n[0-9a-z]{1,3}:", chunk):
+            part = part.strip()
+            if '"slug"' not in part or '"pricing"' not in part:
+                continue
+            try:
+                payload = json.loads(part)
+            except json.JSONDecodeError:
+                continue
+            record = _first_model_record(payload)
+            if record is not None:
+                return record
+    return None
+
+
+def parse_model_page(html_text: str, path: str) -> tuple[str, JSONDict, list[str]]:
+    """Return (name, model object, api ids) for one docs model page.
+
+    The whole object is returned rather than the handful of fields read out of it,
+    because the caller needs several -- the price list, the status, the deprecation
+    dates -- and re-walking the page for each would be the same parse done twice.
+
+    The api ids are the strings a caller passes as the model, which the page states in
+    `modelIds`, most specific first and usually ending in a `-latest` alias. Not the
+    object's `aliases`, which repeat the page's own slug -- a string no API answers to.
+    """
+    record = find_model_record(html_text)
+    if record is None:
+        raise ScrapeError(
+            f"{path}: the page streams no model object. The data shape has changed: no "
+            f"record on it carries both a `slug` and a `pricing` list."
+        )
+
+    name = record.get("name")
     if not isinstance(name, str) or not name.strip():
         raise ScrapeError(
-            f"{path}: the page states no currentModelName. Its data shape has changed, "
-            f"and the key this model would be published under cannot be read."
+            f"{path}: the model object states no name. Its data shape has changed, and "
+            f"the key this model would be published under cannot be read."
         )
-    if pricing is not None and not isinstance(pricing, dict):
-        raise ScrapeError(f"{path}: the pricing value is not an object. The data shape has changed.")
 
     api_ids: list[str] = []
-    if names is not None:
-        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+    model_ids = record.get("modelIds")
+    if model_ids:
+        if not isinstance(model_ids, list) or not all(isinstance(i, str) for i in model_ids):
             raise ScrapeError(
-                f"{path}: the names value is not a list of strings. The data shape has "
-                f"changed, and publishing a malformed identifier is worse than publishing "
-                f"none."
+                f"{path}: modelIds is not a list of strings. The data shape has changed, "
+                f"and publishing a malformed identifier is worse than publishing none."
             )
         # Order is meaning here, so it is preserved rather than sorted: the versioned id
         # comes first and the moving alias last. Duplicates would fail validation, and
         # the page has been seen to repeat its payload.
-        api_ids = list(dict.fromkeys(n.strip() for n in cast("list[str]", names) if n.strip()))
+        api_ids = list(dict.fromkeys(i.strip() for i in cast("list[str]", model_ids) if i.strip()))
 
-    return name.strip(), retired is True, cast("JSONDict | None", pricing), api_ids
+    return name.strip(), record, api_ids
 
 
-def docs_entry(model_id: str, pricing: JSONDict, mapping: JSONDict) -> tuple[JSONDict, list[str]]:
-    """Turn one docs pricing object into an entry, plus anything a human should see."""
+def _stated_day(record: JSONDict, key: str, path: str) -> str | None:
+    """The day of an ISO timestamp the model object states, or None if it states none.
+
+    `deprecatedAt` and `retiredAt` arrive as full timestamps -- "2026-10-31T00:00:00.000Z"
+    -- and what is published is the day alone. A value that is present and is not one is
+    a shape change, not a missing date, so it fails the run rather than quietly
+    publishing a model with no retirement date.
+    """
+    value = record.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not re.match(r"^\d{4}-\d{2}-\d{2}", value):
+        raise ScrapeError(
+            f"{path}: {key} is not an ISO timestamp ({value!r}). The data shape has changed."
+        )
+    return value[:10]
+
+
+def docs_entry(model_id: str, record: JSONDict, mapping: JSONDict) -> tuple[JSONDict, list[str]]:
+    """Turn one docs model object into an entry, plus anything a human should see."""
     notes: list[str] = []
 
     # `free` is stated by the source itself rather than inferred from a figure of 0,
     # so it is taken as said -- unlike OVH's catalog, which has no such flag and where
     # "every unit is 0" is the only thing that can stand in for one.
-    if pricing.get("free") is True:
+    if record.get("isFree") is True:
         return {"free": True}, notes
 
     denominators: JSONDict = mapping["denominators"]
     labels: JSONDict = mapping["labels"]
     entry: JSONDict = {}
 
-    # Two shapes in the wild. Most models state "input" and "output" lists; a model
-    # billed at a single rate states that rate on the pricing object itself, with no
-    # lists at all. The flat one is read as a single input row rather than ignored --
-    # ignoring it would silently drop the only price such a model has.
-    sides: dict[str, object] = {"input": pricing.get("input"), "output": pricing.get("output")}
-    if sides["input"] is None and sides["output"] is None and "price" in pricing:
-        sides["input"] = [pricing]
+    rows = record.get("pricing")
+    if not isinstance(rows, list):
+        raise ScrapeError(
+            f"{model_id}: the model object's pricing is not a list. The data shape has changed."
+        )
 
-    for side in ("input", "output"):
-        rows = sides[side]
-        if rows is None:
+    for row in cast("list[JSONDict]", rows):
+        if not isinstance(row, dict):
+            raise ScrapeError(f"{model_id}: a pricing row is not an object.")
+
+        # `direction` names the side; `unit` names the figure's unit, as the old page's
+        # "denominator" did. Read once: the page decides what is in each cell, so each is
+        # `Any` until it has been looked at, and only a string can name a row in `labels`.
+        direction = row.get("direction")
+        unit = row.get("unit")
+        label = row.get("label")
+        price = row.get("priceUsd")
+
+        # A zero here is this source saying "this side is not billed" -- Voxtral TTS
+        # charges for the audio it generates and nothing for the text it is given. It is
+        # not the ambiguous zero OVH's catalog produces, because this source states
+        # `isFree` separately when a model is actually free, so there is nothing to
+        # report and nothing to publish.
+        if not isinstance(price, bool) and isinstance(price, (int, float)) and price == 0:
             continue
-        if not isinstance(rows, list):
-            raise ScrapeError(f"{model_id}: pricing.{side} is not a list. The data shape has changed.")
 
-        for row in cast("list[JSONDict]", rows):
-            if not isinstance(row, dict):
-                raise ScrapeError(f"{model_id}: a pricing.{side} row is not an object.")
+        side = direction if isinstance(direction, str) else None
+        by_label = labels.get(label) if isinstance(label, str) else None
+        field = by_label or (
+            denominators.get(side, {}).get(unit)
+            if side is not None and isinstance(unit, str)
+            else None
+        )
+        if field is None:
+            where = side if side is not None else "a side the page does not name"
+            notes.append(
+                f"{model_id}: {where} priced at {price!r} per {unit!r}"
+                + (f" (labelled {label!r})" if label else "")
+                + f", a unit {DEFAULT_MAPPING.name} has no field for. That price is not "
+                f"published. Add it to the mapping's 'denominators' table to publish it."
+            )
+            continue
 
-            denominator = row.get("denominator")
-            price = row.get("price")
-
-            # A zero here is this source saying "this side is not billed" -- Voxtral
-            # TTS charges for the audio it generates and nothing for the text it is
-            # given. It is not the ambiguous zero OVH's catalog produces, because this
-            # source states `free` separately when a model is actually free, so there
-            # is nothing to report and nothing to publish.
-            if not isinstance(price, bool) and isinstance(price, (int, float)) and price == 0:
-                continue
-
-            # Read once: the page decides what is in this cell, so it is `Any` until
-            # it has been looked at, and only a string can name a row in `labels`.
-            label = row.get("label")
-            field = (labels.get(label) if isinstance(label, str) else None) or denominators.get(
-                side, {}
-            ).get(denominator)
-            if field is None:
-                notes.append(
-                    f"{model_id}: {side} priced at {price!r} per {denominator!r}"
-                    + (f" (labelled {label!r})" if label else "")
-                    + f", a unit {DEFAULT_MAPPING.name} has no field for. That price is not "
-                    f"published. Add it to the mapping's 'denominators' table to publish it."
-                )
-                continue
-
-            if field in entry:
-                raise ScrapeError(
-                    f"{model_id}.{field}: two prices map to it. Refusing to guess which "
-                    f"one is the real figure."
-                )
-            entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, price)
+        if field in entry:
+            raise ScrapeError(
+                f"{model_id}.{field}: two prices map to it. Refusing to guess which "
+                f"one is the real figure."
+            )
+        entry[field] = check_price(f"{PROVIDER_ID}/{model_id}", field, price)
 
     return entry, notes
 
@@ -444,12 +537,21 @@ def extract_docs_models(
     base = mapping["source"].split("/models", 1)[0]
 
     for path in sorted(index):
-        name, retired, pricing, api_ids = parse_model_page(fetch(base + path), path)
+        name, record, api_ids = parse_model_page(fetch(base + path), path)
         model_id = name.lower()
 
         # Listed but marked retired: treated as not offered, exactly like one that has
         # left the index. The runner keeps it, dated, rather than deleting it.
-        if retired or pricing is None:
+        if record.get("status") == "retired":
+            continue
+
+        # The page streams no price at all for this model -- Shieldstral, at public
+        # preview, states an empty `pricing` list. There is nothing to publish and
+        # nothing to mark: `unpriced` says "still sold, at a price this file cannot
+        # read", which is not what an empty list says. An entry this file already
+        # publishes and whose page loses every price is marked absent by the runner,
+        # like anything else the source stops offering.
+        if not record.get("pricing"):
             continue
 
         if model_id in models:
@@ -458,7 +560,7 @@ def extract_docs_models(
                 f"carries the real price."
             )
 
-        entry, entry_notes = docs_entry(model_id, pricing, mapping)
+        entry, entry_notes = docs_entry(model_id, record, mapping)
         notes += entry_notes
         if not entry:
             # Published carrying the shared `unpriced` marker rather than dropped.
@@ -477,6 +579,22 @@ def extract_docs_models(
             # block records none to fall back on: no figure that week, rather than one
             # derived from a number nobody can point at.
             derive_batch(model_id, entry, batch_fields, discount, unreadable is None)
+
+        # A model the page marks deprecated is still sold, so it stays published with its
+        # prices -- these three fields are the only thing telling a consumer to plan for
+        # the withdrawal. Written only where the page states them: a page that deprecates
+        # a model without dating it leaves the dates off rather than having one guessed
+        # at. Which models are deprecated is the page's own `status`, and only `retired`
+        # means gone.
+        if record.get("status") == "deprecated":
+            entry["deprecated"] = True
+            deprecated_since = _stated_day(record, "deprecatedAt", path)
+            if deprecated_since is not None:
+                entry["deprecated_since"] = deprecated_since
+            retires_on = _stated_day(record, "retiredAt", path)
+            if retires_on is not None:
+                entry["retires_on"] = retires_on
+
         entry["display_name"] = model_id
         if api_ids:
             entry["api_ids"] = api_ids
@@ -534,6 +652,47 @@ def frozen_products(mapping: JSONDict) -> dict[str, JSONDict]:
 
 # The heading every section of the API pricing page carries, in the streamed tree.
 _SECTION_HEADING = re.compile(r'"sectionId":"([a-z0-9-]+)"')
+
+# What the Voice Agents rows' `unpriced` marker says now that the section carrying their
+# price is gone. The runner folds it into the transition note it prints once, then
+# drops it: what a consumer reads is `unpriced_since`, not why the figure stopped.
+#
+# On 2026-11-26 that section went. The page now renders its own model-family tables
+# ("Generalist models", "Audio models", ...) and states no per-conversation-minute
+# figure anywhere; the words "billed per minute of conversation" are gone, and so is
+# the `sectionId` the section used to be found by. "Voice agents" survives only as a
+# navigation link to /studio/audio/voice-agents. Nothing left on the page says what the
+# API costs, and a figure nobody wrote down cannot be published.
+_VOICE_NO_SOURCE_REASON = (
+    "the Voice Agents section of the API pricing page no longer states a price, and no "
+    "other page states one either"
+)
+
+
+def _voice_agents_unpriced(spec: JSONDict, url: str) -> tuple[dict[str, JSONDict], list[str]]:
+    """The Voice Agents rows the mapping names, published sold-but-unpriced.
+
+    The price cannot be read any more: on 2026-11-26 the section that carried it went,
+    and the page states no per-conversation-minute figure anywhere. Guessing one is not
+    an option, and neither is dropping an entry Mistral still bills or failing the whole
+    run over one unreadable table. So the rows the mapping lists are published the way
+    the products are -- still sold, still not free, with no price this file can state --
+    and the runner stamps the transition, keeps the last figure observed beside the
+    marker, and reports it once. The row names travel in the mapping so that the same
+    keys are produced whether the price is read or not.
+    """
+    prefix = cast(str, spec["key_prefix"])
+    entries: dict[str, JSONDict] = {
+        key: {"kind": "product", "display_name": key, "unpriced": _VOICE_NO_SOURCE_REASON}
+        for key in (f"{prefix} ({row.strip().lower()})" for row in cast("list[str]", spec["rows"]))
+    }
+    notes = [
+        f"{url}: the {spec['section']!r} section that priced the Voice Agents API is no "
+        f"longer on the page, and nothing else states a price for it. Its rows are "
+        f"published sold-but-unpriced; put the price back in the mapping's "
+        f"`voice_agents` block when a page states it again."
+    ]
+    return entries, notes
 
 
 def _section_props(text: str, section_id: str) -> JSONDict | None:
@@ -596,18 +755,23 @@ def _rows(node: object) -> Iterator[tuple[str, str]]:
 def voice_agent_entries(html_text: str, spec: JSONDict) -> tuple[dict[str, JSONDict], list[str]]:
     """The Voice Agents API's prices, from the API pricing page's "Voice agents" table.
 
-    Read strictly: the section must still say what its unit is, in the words the
-    mapping states, and every row must price one figure per minute. Anything else
-    fails the run rather than publish a rate in a unit that may have changed.
+    The section is read strictly where it is still there: it must say what its unit is,
+    in the words the mapping states, and every row must price one figure per minute.
+    Anything else fails the run rather than publish a rate in a unit that may have
+    changed.
+
+    Where the section is gone -- as it was by 2026-11-26 -- the rows the mapping names
+    are published sold-but-unpriced instead of failing the run. A price nobody states
+    cannot be published either way; failing would take every model price in the block
+    down with it, which is the worse trade and the one that already happened once. The
+    reading is attempted first, so a price Mistral states in the old shape again is read
+    rather than missed.
     """
     section = cast(str, spec["section"])
     url = cast(str, spec["source"])
     text = next((c for c in nextjs_flight.decoded_chunks(html_text) if f'"sectionId":"{section}"' in c), None)
     if text is None:
-        raise ScrapeError(
-            f"{url} carries no {section!r} section. Mistral moved or dropped the Voice "
-            f"Agents prices: check the page, then update the mapping's `voice_agents`."
-        )
+        return _voice_agents_unpriced(spec, url)
 
     notes = [
         f"{url}: a section {other!r} that lists no model and that nothing here reads; "

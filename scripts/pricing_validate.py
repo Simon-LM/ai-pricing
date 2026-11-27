@@ -238,6 +238,9 @@ NON_PRICE_ENTRY_FIELDS = (
     "absent_since",
     "unpriced_since",
     "disputed_since",
+    "deprecated",
+    "deprecated_since",
+    "retires_on",
     "api_ids",
     "batch_derived",
     "long_context_threshold",
@@ -463,6 +466,19 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
             if len(set(api_ids)) != len(api_ids):
                 raise ValidationError(f"{full_id}: api_ids repeats an identifier: {api_ids!r}")
 
+        # A model a provider has marked deprecated is still sold, so it is still
+        # published with its prices -- unlike a free model, which replaces them. The
+        # field is the source's own statement that a withdrawal is planned, and it is
+        # kept to the literal true for the reason `free` is: absent means "not
+        # deprecated", and false, 0 and null are ways of writing something it cannot
+        # mean. The dates beside it are optional and only where the source states them.
+        if "deprecated" in entry and entry["deprecated"] is not True:
+            raise ValidationError(
+                f"{full_id}: 'deprecated' may only be the literal true. An entry that is "
+                f"not deprecated omits the field; false, 0 and null are all ways of "
+                f"writing something this field cannot mean."
+            )
+
         # absent_since is set on the day the source was first seen without this entry,
         # and cleared the day it comes back. unpriced_since is set on the day the source
         # was first seen offering it WITHOUT a usable price, and cleared the day it
@@ -482,7 +498,17 @@ def _validate_provider_block(provider_id: str, block: JSONDict) -> None:
         #                   prices. The prices beside it are the last ones published
         #                   before that; a human picks the real entry in the provider's
         #                   mapping, and the marker goes the day that choice applies.
-        for field in ("absent_since", "unpriced_since", "disputed_since"):
+        #
+        # deprecated_since and retires_on say the opposite of a marker: the source still
+        # offers this, still prices it, and has announced that it will stop. A consumer
+        # planning a migration reads them, and the prices beside them are current ones.
+        for field in (
+            "absent_since",
+            "unpriced_since",
+            "disputed_since",
+            "deprecated_since",
+            "retires_on",
+        ):
             if field not in entry:
                 continue
             day = entry[field]
