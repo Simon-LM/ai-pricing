@@ -2,8 +2,8 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-11-27T14:15:55Z",
-      "updated": "2026-11-27",
+      "checked_utc": "2026-11-28T04:10:08Z",
+      "updated": "2026-11-28",
       "source": "https://docs.mistral.ai/models",
       "sources": [
         "https://docs.mistral.ai/models",
@@ -671,17 +671,16 @@
         },
         "voxtral small": {
           "in_per_mtok": 0.1,
-          "out_per_mtok": 0.4,
+          "out_per_mtok": 0.3,
           "in_per_mtok_batch": 0.05,
-          "out_per_mtok_batch": 0.2,
+          "out_per_mtok_batch": 0.15,
           "per_audio_minute": 0.004,
           "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "voxtral small",
           "api_ids": [
             "voxtral-small-2507",
             "voxtral-small-latest"
-          ],
-          "absent_since": "2026-11-27"
+          ]
         },
         "voxtral small transcribe 3": {
           "per_audio_minute": 0.004,
