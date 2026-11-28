@@ -358,13 +358,16 @@ class TestUnchanged(ScrapeTestCase):
         published. One dropping out between the source and the file is the failure mode
         this repository must not have. Shieldstral is listed and states no price at all;
         Mistral Small 3.1 is a row of the deprecated-models table whose page marks it
-        retired, so it too has nothing to publish."""
+        retired, so it too has nothing to publish. Mistral Large 2.1 is published by
+        nobody either, for the third reason: the withdrawal day its page names had already
+        passed when the page was captured, and an announced day that has passed is the day
+        the entry leaves the file (see `TestAnnouncedWithdrawalPassed`)."""
         self.run_scrape()
         published = set(self.models("stamped.json"))
         index = scrape.parse_index(self.path_for(DOCS_INDEX).read_text(encoding="utf-8"))
         self.assertEqual(
             {n.lower() for n in index.values()} - published,
-            {"shieldstral 1.0", "mistral small 3.1"},
+            {"shieldstral 1.0", "mistral small 3.1", "mistral large 2.1"},
         )
 
     def test_other_providers_blocks_are_never_touched(self) -> None:
@@ -482,12 +485,13 @@ class TestWithdrawnModel(ScrapeTestCase):
 
     def test_every_other_model_is_still_published(self) -> None:
         """The point of the whole design: one model going away is not a reason to
-        withhold every other price."""
+        withhold every other price. 28, not 29: Mistral Large 2.1 is not published at all,
+        its announced withdrawal day having passed -- see `TestAnnouncedWithdrawalPassed`."""
         self.withdraw_from_index(self.SLUG)
         self.run_scrape()
         models = self.models()
         still_offered = [m for m in models if "absent_since" not in models[m]]
-        self.assertEqual(len(still_offered), 29)
+        self.assertEqual(len(still_offered), 28)
         self.assertEqual(models["mistral medium 3.5"]["in_per_mtok"], 1.5)
 
     def test_it_is_reported_once_and_not_again(self) -> None:
@@ -542,6 +546,79 @@ class TestWithdrawnModel(ScrapeTestCase):
         self.assertNotIn("absent_since", entry)
         self.assertEqual(entry["in_per_mtok"], 0.3)
         self.assertIn("offered again", self.notes())
+
+
+# ======================================================================================
+# The announced withdrawal day, once it has passed
+# ======================================================================================
+
+
+class TestAnnouncedWithdrawalPassed(ScrapeTestCase):
+    """Mistral states a withdrawal date and, more often than not, does not act on it: its
+    own docs still list entries it says were withdrawn months earlier. The date it named
+    is the one this file keeps, so the entry goes on that day rather than whenever
+    Mistral gets round to the cleanup -- a model its vendor no longer stands behind must
+    not sit in the file with a live price beside it.
+    """
+
+    NAME = "mistral large 2.1"
+    SLUG = "mistral-large-2-1"
+
+    def publish(self, retires_on: str) -> None:
+        """Put the entry back in the file, as a run before this rule would have left it."""
+        published = json.loads(self.current_bytes)
+        published["providers"]["mistral"]["models"][self.NAME] = {
+            "in_per_mtok": 2.0,
+            "out_per_mtok": 6.0,
+            "display_name": self.NAME,
+            "api_ids": ["mistral-large-2411"],
+            "deprecated": True,
+            "deprecated_since": "2026-02-27",
+            "retires_on": retires_on,
+        }
+        self.current.write_text(json.dumps(published, indent=2) + "\n", encoding="utf-8")
+        self.current_bytes = self.current.read_bytes()
+
+    def test_a_day_that_has_passed_takes_the_entry_out_and_says_so(self) -> None:
+        self.publish("2026-05-31")
+        code, _, _ = self.run_scrape()
+        self.assertEqual(code, 0)
+        self.assertNotIn(self.NAME, self.models())
+        self.assertIn(self.NAME, self.notes())
+        self.assertIn("2026-05-31", self.notes())
+
+    def test_the_prices_go_with_it(self) -> None:
+        """Nothing is kept beside a marker, unlike an absence: the entry is not in the
+        file, so no reader can pick a model that is no longer on sale."""
+        self.publish("2026-05-31")
+        self.run_scrape()
+        self.assertNotIn(self.NAME, self.models())
+        self.assertNotIn("mistral-large-2411", json.dumps(self.models()))
+
+    def test_it_is_reported_once_and_not_again(self) -> None:
+        """The source keeps listing it, so every run still sees it. The drop is the news,
+        and it happens on one run."""
+        self.publish("2026-05-31")
+        self.run_scrape()
+        self.assertIn(self.NAME, self.notes())
+
+        self.current.write_text(
+            (self.out_dir / "updated.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.current_bytes = self.current.read_bytes()
+        code, stdout, _ = self.run_scrape(now="2026-08-25T04:00:00Z")
+
+        self.assertEqual(code, 0)
+        self.assertIn("unchanged", stdout)
+        self.assertEqual(self.notes(), "", "the same withdrawal was reported twice")
+
+    def test_the_source_keeps_the_model_the_file_does_not(self) -> None:
+        """The page is still served, and the entry is simply not published: the file
+        follows the date, not the listing."""
+        self.publish("2026-05-31")
+        self.run_scrape()
+        self.assertIn(self.SLUG, self.path_for(DOCS_INDEX).read_text(encoding="utf-8"))
+        self.assertNotIn(self.NAME, self.models())
 
 
 # ======================================================================================

@@ -106,6 +106,89 @@ class TestRetentionBoundary(unittest.TestCase):
         self.assertEqual(ABSENT_RETENTION_DAYS, 365)
 
 
+class TestAnnouncedWithdrawal(unittest.TestCase):
+    """`retires_on` is a date the source named, and it decides on that date.
+
+    Sources announce withdrawals and then do not act on them: docs.mistral.ai still lists
+    entries it says were withdrawn in 2025. Waiting for the source's cleanup would keep a
+    price for a model its own vendor no longer stands behind, so the announced day is the
+    one this file keeps -- still sold on the day itself, gone the day after.
+    """
+
+    def reconcile(self, retires_on: str, today: str = TODAY, published: bool = True, **entry_overrides: object):
+        """One model, offered by the source today, with a withdrawal date on it.
+
+        `published` says whether the file already carried it yesterday, which is what
+        separates the run that first makes the change from every run after it.
+        """
+        new = {"m": entry(2.0, deprecated=True, retires_on=retires_on, **entry_overrides)}
+        old = {"m": entry(1.0, deprecated=True, retires_on=retires_on)} if published else {}
+        return provider_runner.reconcile_inventory(old, new, today)
+
+    def test_the_named_day_itself_is_still_published(self) -> None:
+        merged, notes = self.reconcile(TODAY)
+        self.assertIn("m", merged)
+        self.assertEqual(notes, [], "a model withdrawn today is still on sale today")
+
+    def test_the_day_before_the_named_day_is_still_published(self) -> None:
+        merged, _ = self.reconcile("2026-08-18", "2026-08-17")
+        self.assertIn("m", merged)
+
+    def test_the_day_after_it_is_dropped(self) -> None:
+        merged, notes = self.reconcile("2026-08-16")
+        self.assertNotIn("m", merged)
+        self.assertEqual(len(notes), 1)
+        self.assertIn("2026-08-16", notes[0])
+        self.assertIn("Dropped from the file", notes[0])
+
+    def test_no_price_survives_the_drop(self) -> None:
+        """Unlike an absence, nothing is carried beside a marker: the entry is simply not
+        in the file, and a consumer reading it cannot call the model by mistake."""
+        merged, _ = self.reconcile("2026-01-31")
+        self.assertEqual(merged, {})
+
+    def test_a_future_date_publishes_everything_unchanged(self) -> None:
+        merged, notes = self.reconcile("2027-04-30")
+        self.assertEqual(merged["m"]["retires_on"], "2027-04-30")
+        self.assertTrue(merged["m"]["deprecated"])
+        self.assertEqual(merged["m"]["in_per_mtok"], 2.0)
+        self.assertEqual(notes, [])
+
+    def test_an_entry_without_a_date_is_untouched(self) -> None:
+        merged, notes = provider_runner.reconcile_inventory(
+            {}, {"m": entry(2.0, deprecated=True)}, TODAY
+        )
+        self.assertEqual(merged["m"]["in_per_mtok"], 2.0)
+        self.assertEqual(notes, [])
+
+    def test_it_is_reported_once_and_never_again(self) -> None:
+        """The source has not taken the entry down, so every run still sees it. A note
+        that fires on each of them is a note nobody reads -- the drop is the news, and it
+        happens once."""
+        _, notes = self.reconcile("2026-01-31", published=True)
+        self.assertEqual(len(notes), 1)
+        _, notes = self.reconcile("2026-01-31", published=False)
+        self.assertEqual(notes, [], "a retirement already acted on was reported again")
+
+    def test_a_model_never_published_is_dropped_without_ceremony(self) -> None:
+        """Nothing to report: the file never carried it, so no reader loses anything, and
+        the source's own stale listing is not news."""
+        merged, notes = self.reconcile("2026-01-31", published=False)
+        self.assertEqual(merged, {})
+        self.assertEqual(notes, [])
+
+    def test_an_entry_the_source_already_took_down_is_dropped_too(self) -> None:
+        """The rule is the date, not who removed it first, so it cannot be missed by the
+        branch that handles disappearances."""
+        merged, notes = provider_runner.reconcile_inventory(
+            {"m": entry(1.0, retires_on="2026-05-31", absent_since="2026-08-01")}, {}, TODAY
+        )
+        self.assertNotIn("m", merged)
+        self.assertEqual(len(notes), 1)
+        self.assertIn("2026-05-31", notes[0])
+        self.assertNotIn("absent since", notes[0])
+
+
 class TestComingBack(unittest.TestCase):
     def test_the_marker_goes_and_the_price_is_refreshed(self) -> None:
         merged, notes = provider_runner.reconcile_inventory(

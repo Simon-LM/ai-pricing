@@ -181,6 +181,23 @@ def build_provider_block(models: dict[str, JSONDict], checked_utc: str, updated:
     return block
 
 
+def announced_retirement(model_id: str, entry: JSONDict, today: str) -> str | None:
+    """The note to report when the withdrawal day the source named has passed, else None.
+
+    An entry stays published through the day it names: on that day it is still on sale,
+    the day after it is not. Nothing is inferred about whether the source has got round
+    to removing it -- see `reconcile_inventory`.
+    """
+    retires_on = entry.get("retires_on")
+    if not retires_on or _dt.date.fromisoformat(retires_on) >= _dt.date.fromisoformat(today):
+        return None
+    return (
+        f"{model_id}: the source announced its withdrawal for {retires_on}, and that day has "
+        f"passed. Dropped from the file, prices and all: the source's own date says it is no "
+        f"longer on sale. A consumer must not be able to pick it."
+    )
+
+
 def reconcile_inventory(
     old_models: dict[str, JSONDict], new_models: dict[str, JSONDict], today: str
 ) -> tuple[dict[str, JSONDict], list[str]]:
@@ -191,6 +208,12 @@ def reconcile_inventory(
     sale. What it does NOT do is delete on sight. The entry stays, with the prices last
     actually observed and an `absent_since` day stamp, until it has been gone for
     ABSENT_RETENTION_DAYS; only then is it dropped.
+
+    One exception to that patience: an entry whose announced withdrawal day has passed is
+    dropped there and then, whether or not the source still lists it. The source has
+    already said it is going -- it simply has not done it yet -- so keeping the entry would
+    publish a model its own vendor no longer stands behind, and waiting for a cleanup that
+    may never come would keep saying so for as long as the page keeps its stale listing.
 
     Returns the merged models dict and a list of inventory notes -- disappearances,
     returns and expiries, in words. Notes are for a human to read, and each one is
@@ -210,6 +233,17 @@ def reconcile_inventory(
     for model_id, entry in new_models.items():
         entry = dict(entry)
         old_entry = old_models.get(model_id, {})
+
+        retirement = announced_retirement(model_id, entry, today)
+        if retirement is not None:
+            # Reported on the transition only. The entry is about to leave the file for
+            # good, so it cannot carry a stamp saying "already reported" the way an absent
+            # one does -- and a source that keeps listing a model past its own date would
+            # otherwise say the same thing on every run, which is how an alert channel
+            # gets muted.
+            if old_entry:
+                notes.append(retirement)
+            continue
 
         # Whatever the source says today is current by definition, so a stamp left over
         # from an earlier absence is not merely stale, it is now false.
@@ -270,6 +304,13 @@ def reconcile_inventory(
 
     for model_id, entry in old_models.items():
         if model_id in new_models:
+            continue
+
+        # Same rule as above, and it has to be repeated here: an entry the source has
+        # already taken down still has its announced day on it, and that day decides.
+        retirement = announced_retirement(model_id, entry, today)
+        if retirement is not None:
+            notes.append(retirement)
             continue
 
         absent_since = entry.get("absent_since")

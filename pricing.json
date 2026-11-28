@@ -2,7 +2,7 @@
   "schema_version": 2,
   "providers": {
     "mistral": {
-      "checked_utc": "2026-11-28T04:10:08Z",
+      "checked_utc": "2026-11-28T10:40:00Z",
       "updated": "2026-11-28",
       "source": "https://docs.mistral.ai/models",
       "sources": [
@@ -76,81 +76,6 @@
             "deepseek-v4-1-flash-1017"
           ]
         },
-        "devstral 2": {
-          "in_per_mtok": 0.4,
-          "out_per_mtok": 2.0,
-          "in_per_mtok_batch": 0.2,
-          "out_per_mtok_batch": 1.0,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-05-22",
-          "retires_on": "2026-07-31",
-          "display_name": "devstral 2",
-          "api_ids": [
-            "devstral-2512",
-            "devstral-latest",
-            "devstral-medium-latest"
-          ]
-        },
-        "devstral medium 1.0": {
-          "in_per_mtok": 0.4,
-          "out_per_mtok": 2.0,
-          "in_per_mtok_batch": 0.2,
-          "out_per_mtok_batch": 1.0,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-05-31",
-          "display_name": "devstral medium 1.0",
-          "api_ids": [
-            "devstral-medium-2507"
-          ]
-        },
-        "devstral small 1.1": {
-          "in_per_mtok": 0.1,
-          "out_per_mtok": 0.3,
-          "in_per_mtok_batch": 0.05,
-          "out_per_mtok_batch": 0.15,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-05-31",
-          "display_name": "devstral small 1.1",
-          "api_ids": [
-            "devstral-small-2507"
-          ]
-        },
-        "devstral small 2": {
-          "in_per_mtok": 0.1,
-          "out_per_mtok": 0.3,
-          "in_per_mtok_batch": 0.05,
-          "out_per_mtok_batch": 0.15,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-03-31",
-          "display_name": "devstral small 2",
-          "api_ids": [
-            "labs-devstral-small-2512",
-            "devstral-small-latest"
-          ]
-        },
-        "glm 5.2": {
-          "in_per_mtok": 1.4,
-          "out_per_mtok": 4.4,
-          "cache_read_per_mtok": 0.14,
-          "in_per_mtok_batch": 0.7,
-          "out_per_mtok_batch": 2.2,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-09-29",
-          "retires_on": "2026-10-31",
-          "display_name": "glm 5.2",
-          "api_ids": [
-            "zai-glm-5-2",
-            "glm-5-2"
-          ]
-        },
         "glm 5.3": {
           "in_per_mtok": 1.4,
           "out_per_mtok": 4.4,
@@ -183,16 +108,6 @@
           "kind": "product",
           "unpriced_since": "2026-10-13"
         },
-        "leanstral 1.5": {
-          "free": true,
-          "deprecated": true,
-          "deprecated_since": "2026-09-29",
-          "retires_on": "2026-09-30",
-          "display_name": "leanstral 1.5",
-          "api_ids": [
-            "labs-leanstral-1-5"
-          ]
-        },
         "libraries": {
           "index_per_mtok": 1.0,
           "per_1k_pages": 3.0,
@@ -209,21 +124,6 @@
           "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "magistral medium"
         },
-        "magistral medium 1.2": {
-          "in_per_mtok": 2.0,
-          "out_per_mtok": 5.0,
-          "in_per_mtok_batch": 1.0,
-          "out_per_mtok_batch": 2.5,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-05-22",
-          "retires_on": "2026-07-31",
-          "display_name": "magistral medium 1.2",
-          "api_ids": [
-            "magistral-medium-2509",
-            "magistral-medium-latest"
-          ]
-        },
         "magistral small": {
           "in_per_mtok": 0.5,
           "out_per_mtok": 1.5,
@@ -231,21 +131,6 @@
           "out_per_mtok_batch": 0.75,
           "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
           "display_name": "magistral small"
-        },
-        "magistral small 1.2": {
-          "in_per_mtok": 0.5,
-          "out_per_mtok": 1.5,
-          "in_per_mtok_batch": 0.25,
-          "out_per_mtok_batch": 0.75,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-04-30",
-          "retires_on": "2026-07-31",
-          "display_name": "magistral small 1.2",
-          "api_ids": [
-            "magistral-small-2509",
-            "magistral-small-latest"
-          ]
         },
         "ministral 3 (14b)": {
           "in_per_mtok": 0.2,
@@ -283,34 +168,6 @@
             "ministral-8b-latest"
           ]
         },
-        "ministral 3b": {
-          "in_per_mtok": 0.04,
-          "out_per_mtok": 0.04,
-          "in_per_mtok_batch": 0.02,
-          "out_per_mtok_batch": 0.02,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2025-12-02",
-          "retires_on": "2025-12-31",
-          "display_name": "ministral 3b",
-          "api_ids": [
-            "ministral-3b-2410"
-          ]
-        },
-        "ministral 8b": {
-          "in_per_mtok": 0.1,
-          "out_per_mtok": 0.1,
-          "in_per_mtok_batch": 0.05,
-          "out_per_mtok_batch": 0.05,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2025-12-02",
-          "retires_on": "2025-12-31",
-          "display_name": "ministral 8b",
-          "api_ids": [
-            "ministral-8b-2410"
-          ]
-        },
         "mistral 7b": {
           "in_per_mtok": 0.25,
           "out_per_mtok": 0.25,
@@ -327,20 +184,6 @@
           "api_ids": [
             "mistral-embed-2312",
             "mistral-embed"
-          ]
-        },
-        "mistral large 2.1": {
-          "in_per_mtok": 2.0,
-          "out_per_mtok": 6.0,
-          "in_per_mtok_batch": 1.0,
-          "out_per_mtok_batch": 3.0,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-05-31",
-          "display_name": "mistral large 2.1",
-          "api_ids": [
-            "mistral-large-2411"
           ]
         },
         "mistral large 3": {
@@ -371,34 +214,6 @@
             "mistral-large-latest"
           ]
         },
-        "mistral medium 3": {
-          "in_per_mtok": 0.4,
-          "out_per_mtok": 2.0,
-          "in_per_mtok_batch": 0.2,
-          "out_per_mtok_batch": 1.0,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-05-22",
-          "retires_on": "2026-08-31",
-          "display_name": "mistral medium 3",
-          "api_ids": [
-            "mistral-medium-2505"
-          ]
-        },
-        "mistral medium 3.1": {
-          "in_per_mtok": 0.4,
-          "out_per_mtok": 2.0,
-          "in_per_mtok_batch": 0.2,
-          "out_per_mtok_batch": 1.0,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-05-22",
-          "retires_on": "2026-08-31",
-          "display_name": "mistral medium 3.1",
-          "api_ids": [
-            "mistral-medium-2508"
-          ]
-        },
         "mistral medium 3.5": {
           "in_per_mtok": 1.5,
           "out_per_mtok": 7.5,
@@ -414,52 +229,11 @@
             "mistral-medium-latest"
           ]
         },
-        "mistral moderation": {
-          "in_per_mtok": 0.1,
-          "in_per_mtok_batch": 0.05,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-03-31",
-          "retires_on": "2026-06-30",
-          "display_name": "mistral moderation",
-          "api_ids": [
-            "mistral-moderation-2411"
-          ]
-        },
         "mistral moderation 2": {
           "free": true,
           "display_name": "mistral moderation 2",
           "api_ids": [
             "mistral-moderation-2603"
-          ]
-        },
-        "mistral nemo": {
-          "in_per_mtok": 0.15,
-          "out_per_mtok": 0.15,
-          "in_per_mtok_batch": 0.075,
-          "out_per_mtok_batch": 0.075,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-05-22",
-          "retires_on": "2026-07-31",
-          "display_name": "mistral nemo",
-          "api_ids": [
-            "open-mistral-nemo-2407",
-            "open-mistral-nemo"
-          ]
-        },
-        "mistral small 3.2": {
-          "in_per_mtok": 0.1,
-          "out_per_mtok": 0.3,
-          "in_per_mtok_batch": 0.05,
-          "out_per_mtok_batch": 0.15,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-04-30",
-          "retires_on": "2026-07-31",
-          "display_name": "mistral small 3.2",
-          "api_ids": [
-            "mistral-small-2506"
           ]
         },
         "mistral small 4": {
@@ -474,20 +248,6 @@
             "mistral-small-latest"
           ]
         },
-        "mistral small creative": {
-          "in_per_mtok": 0.1,
-          "out_per_mtok": 0.3,
-          "in_per_mtok_batch": 0.05,
-          "out_per_mtok_batch": 0.15,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-03-31",
-          "retires_on": "2026-04-30",
-          "display_name": "mistral small creative",
-          "api_ids": [
-            "labs-mistral-small-creative"
-          ]
-        },
         "mixtral 8x22b": {
           "in_per_mtok": 2.0,
           "out_per_mtok": 6.0,
@@ -500,20 +260,6 @@
           "display_name": "mixtral 8x7b",
           "absent_since": "2026-08-17"
         },
-        "ocr 2": {
-          "per_1k_pages": 1.0,
-          "per_1k_annotated_pages": 3.0,
-          "per_1k_pages_batch": 0.5,
-          "per_1k_annotated_pages_batch": 1.5,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-05-31",
-          "display_name": "ocr 2",
-          "api_ids": [
-            "mistral-ocr-2505"
-          ]
-        },
         "ocr 3": {
           "per_1k_pages": 2.0,
           "per_1k_annotated_pages": 3.0,
@@ -523,20 +269,6 @@
           "display_name": "ocr 3",
           "api_ids": [
             "mistral-ocr-2512"
-          ]
-        },
-        "ocr 4.0": {
-          "per_1k_pages": 4.0,
-          "per_1k_annotated_pages": 5.0,
-          "per_1k_pages_batch": 2.0,
-          "per_1k_annotated_pages_batch": 2.5,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-09-29",
-          "retires_on": "2026-09-30",
-          "display_name": "ocr 4.0",
-          "api_ids": [
-            "mistral-ocr-4-0"
           ]
         },
         "ocr 4.1": {
@@ -550,35 +282,6 @@
             "mistral-ocr-4-1",
             "mistral-ocr-4",
             "mistral-ocr-latest"
-          ]
-        },
-        "pixtral 12b": {
-          "in_per_mtok": 0.15,
-          "out_per_mtok": 0.15,
-          "in_per_mtok_batch": 0.075,
-          "out_per_mtok_batch": 0.075,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2025-12-02",
-          "retires_on": "2025-12-31",
-          "display_name": "pixtral 12b",
-          "api_ids": [
-            "pixtral-12b-2409"
-          ]
-        },
-        "pixtral large": {
-          "in_per_mtok": 2.0,
-          "out_per_mtok": 6.0,
-          "in_per_mtok_batch": 1.0,
-          "out_per_mtok_batch": 3.0,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-05-31",
-          "display_name": "pixtral large",
-          "api_ids": [
-            "pixtral-large-2411",
-            "pixtral-large-latest"
           ]
         },
         "premium news": {
@@ -598,28 +301,6 @@
           "display_name": "voice agents (mistral small 4)",
           "kind": "product",
           "unpriced_since": "2026-11-27"
-        },
-        "voxtral mini": {
-          "in_per_mtok": 0.04,
-          "out_per_mtok": 0.04,
-          "in_per_mtok_batch": 0.02,
-          "out_per_mtok_batch": 0.02,
-          "per_audio_minute": 0.001,
-          "batch_derived": "50% off the stated rate, as Mistral's batch API documentation states",
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-05-31",
-          "display_name": "voxtral mini"
-        },
-        "voxtral mini transcribe": {
-          "per_audio_minute": 0.002,
-          "deprecated": true,
-          "deprecated_since": "2026-02-27",
-          "retires_on": "2026-05-31",
-          "display_name": "voxtral mini transcribe",
-          "api_ids": [
-            "voxtral-mini-2507"
-          ]
         },
         "voxtral mini transcribe 2": {
           "per_audio_minute": 0.003,

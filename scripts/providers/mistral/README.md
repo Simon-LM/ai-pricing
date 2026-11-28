@@ -36,7 +36,10 @@ dropped a model Mistral was still selling. Mistral retired that page in October 
 - `deprecated` -- still sold, so it stays published with its **current** prices, plus
   three fields that say a withdrawal is planned: `deprecated` (`true`), `deprecated_since`
   (the day, from `deprecatedAt`) and `retires_on` (the day it goes, from `retiredAt`).
-  The two dates are written only where the page states them.
+  The two dates are written only where the page states them. When the day named by
+  `retires_on` has passed, the entry stops being published, whether or not Mistral has got
+  round to removing it from the page -- Mistral announces withdrawal dates and, this
+  capture showed, keeps listing models months after them (see `docs/format.md`).
 - anything else (`ga`, `publicPreview`) -- an ordinary entry.
 
 ## Keys are names; `api_ids` says what to call

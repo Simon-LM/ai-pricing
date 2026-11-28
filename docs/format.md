@@ -61,7 +61,7 @@ https://raw.githubusercontent.com/Simon-LM/ai-pricing/main/pricing.schema.json
 | `disputed_since` | The source lists this entry twice at two different prices, as of that day; the price beside it is the last one published, until a human picks the real one. |
 | `deprecated` | Present, and always `true`, when the provider has announced it will withdraw this entry. It is still sold, so the prices beside it are **current** ones. |
 | `deprecated_since` | The day the provider marked this entry deprecated. Optional: written only where the source states the date. |
-| `retires_on` | The day the provider states this entry will be withdrawn. Optional: written only where the source states the date. |
+| `retires_on` | The day the provider states this entry will be withdrawn. Optional: written only where the source states the date, and acted on: see below. |
 | `batch_derived` | Present when a `_batch` figure was **worked out** from a rule the source states in words, rather than read. Its text says the rule. |
 | `long_context_threshold` | Present exactly when the entry carries a `_long_context` price: the prompt size, in tokens, from which a whole request is billed at those prices. |
 
@@ -217,6 +217,13 @@ and `retires_on` say when it was flagged and when it goes, where the source stat
 dates. Read it to plan a migration, not to discount the figure. When the entry really
 goes it becomes one of the three above: `absent_since` while the last price is still
 carried, then dropped after a year.
+
+**The day named by `retires_on` is acted on, even when the provider does not act on it.**
+A provider can announce a withdrawal and keep listing the entry long after the date it
+named; the entry leaves this file the day after that date, prices and all, because a
+consumer must not be able to pick something its own vendor says is no longer on sale.
+Unlike an absence, nothing is kept beside a marker: the entry is simply not there. The
+drop is reported once, by email, on the run that makes it.
 
 **A marker at one provider says nothing about another.** A model withdrawn under
 `mistral` may still be sold, and callable, under `edenai`: a reseller has its own
